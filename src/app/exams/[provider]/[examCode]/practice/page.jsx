@@ -128,6 +128,13 @@ export default function PracticePage() {
   // Get dynamic data from backend or use defaults
   const practiceTests = exam.practice_tests_list || [];
 console.log("practice exams :",practiceTests)
+  
+  // Calculate total questions from practice tests list
+  const calculatedTotalQuestions = practiceTests.reduce((sum, test) => {
+    const testQuestions = parseInt(test.questions) || 0;
+    return sum + testQuestions;
+  }, 0);
+
   const topics = exam.topics && exam.topics.length > 0 
     ? exam.topics.map(t => ({
         name: t.name || t.topic || "",
@@ -161,7 +168,7 @@ console.log("practice exams :",practiceTests)
     reviews: 2847, // Could be added to backend model later
     learners: 145000, // Could be added to backend model later
     practiceTests: exam.practice_exams || 0,
-    totalQuestions: exam.questions || 0,
+    totalQuestions: calculatedTotalQuestions || exam.questions || 0,
     duration: exam.duration || "130 minutes",
     passingScore: exam.passing_score || "720/1000",
     about: exam.about || "Prepare for your certification exam with our comprehensive practice tests.",
@@ -305,7 +312,7 @@ console.log("practice exams :",practiceTests)
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="text-center p-4 border border-[#DDE7FF] rounded-lg">
                 <BookOpen className="w-8 h-8 text-[#1A73E8] mx-auto mb-2" />
-                <p className="text-2xl font-bold text-[#0C1A35]">{examData.totalQuestions}+</p>
+                <p className="text-2xl font-bold text-[#0C1A35]">{examData.totalQuestions}</p>
                 <p className="text-sm text-[#0C1A35]/60">Questions</p>
               </div>
               <div className="text-center p-4 border border-[#DDE7FF] rounded-lg">

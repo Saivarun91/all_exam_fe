@@ -39,6 +39,7 @@ export default function CourseTestsPage() {
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [editingTest, setEditingTest] = useState(null);
+  const [testQuestionCounts, setTestQuestionCounts] = useState({});
   const [testForm, setTestForm] = useState({
     name: "",
     description: "",
@@ -60,13 +61,15 @@ export default function CourseTestsPage() {
       try {
         const res = await fetch(`${API_BASE_URL}/api/courses/admin/list/`, {
           headers: getAuthHeaders()
-      });
+        });
 
       const data = await res.json();
         if (data.success) {
           const foundCourse = data.data.find(c => c.id === courseId);
           if (foundCourse) {
             setCourse(foundCourse);
+            // Fetch question counts for each test
+            fetchTestQuestionCounts(foundCourse.practice_tests_list || []);
     }
         }
         setLoading(false);
@@ -80,6 +83,67 @@ export default function CourseTestsPage() {
       fetchCourse();
     }
   }, [courseId]);
+
+  // Refresh question counts when page becomes visible (e.g., when returning from questions page)
+  useEffect(() => {
+    if (!course?.practice_tests_list) return;
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchTestQuestionCounts(course.practice_tests_list);
+      }
+    };
+
+    const handleFocus = () => {
+      fetchTestQuestionCounts(course.practice_tests_list);
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [course]);
+
+  const fetchTestQuestionCounts = async (tests) => {
+    if (!tests || tests.length === 0) return;
+    
+    const counts = {};
+    try {
+      // Fetch question count for each test in parallel
+      const promises = tests.map(async (test) => {
+        if (!test.id) return null;
+        try {
+          const res = await fetch(`${API_BASE_URL}/api/exams/questions/?test_id=${test.id}`, {
+            headers: getAuthHeaders()
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data.success) {
+              const questions = data.questions || data.data || [];
+              return { testId: test.id, count: questions.length };
+            }
+          }
+        } catch (err) {
+          console.error(`Error fetching questions for test ${test.id}:`, err);
+        }
+        return { testId: test.id, count: 0 };
+      });
+
+      const results = await Promise.all(promises);
+      results.forEach((result) => {
+        if (result) {
+          counts[result.testId] = result.count;
+        }
+      });
+      
+      setTestQuestionCounts(counts);
+    } catch (err) {
+      console.error("Error fetching test question counts:", err);
+    }
+  };
 
   if (loading) {
     return (
@@ -157,6 +221,8 @@ export default function CourseTestsPage() {
         setShowEditDialog(false);
         setEditingTest(null);
         setMessage("✅ Practice test updated successfully!");
+        // Refresh question counts after updating test
+        fetchTestQuestionCounts(updatedTests);
         setTimeout(() => setMessage(""), 3000);
       }
     } catch (err) {
@@ -184,6 +250,8 @@ export default function CourseTestsPage() {
       if (res.ok) {
         setCourse({ ...course, practice_tests_list: updatedTests });
         setMessage("✅ Practice test deleted successfully!");
+        // Refresh question counts after deleting test
+        fetchTestQuestionCounts(updatedTests);
         setTimeout(() => setMessage(""), 3000);
       }
     } catch (err) {
@@ -283,7 +351,9 @@ export default function CourseTestsPage() {
                 <Target className="w-6 h-6 text-green-600" />
               </div>
               <div>
-                <div className="text-2xl font-bold text-[#0C1A35]">{course.questions || 0}</div>
+                <div className="text-2xl font-bold text-[#0C1A35]">
+                  {Object.values(testQuestionCounts).reduce((sum, count) => sum + count, 0) || course.questions || 0}
+                </div>
                 <div className="text-sm text-[#0C1A35]/60">Total Questions</div>
               </div>
             </div>
@@ -345,7 +415,9 @@ export default function CourseTestsPage() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-[#0C1A35]/60">Total Questions:</span>
-                    <span className="font-semibold text-[#0C1A35]">{test.questions || 0}+</span>
+                    <span className="font-semibold text-[#0C1A35]">
+                      {testQuestionCounts[test.id] !== undefined ? testQuestionCounts[test.id] : (test.questions || 0)}+
+                    </span>
                   </div>
                   {test.pass_rate && (
                     <div className="flex justify-between">

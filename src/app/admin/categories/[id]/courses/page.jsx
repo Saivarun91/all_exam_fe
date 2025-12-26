@@ -178,9 +178,9 @@ export default function AdminCategoryCoursesPage() {
         body: JSON.stringify({
           title: editingCourse.name || editingCourse.title,  // Backend expects 'title'
           code: editingCourse.code || "",
-          short_description: editingCourse.description || editingCourse.short_description || "",  // Backend expects 'short_description'
+          short_description: editingCourse.short_description || "",  // Backend expects 'short_description'
           badge: editingCourse.badge || "",
-          actual_price: editingCourse.price || editingCourse.actual_price || 0,
+          actual_price: editingCourse.actual_price || 0,
           offer_price: editingCourse.offer_price || 0,
           meta_title: editingCourse.meta_title || "",
           meta_keywords: editingCourse.meta_keywords || "",
@@ -648,20 +648,6 @@ export default function AdminCategoryCoursesPage() {
                 </div>
                   </div>
 
-                <div>
-                    <Label htmlFor="edit_description">Description</Label>
-                  <Textarea
-                      id="edit_description"
-                    value={editingCourse.description || ""}
-                    onChange={(e) =>
-                      setEditingCourse({ ...editingCourse, description: e.target.value })
-                    }
-                    placeholder="Enter course description"
-                      rows={4}
-                      className="mt-1"
-                  />
-                  </div>
-
                   <div>
                     <Label htmlFor="edit_badge">Badge</Label>
                     <Input
@@ -676,48 +662,6 @@ export default function AdminCategoryCoursesPage() {
                     <p className="text-xs text-gray-500 mt-1">
                       Optional badge text to display on the course card (e.g., "New", "Updated this week", "Best Seller")
                     </p>
-                  </div>
-                </div>
-
-                {/* Pricing Section */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-[#0C1A35] pb-2 border-b">Pricing</h3>
-                  
-                  <div className="grid grid-cols-2 gap-4">
-                <div>
-                      <Label htmlFor="edit_price">Regular Price (₹) *</Label>
-                  <Input
-                        id="edit_price"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={editingCourse.price || 0}
-                    onChange={(e) =>
-                      setEditingCourse({ ...editingCourse, price: parseFloat(e.target.value) || 0 })
-                    }
-                        placeholder="999.00"
-                    required
-                        className="mt-1"
-                  />
-                      <p className="text-xs text-gray-500 mt-1">Base price for the course</p>
-                </div>
-                    
-                <div>
-                      <Label htmlFor="edit_offer_price">Offer Price (₹) <span className="text-gray-500 text-sm">(Optional)</span></Label>
-                  <Input
-                        id="edit_offer_price"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={editingCourse.offer_price || ""}
-                    onChange={(e) =>
-                      setEditingCourse({ ...editingCourse, offer_price: e.target.value ? parseFloat(e.target.value) : null })
-                    }
-                    placeholder="Leave empty if no offer"
-                        className="mt-1"
-                  />
-                      <p className="text-xs text-gray-500 mt-1">Discounted price (if applicable)</p>
-                    </div>
                   </div>
                 </div>
 

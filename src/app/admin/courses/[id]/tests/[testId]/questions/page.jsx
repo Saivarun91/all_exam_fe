@@ -29,11 +29,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Edit, Trash2, Upload, Download, FileText, X, ArrowLeft, BookOpen, AlertCircle } from "lucide-react";
+import { Plus, Edit, Trash2, Upload, FileText, X, ArrowLeft, BookOpen, AlertCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { checkAuth, getAuthHeaders } from "@/utils/authCheck";
+import { checkAuth, getAuthHeaders, getAuthHeadersForUpload } from "@/utils/authCheck";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
@@ -52,6 +52,7 @@ export default function TestQuestionsManager() {
   const [editing, setEditing] = useState(null);
   const [selectedQuestions, setSelectedQuestions] = useState([]);
   const [csvFile, setCsvFile] = useState(null);
+  const [csvDialogOpen, setCsvDialogOpen] = useState(false);
 
   const [formData, setFormData] = useState({
     question_text: "",
@@ -72,7 +73,7 @@ export default function TestQuestionsManager() {
 
     fetchCourse();
     fetchQuestions();
-  }, [courseId]);
+  }, [courseId, testId]);
 
   const fetchCourse = async () => {
     try {
@@ -96,18 +97,30 @@ export default function TestQuestionsManager() {
   };
 
   const fetchQuestions = async () => {
+    if (!testId) return;
     try {
       setLoading(true);
-      const res = await fetch(`${API_BASE_URL}/api/questions/admin/course/${courseId}/`, {
+      const res = await fetch(`${API_BASE_URL}/api/exams/questions/?test_id=${testId}`, {
         headers: getAuthHeaders()
       });
 
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+
       const data = await res.json();
       if (data.success) {
-        setQuestions(data.data);
+        // Backend returns questions in 'questions' field, not 'data'
+        const questionsList = data.questions || data.data || [];
+        setQuestions(questionsList);
+        console.log(`✅ Fetched ${questionsList.length} questions for test ${testId}`);
+      } else {
+        console.error("Error fetching questions:", data.message || data.error);
+        setQuestions([]);
       }
     } catch (error) {
       console.error("Error fetching questions:", error);
+      setQuestions([]);
     } finally {
       setLoading(false);
     }
@@ -260,31 +273,49 @@ export default function TestQuestionsManager() {
       return;
     }
 
+    if (!testId) {
+      setMessage("❌ Test ID is missing");
+      return;
+    }
+
     setLoading(true);
     try {
       const formDataUpload = new FormData();
       formDataUpload.append('file', csvFile);
-      formDataUpload.append('course_id', courseId);
+      formDataUpload.append('test_id', testId);
 
-      const res = await fetch(`${API_BASE_URL}/api/questions/admin/upload-csv/`, {
+      const res = await fetch(`${API_BASE_URL}/api/exams/questions/upload-csv/`, {
         method: "POST",
-        headers: getAuthHeaders(),
+        headers: getAuthHeadersForUpload(),
         body: formDataUpload
       });
 
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ message: `HTTP error! status: ${res.status}` }));
+        throw new Error(errorData.message || errorData.error || `HTTP error! status: ${res.status}`);
+      }
+
       const data = await res.json();
 
-      if (data.success || data.created_count > 0) {
-        let message = `✅ ${data.created_count} questions uploaded successfully!`;
+      if (data.success || data.questions_created > 0) {
+        let message = `✅ ${data.questions_created} question(s) uploaded successfully!`;
+        if (data.questions_skipped > 0) {
+          message += ` ${data.questions_skipped} question(s) skipped (test limit reached).`;
+        }
         if (data.errors && data.errors.length > 0) {
-          message += `\n⚠️ ${data.errors.length} rows had errors. Check console for details.`;
+          message += `\n⚠️ ${data.errors.length} row(s) had errors. Check console for details.`;
           console.error("Upload errors:", data.errors);
           console.error("First 5 errors:", data.errors.slice(0, 5));
         }
         setMessage(message);
         setCsvFile(null);
-        fetchQuestions();
-        setTimeout(() => setMessage(""), 8000);
+        setCsvDialogOpen(false);
+        // Refresh questions list after successful upload
+        // Use a longer delay to ensure backend has processed and saved all questions
+        setTimeout(() => {
+          fetchQuestions();
+        }, 1000);
+        setTimeout(() => setMessage(""), 10000);
       } else {
         let errorMsg = data.error || data.message || "Failed to upload";
         if (data.errors && data.errors.length > 0) {
@@ -295,9 +326,11 @@ export default function TestQuestionsManager() {
           console.error("All upload errors:", data.errors);
         }
         setMessage("❌ " + errorMsg);
+        fetchQuestions(); // Still refresh in case some were created
       }
     } catch (error) {
       setMessage("❌ Error: " + error.message);
+      console.error("CSV upload error:", error);
     } finally {
       setLoading(false);
     }
@@ -343,20 +376,6 @@ export default function TestQuestionsManager() {
     } else {
       setSelectedQuestions([...selectedQuestions, questionId]);
     }
-  };
-
-  const downloadCSVTemplate = () => {
-    const csvContent = `question_text,question_type,options,correct_answers,explanation,marks,tags
-"What is AWS?","single","Amazon Web Services|A cloud platform|A database|A programming language","Amazon Web Services","AWS stands for Amazon Web Services, a comprehensive cloud computing platform.",1,"aws,cloud"
-"Select cloud providers (multiple)","multiple","AWS|Azure|Google Cloud|Oracle|IBM Cloud","AWS,Azure,Google Cloud","Major cloud providers include AWS, Azure, and Google Cloud.",1,"cloud,providers"`;
-    
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `questions_test${testId}_${course?.code || 'template'}.csv`;
-    a.click();
-    window.URL.revokeObjectURL(url);
   };
 
   const testQuestionsNeeded = currentTest?.questions || 0;
@@ -438,15 +457,7 @@ export default function TestQuestionsManager() {
       {/* Actions Bar */}
       <div className="flex justify-between items-center mb-6">
         <div className="flex gap-3">
-          <Button
-            variant="outline"
-            onClick={downloadCSVTemplate}
-            className="gap-2"
-          >
-            <Download className="w-4 h-4" />
-            CSV Template
-          </Button>
-          <Dialog>
+          <Dialog open={csvDialogOpen} onOpenChange={setCsvDialogOpen}>
             <DialogTrigger asChild>
               <Button variant="outline" className="gap-2">
                 <Upload className="w-4 h-4" />
@@ -467,7 +478,7 @@ export default function TestQuestionsManager() {
                     className="mt-2"
                   />
                   <p className="text-sm text-gray-500 mt-2">
-                    Upload questions for this course. The test will use the first {testQuestionsNeeded} questions.
+                    Upload questions for this test. The test will use the first {testQuestionsNeeded} questions.
                   </p>
                 </div>
                 <Button type="submit" disabled={loading} className="w-full bg-[#1A73E8] hover:bg-[#1557B0]">
@@ -681,9 +692,9 @@ export default function TestQuestionsManager() {
       </div>
 
       {/* Questions Table */}
-      {loading && questions.length === 0 ? (
+      {loading ? (
         <p className="text-center py-8 text-[#0C1A35]/60">Loading questions...</p>
-      ) : questions.length === 0 ? (
+      ) : !questions || questions.length === 0 ? (
         <Card className="border-[#DDE7FF]">
           <CardContent className="p-12 text-center">
             <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />

@@ -33,7 +33,7 @@ import { Plus, Edit, Trash2, Upload, Download, FileText, X } from "lucide-react"
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { checkAuth, getAuthHeaders } from "@/utils/authCheck";
+import { checkAuth, getAuthHeaders, getAuthHeadersForUpload } from "@/utils/authCheck";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
@@ -279,9 +279,14 @@ export default function QuestionsManager() {
 
       const res = await fetch(`${API_BASE_URL}/api/questions/admin/upload-csv/`, {
         method: "POST",
-        headers: getAuthHeaders(),
+        headers: getAuthHeadersForUpload(),
         body: formData
       });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ message: `HTTP error! status: ${res.status}` }));
+        throw new Error(errorData.message || errorData.error || `HTTP error! status: ${res.status}`);
+      }
 
       const data = await res.json();
 
@@ -290,7 +295,6 @@ export default function QuestionsManager() {
         if (data.errors && data.errors.length > 0) {
           message += `\n⚠️ ${data.errors.length} rows had errors. Check console for details.`;
           console.error("Upload errors:", data.errors);
-          // Show first 5 errors in console
           console.error("First 5 errors:", data.errors.slice(0, 5));
         }
         setMessage(message);

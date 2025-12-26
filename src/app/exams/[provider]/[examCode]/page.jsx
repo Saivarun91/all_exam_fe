@@ -85,6 +85,10 @@ export default function ExamDetailPage() {
         }
         
         const data = await res.json();
+        // Debug: Log the received data to check pass_rate and rating
+        console.log("Full exam data from API:", data);
+        console.log("pass_rate value:", data.pass_rate, "type:", typeof data.pass_rate);
+        console.log("rating value:", data.rating, "type:", typeof data.rating);
         setExam(data);
         setLoading(false);
 
@@ -136,7 +140,51 @@ export default function ExamDetailPage() {
     );
   }
 
+  // Calculate total questions from practice tests list
+  const practiceTestsList = exam.practice_tests_list || [];
+  const calculatedTotalQuestions = practiceTestsList.reduce((sum, test) => {
+    const testQuestions = parseInt(test.questions) || 0;
+    return sum + testQuestions;
+  }, 0);
+  
+  // Calculate total duration from all practice tests - sum all durations
+  let calculatedDuration = null;
+  if (practiceTestsList.length > 0) {
+    // Extract numeric values from all practice test durations and sum them
+    const durations = practiceTestsList
+      .map(test => {
+        if (!test.duration || test.duration.trim() === "") return null;
+        // Extract number from duration string (e.g., "120", "60 min", "120 minutes" -> 120)
+        const durationStr = test.duration.toString().trim();
+        const match = durationStr.match(/(\d+)/);
+        return match ? parseInt(match[1]) : null;
+      })
+      .filter(d => d !== null);
+    
+    if (durations.length > 0) {
+      const totalMinutes = durations.reduce((sum, d) => sum + d, 0);
+      calculatedDuration = `${totalMinutes}${totalMinutes === 1 ? ' minute' : ' minutes'}`;
+    }
+  }
+
   // Map backend data to display format
+  // Convert pass_rate and rating to numbers if they exist
+  let passRateValue = null;
+  if (exam.pass_rate !== null && exam.pass_rate !== undefined && exam.pass_rate !== "") {
+    const parsed = Number(exam.pass_rate);
+    if (!isNaN(parsed)) {
+      passRateValue = parsed;
+    }
+  }
+  
+  let ratingValue = null;
+  if (exam.rating !== null && exam.rating !== undefined && exam.rating !== "") {
+    const parsed = Number(exam.rating);
+    if (!isNaN(parsed)) {
+      ratingValue = parsed;
+    }
+  }
+  
   const examData = {
     title: exam.title || `${exam.provider} ${exam.code}`,
     code: exam.code || examCode.toUpperCase(),
@@ -144,13 +192,13 @@ export default function ExamDetailPage() {
     category: exam.category ? [exam.category] : [],
     difficulty: exam.difficulty || "Intermediate",
     lastUpdated: exam.badge || "Recently updated",
-    passRate: exam.pass_rate || 90,
-    rating: exam.rating || 4.5,
-    reviews: 2847, // Could be added to backend model later
-    learners: 145000, // Could be added to backend model later
+    passRate: passRateValue,
+    rating: ratingValue,
+    // reviews: 2847, // Could be added to backend model later
+    // learners: 145000, // Could be added to backend model later
     practiceTests: exam.practice_exams || 0,
-    totalQuestions: exam.questions || 0,
-    duration: exam.duration || "130 minutes",
+    totalQuestions: calculatedTotalQuestions || exam.questions || 0,
+    duration: calculatedDuration || exam.duration || null,
     passingScore: exam.passing_score || "720/1000",
     about: exam.about || "Prepare for your certification exam with our comprehensive practice tests.",
     whatsIncluded: exam.whats_included && exam.whats_included.length > 0 
@@ -224,14 +272,12 @@ export default function ExamDetailPage() {
               <Clock className="w-4 h-4 text-[#1A73E8]" />
               <span>Updated {examData.lastUpdated}</span>
             </div>
-            <div className="flex items-center gap-1">
-              <TrendingUp className="w-4 h-4 text-green-500" />
-              <span className="text-green-600 font-semibold">{examData.passRate}% Pass Rate</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <Users className="w-4 h-4 text-[#1A73E8]" />
-              <span>{examData.learners.toLocaleString()}+ learners</span>
-            </div>
+            {examData.passRate !== null && examData.passRate !== undefined && (
+              <div className="flex items-center gap-1">
+                <TrendingUp className="w-4 h-4 text-green-500" />
+                <span className="text-green-600 font-semibold">{examData.passRate}% Pass Rate</span>
+              </div>
+            )}
           </div>
         </div>
         {examData.testimonials && examData.testimonials.length > 0 && (
@@ -262,16 +308,18 @@ export default function ExamDetailPage() {
                   </div>
                   <div>
                     <p className="text-sm text-[#0C1A35]/60 mb-1">Total Questions</p>
-                    <p className="font-semibold text-[#0C1A35]">{examData.totalQuestions}+</p>
+                    <p className="font-semibold text-[#0C1A35]">{examData.totalQuestions}</p>
                   </div>
                 </div>
-                <div>
-                  <p className="text-sm text-[#0C1A35]/60 mb-2">Pass Rate</p>
-                  <div className="flex items-center gap-2">
-                    <Progress value={examData.passRate} className="flex-1" />
-                    <span className="text-sm font-semibold text-[#0C1A35]">{examData.passRate}%</span>
+                {examData.passRate !== null && examData.passRate !== undefined && (
+                  <div>
+                    <p className="text-sm text-[#0C1A35]/60 mb-2">Pass Rate</p>
+                    <div className="flex items-center gap-2">
+                      <Progress value={examData.passRate} className="flex-1" />
+                      <span className="text-sm font-semibold text-[#0C1A35]">{examData.passRate}%</span>
+                    </div>
                   </div>
-                </div>
+                )}
               </CardContent>
             </Card>
 
@@ -341,7 +389,7 @@ export default function ExamDetailPage() {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div className="text-center p-4 border border-[#DDE7FF] rounded-lg">
                     <BookOpen className="w-8 h-8 text-[#1A73E8] mx-auto mb-2" />
-                    <p className="text-2xl font-bold text-[#0C1A35]">{examData.totalQuestions}+</p>
+                    <p className="text-2xl font-bold text-[#0C1A35]">{examData.totalQuestions}</p>
                     <p className="text-sm text-[#0C1A35]/60">Questions</p>
                   </div>
                   <div className="text-center p-4 border border-[#DDE7FF] rounded-lg">
@@ -474,11 +522,15 @@ export default function ExamDetailPage() {
           <div className="lg:col-span-1">
             <Card className="border-[#DDE7FF] sticky top-24">
               <CardHeader>
-                <div className="flex items-center gap-2 mb-4">
-                  <Star className="w-5 h-5 fill-yellow-400 text-yellow-400" />
-                  <span className="text-2xl font-bold text-[#0C1A35]">{examData.rating}</span>
-                  <span className="text-sm text-[#0C1A35]/60">({examData.reviews.toLocaleString()} reviews)</span>
-                </div>
+                {examData.rating !== null && examData.rating !== undefined && (
+                  <div className="flex items-center gap-2 mb-4">
+                    <Star className="w-5 h-5 fill-yellow-400 text-yellow-400" />
+                    <span className="text-2xl font-bold text-[#0C1A35]">{examData.rating}</span>
+                    {examData.reviews && examData.reviews > 0 && (
+                      <span className="text-sm text-[#0C1A35]/60">({examData.reviews.toLocaleString()} reviews)</span>
+                    )}
+                  </div>
+                )}
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-3">
@@ -488,12 +540,14 @@ export default function ExamDetailPage() {
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-[#0C1A35]/70">Total Questions</span>
-                    <span className="font-bold text-[#0C1A35]">{examData.totalQuestions}+</span>
+                    <span className="font-bold text-[#0C1A35]">{examData.totalQuestions}</span>
                   </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-[#0C1A35]/70">Pass Rate</span>
-                    <span className="font-semibold text-green-600">{examData.passRate}%</span>
-                  </div>
+                  {examData.passRate !== null && examData.passRate !== undefined && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-[#0C1A35]/70">Pass Rate</span>
+                      <span className="font-semibold text-green-600">{examData.passRate}%</span>
+                    </div>
+                  )}
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-[#0C1A35]/70">Duration</span>
                     <span className="font-semibold text-[#0C1A35]">{examData.duration}</span>

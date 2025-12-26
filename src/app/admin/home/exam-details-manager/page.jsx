@@ -63,10 +63,7 @@ export default function ExamDetailsManager() {
     questions: "", 
     difficulty: "", 
     duration: "",
-    description: "",
-    pass_rate: 94,
-    rating: 4.5,
-    reviews_count: 0
+    description: ""
   }]);
   const [testimonials, setTestimonials] = useState([{ name: "", role: "", rating: 5, review: "", verified: false }]);
   const [faqs, setFaqs] = useState([{ question: "", answer: "" }]);
@@ -192,10 +189,7 @@ export default function ExamDetailsManager() {
       questions: "", 
       difficulty: "", 
       duration: "",
-      description: "",
-      pass_rate: 94,
-      rating: 4.5,
-      reviews_count: 0
+      description: ""
     }]);
     setTestimonials(course.testimonials && course.testimonials.length > 0 ? course.testimonials : [{ name: "", role: "", rating: 5, review: "", verified: false }]);
     setFaqs(course.faqs && course.faqs.length > 0 ? course.faqs : [{ question: "", answer: "" }]);
@@ -219,8 +213,8 @@ export default function ExamDetailsManager() {
       const payload = {
         about,
         test_description: testDescription,
-        pass_rate: passRate ? parseInt(passRate) : null,
-        rating: rating ? parseFloat(rating) : null,
+        pass_rate: (passRate && passRate.trim() !== "") ? parseInt(passRate) : null,
+        rating: (rating && rating.toString().trim() !== "") ? parseFloat(rating) : null,
         difficulty,
         duration,
         passing_score: passingScore,
@@ -237,9 +231,6 @@ export default function ExamDetailsManager() {
           questions: parseInt(t.questions) || 0,
           difficulty: t.difficulty || "Intermediate",
           duration: t.duration || null,
-          pass_rate: parseInt(t.pass_rate) || 94,
-          rating: parseFloat(t.rating) || 4.5,
-          reviews_count: parseInt(t.reviews_count) || 0,
           progress: t.progress || 0
         })),
         testimonials: testimonials.filter(t => t.name.trim() !== "").map(t => ({
@@ -324,15 +315,12 @@ export default function ExamDetailsManager() {
     setTopics(updated);
   };
 
-  const addPracticeTest = () => setPracticeTests([...practiceTests, { 
-    name: "", 
-    questions: "", 
-    difficulty: "Intermediate", 
+  const addPracticeTest = () => setPracticeTests([...practiceTests, {
+    name: "",
+    questions: "",
+    difficulty: "Intermediate",
     duration: "",
-    description: "",
-    pass_rate: 94,
-    rating: 4.5,
-    reviews_count: 0
+    description: ""
   }]);
   const removePracticeTest = (index) => setPracticeTests(practiceTests.filter((_, i) => i !== index));
   const updatePracticeTest = (index, field, value) => {
@@ -826,32 +814,6 @@ export default function ExamDetailsManager() {
                               <SelectItem value="Advanced">Advanced</SelectItem>
                             </SelectContent>
                           </Select>
-                        </div>
-                        <div className="grid grid-cols-3 gap-2 mt-2">
-                          <Input
-                            type="number"
-                            value={test.pass_rate || 94}
-                            onChange={(e) => updatePracticeTest(index, "pass_rate", e.target.value)}
-                            placeholder="Pass Rate %"
-                            min="0"
-                            max="100"
-                          />
-                          <Input
-                            type="number"
-                            step="0.1"
-                            value={test.rating || 4.5}
-                            onChange={(e) => updatePracticeTest(index, "rating", e.target.value)}
-                            placeholder="Rating (0-5)"
-                            min="0"
-                            max="5"
-                          />
-                          <Input
-                            type="number"
-                            value={test.reviews_count || 0}
-                            onChange={(e) => updatePracticeTest(index, "reviews_count", e.target.value)}
-                            placeholder="Reviews Count"
-                            min="0"
-                          />
                         </div>
                       </div>
                     </Card>
