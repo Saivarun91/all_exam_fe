@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+
+Disallow: /admin/
+Disallow: /login/
+Disallow: /signup/
+Disallow: /auth/
+Disallow: /api/
+
+Sitemap: https://allexamquestions.com/sitemap.xml

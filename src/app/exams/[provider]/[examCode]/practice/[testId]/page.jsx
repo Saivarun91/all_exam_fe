@@ -1,0 +1,1148 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
+import { Clock, Star, Compass, ChevronLeft, ChevronRight, FileText, Lock, ArrowLeft } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
+import { Checkbox } from "@/components/ui/checkbox";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
+const FREE_QUESTIONS_LIMIT = 10;
+const QUESTIONS_PER_PAGE = 20;
+
+export default function TestPlayerPage() {
+  const params = useParams();
+  const router = useRouter();
+  const provider = params?.provider;
+  const examCode = params?.examCode;
+  const testId = params?.testId;
+
+  // State
+  const [exam, setExam] = useState(null);
+  const [questions, setQuestions] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const [errorMessage, setErrorMessage] = useState(null);
+  const [testStarted, setTestStarted] = useState(false);
+  const [isEnrolled, setIsEnrolled] = useState(false);
+  const [checkingEnrollment, setCheckingEnrollment] = useState(true);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
+  
+  // Test player state
+  const [currentQuestion, setCurrentQuestion] = useState(1);
+  const [answers, setAnswers] = useState({});
+  const [timeRemaining, setTimeRemaining] = useState(null);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [navigatorPage, setNavigatorPage] = useState(1);
+  const [attemptId, setAttemptId] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Get authentication token
+  const getAuthToken = () => {
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('token');
+      if (!token || token.trim() === '') {
+        return null;
+      }
+      return token;
+    }
+    return null;
+  };
+
+  // Check if user is logged in
+  useEffect(() => {
+    const token = getAuthToken();
+    setIsLoggedIn(!!token);
+  }, []);
+
+  // Check enrollment status - optimized
+  useEffect(() => {
+    const checkEnrollment = async () => {
+      const token = getAuthToken();
+      
+      if (!token || !exam?.id) {
+        setIsEnrolled(false);
+        setCheckingEnrollment(false);
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/enrollments/check/${exam.id}/`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (res.ok) {
+          const data = await res.json();
+          setIsEnrolled(data.already_enrolled || false);
+        } else {
+          setIsEnrolled(false);
+        }
+      } catch (err) {
+        setIsEnrolled(false);
+      } finally {
+        setCheckingEnrollment(false);
+      }
+    };
+
+    if (exam) {
+      checkEnrollment();
+    }
+  }, [exam]);
+
+  // Fetch exam and questions - optimized with parallel fetching
+  useEffect(() => {
+    if (!provider || !examCode) return;
+
+    const fetchData = async () => {
+      try {
+        // Normalize slug
+        const normalizedProvider = provider.toLowerCase().replace(/_/g, '-');
+        const normalizedExamCode = examCode.toLowerCase().replace(/_/g, '-');
+        const slug = `${normalizedProvider}-${normalizedExamCode}`;
+        
+        // Fetch exam data
+        const examRes = await fetch(`${API_BASE_URL}/api/courses/exams/${slug}/`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+        });
+        
+        if (!examRes.ok) {
+          const errorText = await examRes.text().catch(() => 'Unknown error');
+          throw new Error(`Exam not found (${examRes.status}): ${errorText}`);
+        }
+        
+        const examData = await examRes.json();
+        setExam(examData);
+
+        // Fetch questions in parallel (don't wait for enrollment check)
+        if (examData.id && testId) {
+          const questionsRes = await fetch(`${API_BASE_URL}/api/questions/test/${examData.id}/${testId}/`, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' },
+          });
+          
+          if (questionsRes.ok) {
+            const questionsData = await questionsRes.json();
+            
+            if (questionsData.success && questionsData.questions?.length > 0) {
+              setQuestions(questionsData.questions);
+              const testDuration = questionsData.test?.duration || examData.duration;
+              const minutes = parseDuration(testDuration);
+              setTimeRemaining(minutes * 60);
+            } else {
+              setTimeRemaining(30 * 60);
+            }
+          } else {
+            setTimeRemaining(30 * 60);
+          }
+        } else {
+          setTimeRemaining(30 * 60);
+        }
+        
+        setLoading(false);
+      } catch (err) {
+        const errMsg = err.message || "Failed to load exam data. Please try again later.";
+        setErrorMessage(errMsg);
+        setError(true);
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [provider, examCode, testId]);
+
+  // Timer countdown
+  useEffect(() => {
+    if (!testStarted || timeRemaining === null || timeRemaining <= 0) return;
+
+    const timer = setInterval(() => {
+      setTimeRemaining((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          handleSubmit(true);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [timeRemaining, testStarted]);
+
+  const formatTime = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
+  };
+
+  const formatTimeLimit = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    return `${mins} mins`;
+  };
+
+  // Helper function to parse duration (handles both number and string formats)
+  const parseDuration = (duration) => {
+    if (!duration) return 30; // Default 30 minutes
+    
+    if (typeof duration === 'number') {
+      return duration;
+    }
+    
+    if (typeof duration === 'string') {
+      // Extract number from string (e.g., "90 minutes" -> 90, "5400 mins" -> 5400)
+      const match = duration.match(/\d+/);
+      return match ? parseInt(match[0]) : 30;
+    }
+    
+    return 30; // Default fallback
+  };
+
+  // Helper function to format duration for display
+  const formatDurationDisplay = (duration) => {
+    const minutes = parseDuration(duration);
+    return `${minutes} mins`;
+  };
+
+  const canAccessQuestion = (questionNum) => {
+    return isEnrolled || questionNum <= FREE_QUESTIONS_LIMIT;
+  };
+
+  const handleAnswerChange = (optionText, checked = null) => {
+    if (!canAccessQuestion(currentQuestion)) return;
+    
+    const currentQuestionData = questions[currentQuestion - 1];
+    const isSingle = currentQuestionData?.question_type === "single";
+    
+    if (isSingle) {
+      // For single choice, just set the value directly
+      setAnswers({ ...answers, [currentQuestion]: optionText });
+    } else {
+      // For multiple choice, handle array
+      const currentAnswers = Array.isArray(answers[currentQuestion]) ? answers[currentQuestion] : [];
+      let newAnswers;
+      
+      if (checked === null) {
+        // Called from RadioGroup (single value)
+        newAnswers = [optionText];
+      } else if (checked) {
+        newAnswers = [...currentAnswers, optionText];
+      } else {
+        newAnswers = currentAnswers.filter(ans => ans !== optionText);
+      }
+      
+      setAnswers({ ...answers, [currentQuestion]: newAnswers });
+    }
+  };
+
+  const handleNext = () => {
+    const nextQuestion = currentQuestion + 1;
+    
+    if (!isEnrolled && nextQuestion > FREE_QUESTIONS_LIMIT && nextQuestion <= questions.length) {
+      setShowUpgradeModal(true);
+      return;
+    }
+    
+    if (currentQuestion < questions.length) {
+      setCurrentQuestion(nextQuestion);
+      // Update navigator page if needed
+      const newPage = Math.ceil(nextQuestion / QUESTIONS_PER_PAGE);
+      if (newPage !== navigatorPage) {
+        setNavigatorPage(newPage);
+      }
+    }
+  };
+
+  const handlePrevious = () => {
+    if (currentQuestion > 1) {
+      setCurrentQuestion(currentQuestion - 1);
+      // Update navigator page if needed
+      const newPage = Math.ceil((currentQuestion - 1) / QUESTIONS_PER_PAGE);
+      if (newPage !== navigatorPage) {
+        setNavigatorPage(newPage);
+      }
+    }
+  };
+
+  const handleQuestionNavigate = (questionNum) => {
+    if (!canAccessQuestion(questionNum)) {
+      setShowUpgradeModal(true);
+      return;
+    }
+    setCurrentQuestion(questionNum);
+    // Update navigator page
+    const newPage = Math.ceil(questionNum / QUESTIONS_PER_PAGE);
+    setNavigatorPage(newPage);
+  };
+
+  const getAnsweredCount = () => {
+    const limit = isEnrolled ? questions.length : Math.min(FREE_QUESTIONS_LIMIT, questions.length);
+    return Object.keys(answers).filter(q => {
+      const qNum = parseInt(q);
+      if (qNum > limit) return false;
+      const answer = answers[q];
+      if (!answer) return false;
+      // Handle both single (string) and multiple (array) answer formats
+      if (Array.isArray(answer)) {
+        return answer.length > 0;
+      }
+      return answer !== "" && answer !== null;
+    }).length;
+  };
+
+  const getRemainingCount = () => {
+    const limit = isEnrolled ? questions.length : Math.min(FREE_QUESTIONS_LIMIT, questions.length);
+    return limit - getAnsweredCount();
+  };
+
+  const handleSubmit = async (autoSubmit = false) => {
+    const answeredCount = getAnsweredCount();
+    const totalAccessible = isEnrolled ? questions.length : Math.min(FREE_QUESTIONS_LIMIT, questions.length);
+    
+    if (!autoSubmit) {
+      const confirmed = confirm(
+        `You have answered ${answeredCount} out of ${totalAccessible} questions. Are you sure you want to submit?`
+      );
+      
+      if (!confirmed) return;
+    }
+
+    // Check if we have an attempt_id
+    if (!attemptId) {
+      console.error('[TestPlayer] No attempt_id found. Cannot submit test.');
+      alert('Error: Test attempt not found. Please start the test again.');
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const token = getAuthToken();
+      if (!token) {
+        alert('You must be logged in to submit the test.');
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Format user answers for the API - optimized
+      const userAnswers = [];
+      const accessibleQuestions = questions.slice(0, totalAccessible);
+      
+      for (let i = 0; i < accessibleQuestions.length; i++) {
+        const question = accessibleQuestions[i];
+        const questionId = question.id || question._id || question.question_id;
+        const questionNum = i + 1;
+        const userAnswer = answers[questionNum];
+        
+        if (!questionId) continue;
+        
+        // Handle both single (string) and multiple (array) answer formats
+        const selectedAnswers = Array.isArray(userAnswer) 
+          ? userAnswer.map(ans => String(ans))
+          : (userAnswer && userAnswer !== "") ? [String(userAnswer)] : [];
+
+        userAnswers.push({
+          question_id: String(questionId),
+          selected_answers: selectedAnswers
+        });
+      }
+
+      // Submit test attempt to backend
+      const submitResponse = await fetch(`${API_BASE_URL}/api/exams/attempt/${attemptId}/submit/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          user_answers: userAnswers
+        })
+      });
+
+      if (!submitResponse.ok) {
+        let errorMessage = 'Error submitting test. Please try again.';
+        try {
+          const errorData = await submitResponse.json();
+          console.error('[TestPlayer] Failed to submit test:', errorData);
+          errorMessage = errorData.message || errorMessage;
+        } catch (parseError) {
+          const errorText = await submitResponse.text().catch(() => 'Unknown error');
+          console.error('[TestPlayer] Failed to parse error response:', parseError, errorText);
+          errorMessage = `Server error (${submitResponse.status}): ${errorText || 'Please try again.'}`;
+        }
+        alert(errorMessage);
+        setIsSubmitting(false);
+        return;
+      }
+
+      let submitData;
+      try {
+        submitData = await submitResponse.json();
+      } catch (parseError) {
+        const responseText = await submitResponse.text().catch(() => 'Unknown error');
+        alert('Error: Invalid response from server. Please try again.');
+        setIsSubmitting(false);
+        return;
+      }
+      
+      if (!submitData.success) {
+        alert(submitData.message || 'Failed to submit test. Please try again.');
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Calculate results efficiently
+      let unanswered = 0;
+      for (let i = 1; i <= totalAccessible; i++) {
+        const userAnswer = answers[i];
+        if (!userAnswer || (Array.isArray(userAnswer) && userAnswer.length === 0)) {
+          unanswered++;
+        }
+      }
+      
+      const initialTime = Math.round((timeRemaining || 0) / 60);
+      const testDuration = parseDuration(exam?.duration);
+      const timeSpent = testDuration - initialTime;
+      const minutes = Math.floor(timeSpent);
+      const seconds = Math.floor((timeSpent % 1) * 60);
+      const timeTaken = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+      
+      const testResults = {
+        questionsCompleted: totalAccessible,
+        totalQuestions: questions.length,
+        correctAnswers: submitData.score || 0,
+        incorrectAnswers: totalAccessible - (submitData.score || 0) - unanswered,
+        unanswered,
+        timeTaken,
+        hasFullAccess: isEnrolled,
+        answers: answers,
+        percentage: submitData.percentage || 0,
+        passed: submitData.passed || false,
+        attemptId: attemptId
+      };
+      
+      // Store results and redirect immediately
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('testResults', JSON.stringify(testResults));
+        sessionStorage.setItem('userAnswers', JSON.stringify(answers));
+        sessionStorage.setItem('testQuestions', JSON.stringify(questions.slice(0, totalAccessible)));
+        sessionStorage.setItem('attemptId', attemptId);
+      }
+      
+      // Redirect immediately without waiting
+      router.push(`/test-review/${provider}/${examCode}`);
+      setIsSubmitting(false);
+    } catch (error) {
+      console.error('[TestPlayer] Error submitting test:', error);
+      alert('Error submitting test. Please try again.');
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleUpgradeClick = () => {
+    router.push(`/exams/${provider}/${examCode}/practice/pricing`);
+  };
+
+  // Loading state - only show if exam is not loaded yet
+  if (loading && !exam) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#1A73E8] mx-auto mb-4"></div>
+          <p className="text-[#0C1A35]/70">Loading test...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state - only show if we're done loading and exam is not found
+  if ((error || !exam) && !loading) {
+    return (
+      <div className="min-h-screen bg-white">
+        <div className="container mx-auto px-4 py-20 text-center">
+          <h1 className="text-3xl font-bold text-[#0C1A35] mb-4">
+            {errorMessage && errorMessage.includes('connect') ? 'Connection Error' : 'Exam Not Found'}
+          </h1>
+          <p className="text-[#0C1A35]/70 mb-2">
+            {errorMessage || "The exam you're looking for doesn't exist or has been moved."}
+          </p>
+          {errorMessage && errorMessage.includes('connect') && (
+            <p className="text-sm text-[#0C1A35]/50 mb-4">
+              API URL: {API_BASE_URL}
+            </p>
+          )}
+          <p className="text-sm text-[#0C1A35]/50 mb-6">
+            Provider: {provider}, Exam Code: {examCode}
+          </p>
+          <div className="flex gap-3 justify-center">
+            <Button 
+              onClick={() => {
+                setError(false);
+                setErrorMessage(null);
+                setLoading(true);
+                // Retry fetching
+                const fetchData = async () => {
+                  try {
+                    const normalizedProvider = provider.toLowerCase().replace(/_/g, '-');
+                    const normalizedExamCode = examCode.toLowerCase().replace(/_/g, '-');
+                    const slug = `${normalizedProvider}-${normalizedExamCode}`;
+                    const examRes = await fetch(`${API_BASE_URL}/api/courses/exams/${slug}/`);
+                    if (examRes.ok) {
+                      const examData = await examRes.json();
+                      setExam(examData);
+                      setError(false);
+                    }
+                  } catch (err) {
+                    setErrorMessage(err.message);
+                    setError(true);
+                  } finally {
+                    setLoading(false);
+                  }
+                };
+                fetchData();
+              }}
+              className="bg-[#1A73E8] text-white hover:bg-[#1557B0]"
+            >
+              Retry
+            </Button>
+            <Button asChild variant="outline">
+              <Link href="/exams">Return to Exams</Link>
+            </Button>
+            <Button asChild className="bg-[#1A73E8] text-white hover:bg-[#1557B0]">
+              <Link href="/">Go Home</Link>
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
+  // Still loading exam
+  if (!exam && loading) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#1A73E8] mx-auto mb-4"></div>
+          <p className="text-[#0C1A35]/70">Loading exam...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Find the specific test
+  const practiceTests = exam.practice_tests_list || [];
+  let currentTest = null;
+  
+  // Try to find test by slug first (SEO-friendly)
+  if (practiceTests.length > 0) {
+    currentTest = practiceTests.find(t => {
+      return t.slug === testId;
+    });
+    
+    // If not found by slug, try by ID
+    if (!currentTest) {
+      currentTest = practiceTests.find(t => {
+        const testIdStr = String(t.id || t._id || '');
+        return testIdStr === String(testId);
+      });
+    }
+    
+    // If not found by ID, try by index (testId is 1-based) for backward compatibility
+    if (!currentTest && testId) {
+      const testIndex = parseInt(testId) - 1;
+      if (testIndex >= 0 && testIndex < practiceTests.length) {
+        currentTest = practiceTests[testIndex];
+      }
+    }
+  }
+  
+  // Create a default test object if not found
+  if (!currentTest) {
+    currentTest = {
+      id: testId,
+      name: `Practice Test ${testId}`,
+      questions: questions.length || 0,
+      duration: exam.duration || "30 minutes",
+      difficulty: exam.difficulty || "Medium"
+    };
+  }
+
+  // Don't block if questions are still loading but exam is loaded
+  // Show the pre-test screen even if questions aren't loaded yet
+  if (questions.length === 0 && !loading) {
+    return (
+      <div className="min-h-screen bg-white">
+        <div className="container mx-auto px-4 py-20 text-center">
+          <h1 className="text-3xl font-bold text-[#0C1A35] mb-4">No Questions Available</h1>
+          <p className="text-[#0C1A35]/70 mb-6">
+            This test doesn't have any questions yet. Please add questions to this test.
+          </p>
+          <Button asChild className="bg-[#1A73E8] text-white hover:bg-[#1557B0]">
+            <Link href={`/exams/${provider}/${examCode}/practice`}>
+              Back to Practice Tests
+            </Link>
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Pre-test instructions screen
+  const handleStartTest = async () => {
+    if (!isLoggedIn) {
+      setShowLoginPrompt(true);
+      return;
+    }
+    // Only allow starting if we have questions
+    if (questions.length === 0 && !loading) {
+      return;
+    }
+
+    // Create or get test attempt
+    const token = getAuthToken();
+    if (!token) {
+      console.log('[TestPlayer] No token found, showing login prompt');
+      setShowLoginPrompt(true);
+      return;
+    }
+
+    // Validate token format (basic check)
+    if (token.split('.').length !== 3) {
+      console.error('[TestPlayer] Invalid token format');
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('token');
+      }
+      setShowLoginPrompt(true);
+      return;
+    }
+
+    try {
+      // The backend can handle test_id as either an ObjectId or an index (1-based)
+      // Pass exam_id (Course ID) and test_id (from URL, could be "1" or ObjectId)
+      // The backend will find the PracticeTest from the course's practice_tests_list
+      const examId = exam.id ? String(exam.id) : null;
+      
+      if (!examId) {
+        console.error('[TestPlayer] Exam ID not found');
+        alert('Error: Could not find exam information. Please try again.');
+        return;
+      }
+
+      // Call get_or_create_test_attempt API
+      // Backend will handle finding PracticeTest from exam_id + test_id
+      // Don't pass category_id - let backend find it from exam_id + test_id
+      console.log('[TestPlayer] Creating test attempt:', { examId, testId });
+      
+      const response = await fetch(`${API_BASE_URL}/api/exams/attempt/get-or-create/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          exam_id: examId, // Course ID
+          test_id: String(testId) // Can be "1" (index) or ObjectId - backend will handle it
+        })
+      });
+
+      console.log('[TestPlayer] Response status:', response.status, response.statusText);
+
+      // Read response once - check if it's ok first
+      const responseText = await response.text();
+      console.log('[TestPlayer] Response text:', responseText);
+
+      if (!response.ok) {
+        let errorMessage = 'Error starting test. Please try again.';
+        let errorData = {};
+        
+        try {
+          // Try to parse as JSON
+          errorData = JSON.parse(responseText);
+          console.error('[TestPlayer] Failed to create/get test attempt:', errorData);
+        } catch (jsonError) {
+          // If not JSON, use the text as error message
+          console.error('[TestPlayer] Response is not JSON:', jsonError);
+          errorMessage = responseText || `Server error (${response.status}): ${response.statusText}`;
+        }
+        
+        // Extract error message from parsed data
+        if (errorData && typeof errorData === 'object' && Object.keys(errorData).length > 0) {
+          errorMessage = errorData.message || errorData.error || errorMessage;
+        }
+        
+        // Handle specific error cases
+        if (response.status === 401) {
+          errorMessage = errorMessage || 'Authentication required. Please log in.';
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem('token');
+          }
+          setShowLoginPrompt(true);
+          return;
+        }
+        
+        if (response.status === 404) {
+          // Check if it's a user not found error
+          const lowerMessage = errorMessage.toLowerCase();
+          if (lowerMessage.includes('user') || lowerMessage.includes('account') || lowerMessage.includes('not found')) {
+            errorMessage = 'Your session has expired or your account was not found. Please log in again.';
+            // Clear invalid token and show login prompt
+            if (typeof window !== 'undefined') {
+              localStorage.removeItem('token');
+            }
+            setShowLoginPrompt(true);
+            return;
+          }
+          errorMessage = errorMessage || 'Test not found. Please check if the test exists.';
+        }
+        
+        if (response.status === 400) {
+          errorMessage = errorMessage || 'Invalid request. Please check your input.';
+        }
+        
+        if (response.status === 500) {
+          errorMessage = errorMessage || 'Server error. Please try again later.';
+        }
+        
+        console.error('[TestPlayer] Final error message:', errorMessage);
+        alert(errorMessage);
+        return;
+      }
+
+      // Parse successful response
+      let attemptData;
+      try {
+        attemptData = JSON.parse(responseText);
+        console.log('[TestPlayer] Attempt data received:', attemptData);
+      } catch (parseError) {
+        console.error('[TestPlayer] Failed to parse success response:', parseError);
+        alert('Invalid response from server. Please try again.');
+        return;
+      }
+      
+      if (attemptData.success && attemptData.attempt_id) {
+        setAttemptId(attemptData.attempt_id);
+        console.log('[TestPlayer] Test attempt created/retrieved:', attemptData.attempt_id);
+        setTestStarted(true);
+      } else {
+        console.error('[TestPlayer] Invalid response from get_or_create_test_attempt:', attemptData);
+        const errorMsg = attemptData.message || 'Invalid response from server. Please try again.';
+        alert(errorMsg);
+      }
+    } catch (error) {
+      console.error('[TestPlayer] Error creating/getting test attempt:', error);
+      const errorMsg = error.message || 'Network error. Please check your connection and try again.';
+      alert(errorMsg);
+    }
+  };
+
+  // Show pre-test screen if test hasn't started
+  // Also show it if questions are still loading
+  if (!testStarted || (questions.length === 0 && loading)) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <div className="container mx-auto px-4 py-8 max-w-5xl">
+          {/* Back Button */}
+          <div className="mb-4">
+            <Button
+              variant="ghost"
+              onClick={() => router.push(`/exams/${provider}/${examCode}/practice`)}
+              className="text-[#0C1A35] hover:text-[#1A73E8] hover:bg-[#1A73E8]/10"
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Practice Tests
+            </Button>
+          </div>
+          
+          <Card className="border-[#DDE7FF]">
+            <CardContent className="p-8">
+              <div className="text-center space-y-6">
+                <div className="w-20 h-20 rounded-full bg-[#1A73E8]/10 flex items-center justify-center mx-auto">
+                  <FileText className="w-10 h-10 text-[#1A73E8]" />
+                </div>
+                
+                <div>
+                  <h2 className="text-2xl font-bold text-[#0C1A35] mb-2">
+                    Ready to Start Your Test?
+                  </h2>
+                  <p className="text-[#0C1A35]/70 mb-6 max-w-2xl mx-auto">
+                    {exam.test_description || `This practice test contains questions to help you prepare for the exam.`}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-2xl mx-auto">
+                  <div className="p-4 bg-blue-50 rounded-lg border border-blue-100">
+                    <div className="text-3xl font-bold text-[#1A73E8] mb-1">
+                      {isEnrolled ? questions.length : `${Math.min(FREE_QUESTIONS_LIMIT, questions.length)} Free`}
+                    </div>
+                    <div className="text-sm text-[#0C1A35]/70">Questions</div>
+                  </div>
+                  <div className="p-4 bg-green-50 rounded-lg border border-green-100">
+                    <div className="text-3xl font-bold text-green-600 mb-1">
+                      {timeRemaining ? formatTimeLimit(timeRemaining) : formatDurationDisplay(currentTest?.duration || exam?.duration)}
+                    </div>
+                    <div className="text-sm text-[#0C1A35]/70">Duration</div>
+                  </div>
+                  <div className="p-4 bg-purple-50 rounded-lg border border-purple-100">
+                    <div className="text-3xl font-bold text-purple-600 mb-1">
+                      {currentTest.difficulty || exam.difficulty || "Medium"}
+                    </div>
+                    <div className="text-sm text-[#0C1A35]/70">Difficulty</div>
+                  </div>
+                </div>
+
+                <div className="flex justify-center pt-4">
+                  <Button
+                    size="lg"
+                    onClick={handleStartTest}
+                    className="bg-[#1A73E8] text-white hover:bg-[#1557B0] px-12"
+                  >
+                    <Clock className="w-5 h-5 mr-2" />
+                    Start Test Now
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  // Test in progress
+  const currentQuestionData = questions[currentQuestion - 1];
+  const isSingleChoice = currentQuestionData?.question_type === "single";
+  const currentAnswer = isSingleChoice 
+    ? (answers[currentQuestion] || "") 
+    : (Array.isArray(answers[currentQuestion]) ? answers[currentQuestion] : []);
+  const totalQuestions = questions.length;
+  const accessibleQuestions = isEnrolled ? totalQuestions : Math.min(FREE_QUESTIONS_LIMIT, totalQuestions);
+  const answeredCount = getAnsweredCount();
+  const progressPercentage = (answeredCount / accessibleQuestions) * 100;
+
+  // Get options - handle both array format and option_a, option_b format
+  const getOptions = () => {
+    if (currentQuestionData.options && Array.isArray(currentQuestionData.options)) {
+      return currentQuestionData.options;
+    }
+    const options = [];
+    if (currentQuestionData.option_a) options.push({ text: currentQuestionData.option_a, value: 'A' });
+    if (currentQuestionData.option_b) options.push({ text: currentQuestionData.option_b, value: 'B' });
+    if (currentQuestionData.option_c) options.push({ text: currentQuestionData.option_c, value: 'C' });
+    if (currentQuestionData.option_d) options.push({ text: currentQuestionData.option_d, value: 'D' });
+    if (currentQuestionData.option_e) options.push({ text: currentQuestionData.option_e, value: 'E' });
+    if (currentQuestionData.option_f) options.push({ text: currentQuestionData.option_f, value: 'F' });
+    return options;
+  };
+
+  const options = getOptions();
+  // Show ALL questions in navigator, not just accessible ones
+  const totalNavigatorPages = Math.ceil(totalQuestions / QUESTIONS_PER_PAGE);
+  const startQuestion = (navigatorPage - 1) * QUESTIONS_PER_PAGE + 1;
+  const endQuestion = Math.min(navigatorPage * QUESTIONS_PER_PAGE, totalQuestions);
+
+  return (
+    <div className="min-h-screen bg-gray-50 flex flex-col">
+      {/* Top Banner - Dark Blue */}
+      <div className="bg-gradient-to-r from-[#0C1A35] to-[#0E2444] text-white px-6 py-4">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <FileText className="w-5 h-5" />
+              <span className="text-sm">Course: {exam.title || `${exam.provider} ${exam.code}`}</span>
+            </div>
+            <div className="h-6 w-px bg-white/30"></div>
+            <div>
+              <h1 className="text-2xl font-bold">{currentTest.name || `Test ${testId}`}</h1>
+              <div className="flex items-center gap-1 text-sm mt-1">
+                <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                <span>Test: {currentTest.name || `Test ${testId}`}</span>
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 bg-[#1A73E8]/20 px-4 py-2 rounded-full">
+            <Clock className="w-4 h-4" />
+            <span className="font-semibold">Time Limit: {timeRemaining ? formatTimeLimit(timeRemaining) : "30 mins"}</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex-1 flex">
+        {/* Left Panel - Question Navigator */}
+        <div className="w-64 bg-white border-r border-gray-200 flex flex-col">
+          <div className="p-4 border-b border-gray-200">
+            <div className="flex items-center gap-2 mb-3">
+              <Compass className="w-5 h-5 text-[#1A73E8]" />
+              <h3 className="font-semibold text-[#0C1A35]">Question Navigator</h3>
+            </div>
+            <div className="space-y-1 text-sm">
+              <div className="flex justify-between text-[#0C1A35]/70">
+                <span>Total Questions:</span>
+                <span className="font-medium text-[#0C1A35]">{totalQuestions}</span>
+              </div>
+              <div className="flex justify-between text-[#0C1A35]/70">
+                <span>Answered:</span>
+                <span className="font-medium text-[#0C1A35]">{answeredCount} / {accessibleQuestions}</span>
+              </div>
+              <div className="flex justify-between text-[#0C1A35]/70">
+                <span>Remaining:</span>
+                <span className="font-medium text-[#0C1A35]">{getRemainingCount()}</span>
+              </div>
+              {!isEnrolled && totalQuestions > FREE_QUESTIONS_LIMIT && (
+                <div className="flex justify-between text-[#0C1A35]/70 mt-2 pt-2 border-t border-gray-200">
+                  <span className="text-xs">Locked:</span>
+                  <span className="font-medium text-[#0C1A35] text-xs">{totalQuestions - FREE_QUESTIONS_LIMIT} questions</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-4">
+            <div className="grid grid-cols-5 gap-2">
+              {Array.from({ length: totalQuestions }, (_, idx) => {
+                const qNum = idx + 1;
+                const answer = answers[qNum];
+                const isAnswered = answer && (
+                  Array.isArray(answer) ? answer.length > 0 : (answer !== "" && answer !== null)
+                );
+                const isCurrent = qNum === currentQuestion;
+                const isLocked = !canAccessQuestion(qNum);
+                const isVisible = qNum >= startQuestion && qNum <= endQuestion;
+
+                if (!isVisible) return null;
+
+                return (
+                  <button
+                    key={qNum}
+                    onClick={() => handleQuestionNavigate(qNum)}
+                    disabled={isLocked}
+                    className={`
+                      aspect-square rounded-lg border-2 font-semibold text-sm transition-all relative
+                      ${isCurrent ? "border-green-500 bg-green-500 text-white shadow-md scale-105" : ""}
+                      ${!isCurrent && isAnswered && !isLocked ? "border-green-300 bg-green-50 text-green-700" : ""}
+                      ${!isCurrent && !isAnswered && !isLocked ? "border-gray-300 bg-white text-gray-600 hover:border-[#1A73E8]/50" : ""}
+                      ${isLocked ? "border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed" : ""}
+                    `}
+                    title={isLocked ? "Enroll to unlock this question" : `Question ${qNum}`}
+                  >
+                    <span className="relative z-10">{qNum}</span>
+                    {isLocked && (
+                      <Lock className="absolute top-0.5 right-0.5 w-3.5 h-3.5 text-gray-500" strokeWidth={2.5} />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Navigator Pagination */}
+          {totalNavigatorPages > 1 && (
+            <div className="p-4 border-t border-gray-200 flex items-center justify-between">
+              <button
+                onClick={() => setNavigatorPage(prev => Math.max(1, prev - 1))}
+                disabled={navigatorPage === 1}
+                className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-300"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <span className="text-sm text-gray-600">Page {navigatorPage}/{totalNavigatorPages}</span>
+              <button
+                onClick={() => setNavigatorPage(prev => Math.min(totalNavigatorPages, prev + 1))}
+                disabled={navigatorPage === totalNavigatorPages}
+                className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-300"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Right Panel - Main Content */}
+        <div className="flex-1 flex flex-col bg-white">
+          {/* Progress Bar */}
+          <div className="px-6 py-4 border-b border-gray-200">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm text-gray-600">
+                Answered: {answeredCount}/{accessibleQuestions} ({Math.round(progressPercentage)}%)
+              </span>
+              {timeRemaining !== null && (
+                <div className="flex items-center gap-2 bg-[#1A73E8]/10 px-3 py-1 rounded-full">
+                  <Clock className="w-4 h-4 text-[#1A73E8]" />
+                  <span className="font-mono font-semibold text-[#0C1A35] text-sm">
+                    {formatTime(timeRemaining)}
+                  </span>
+                </div>
+              )}
+            </div>
+            <Progress value={progressPercentage} className="h-1" />
+          </div>
+
+          {/* Question Content */}
+          <div className="flex-1 overflow-y-auto px-6 py-6">
+            <div className="max-w-4xl">
+              <h2 className="text-2xl font-bold text-[#0C1A35] mb-2">
+                Q{currentQuestion}. {currentQuestionData.question_text || currentQuestionData.question}
+              </h2>
+              <div className="mb-6">
+                <span className="text-sm text-gray-600 bg-gray-100 px-3 py-1 rounded-full">
+                  {currentQuestionData.marks || 1} Mark
+                </span>
+              </div>
+
+              {/* Answer Options */}
+              <div className="space-y-3">
+                {isSingleChoice ? (
+                  <RadioGroup
+                    value={currentAnswer || ""}
+                    onValueChange={(value) => handleAnswerChange(value)}
+                  >
+                    {options.map((option, idx) => {
+                      const optionText = option.text || option;
+                      const optionValue = option.value || String.fromCharCode(65 + idx);
+
+                      return (
+                        <div
+                          key={idx}
+                          className="flex items-start space-x-3 p-4 border border-gray-200 rounded-lg hover:border-[#1A73E8]/50 transition-colors bg-white"
+                        >
+                          <RadioGroupItem
+                            value={optionText}
+                            id={`option-${idx}`}
+                            className="mt-1"
+                          />
+                          <Label
+                            htmlFor={`option-${idx}`}
+                            className="flex-1 cursor-pointer text-[#0C1A35] text-base leading-relaxed"
+                          >
+                            {optionValue}) {optionText}
+                          </Label>
+                        </div>
+                      );
+                    })}
+                  </RadioGroup>
+                ) : (
+                  options.map((option, idx) => {
+                    const optionText = option.text || option;
+                    const optionValue = option.value || String.fromCharCode(65 + idx);
+                    const isChecked = Array.isArray(currentAnswer) && currentAnswer.includes(optionText);
+
+                    return (
+                      <div
+                        key={idx}
+                        className="flex items-start space-x-3 p-4 border border-gray-200 rounded-lg hover:border-[#1A73E8]/50 transition-colors bg-white"
+                      >
+                        <Checkbox
+                          id={`option-${idx}`}
+                          checked={isChecked}
+                          onCheckedChange={(checked) => handleAnswerChange(optionText, checked)}
+                          className="mt-1"
+                        />
+                        <Label
+                          htmlFor={`option-${idx}`}
+                          className="flex-1 cursor-pointer text-[#0C1A35] text-base leading-relaxed"
+                        >
+                          {optionValue}) {optionText}
+                        </Label>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Navigation Buttons */}
+          <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
+            <Button
+              variant="outline"
+              onClick={handlePrevious}
+              disabled={currentQuestion === 1}
+              className="bg-gray-100 text-gray-700 hover:bg-gray-200 border-gray-300 min-w-24"
+            >
+              Previous
+            </Button>
+
+            <div className="flex items-center gap-3">
+              <Button
+                onClick={() => handleSubmit(false)}
+                disabled={isSubmitting}
+                className="bg-green-600 text-white hover:bg-green-700 min-w-32"
+              >
+                {isSubmitting ? 'Submitting...' : 'Submit Test'}
+              </Button>
+
+              {currentQuestion < accessibleQuestions && (
+                <Button
+                  onClick={handleNext}
+                  className="bg-[#1A73E8] text-white hover:bg-[#1557B0] min-w-32"
+                >
+                  Save & Next
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Upgrade Modal */}
+      <Dialog open={showUpgradeModal} onOpenChange={setShowUpgradeModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Unlock All Questions</DialogTitle>
+            <DialogDescription>
+              <div className="py-4">
+                <p className="mb-4">
+                  You've reached the free question limit. Enroll to access all {questions.length} questions.
+                </p>
+                <div className="flex gap-3">
+                  <Button onClick={() => setShowUpgradeModal(false)} variant="outline" className="flex-1">
+                    Continue Free Test
+                  </Button>
+                  <Button onClick={handleUpgradeClick} className="flex-1 bg-[#1A73E8] text-white hover:bg-[#1557B0]">
+                    Enroll Now
+                  </Button>
+                </div>
+              </div>
+            </DialogDescription>
+          </DialogHeader>
+        </DialogContent>
+      </Dialog>
+
+      {/* Login Prompt Modal */}
+      <Dialog open={showLoginPrompt} onOpenChange={setShowLoginPrompt}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Login Required</DialogTitle>
+            <DialogDescription>
+              <div className="py-4">
+                <p className="mb-6 text-gray-700">
+                  You need to login to start taking tests.
+                </p>
+                <div className="flex gap-3">
+                  <Button 
+                    onClick={() => setShowLoginPrompt(false)} 
+                    variant="outline" 
+                    className="flex-1"
+                  >
+                    Cancel
+                  </Button>
+                  <Button 
+                    onClick={() => router.push(`/auth/login?redirect=/exams/${provider}/${examCode}/practice/${testId}`)} 
+                    className="flex-1 bg-[#1A73E8] text-white hover:bg-[#1557B0]"
+                  >
+                    Login / Sign Up
+                  </Button>
+                </div>
+              </div>
+            </DialogDescription>
+          </DialogHeader>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}

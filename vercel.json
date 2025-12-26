@@ -1,0 +1,16 @@
+{
+  "framework":"nextjs",
+  "redirects": [
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.allexamquestions.com"
+        }
+      ],
+      "destination": "https://allexamquestions.com/:path*",
+      "permanent": true
+    }
+  ]
+}

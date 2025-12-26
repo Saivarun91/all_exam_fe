@@ -1,0 +1,35 @@
+{
+  "version": 1.1,
+  "atDirectives": [
+    {
+      "name": "@import",
+      "description": "Import external stylesheets"
+    },
+    {
+      "name": "@custom-variant",
+      "description": "Tailwind CSS v4 custom variant directive"
+    },
+    {
+      "name": "@theme",
+      "description": "Tailwind CSS v4 theme configuration directive"
+    },
+    {
+      "name": "@apply",
+      "description": "Tailwind CSS apply directive to inline utility classes"
+    },
+    {
+      "name": "@layer",
+      "description": "Tailwind CSS layer directive (base, components, utilities)"
+    }
+  ]
+}
+
+
+
+
+
+
+
+
+
+
