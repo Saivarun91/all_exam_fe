@@ -1,13 +1,12 @@
 "use client";
 
 import { useEffect, useState, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 function TermsAndConditionsContent() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [content, setContent] = useState("");
   const [metaTitle, setMetaTitle] = useState("");
   const [metaKeywords, setMetaKeywords] = useState("");
@@ -15,12 +14,26 @@ function TermsAndConditionsContent() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
+  // Remove query parameters from URL on mount
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      if (url.searchParams.has("from")) {
+        // Remove query parameters from URL without reloading
+        const cleanUrl = url.pathname;
+        window.history.replaceState({}, "", cleanUrl);
+      }
+    }
+  }, []);
+
   const handleBack = () => {
     if (typeof window !== "undefined") {
-      // Check if user came from signup page
-      const fromSignup = searchParams?.get("from") === "signup";
+      // Check if user came from signup page using sessionStorage
+      const fromSignup = sessionStorage.getItem("fromSignup") === "true";
       
       if (fromSignup) {
+        // Clear the sessionStorage flag
+        sessionStorage.removeItem("fromSignup");
         // Navigate back to signup page
         router.push("/auth/signup");
       } else {
@@ -46,7 +59,7 @@ function TermsAndConditionsContent() {
         }
         
         const result = await res.json();
-        
+        console.log(result);
         if (result.success) {
           setContent(result.content || "Terms & conditions content will be updated by admin.");
           setMetaTitle(result.meta_title || "");

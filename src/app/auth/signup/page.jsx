@@ -305,10 +305,14 @@ function SignupPageContent() {
                       <label htmlFor="terms" className="text-sm text-gray-600 cursor-pointer leading-relaxed">
                         I agree to the{" "}
                         <Link
-                          href="/terms-and-conditions?from=signup"
-                          target="_blank"
+                          href="/terms-and-conditions"
                           className="text-blue-600 hover:underline font-medium"
-                          onClick={(e) => e.stopPropagation()}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (typeof window !== "undefined") {
+                              sessionStorage.setItem("fromSignup", "true");
+                            }
+                          }}
                         >
                           Terms of Service
                         </Link>
@@ -324,10 +328,14 @@ function SignupPageContent() {
                       <label htmlFor="privacy" className="text-sm text-gray-600 cursor-pointer leading-relaxed">
                         I agree to the{" "}
                         <Link
-                          href="/privacy-policy?from=signup"
-                          target="_blank"
+                          href="/privacy-policy"
                           className="text-blue-600 hover:underline font-medium"
-                          onClick={(e) => e.stopPropagation()}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (typeof window !== "undefined") {
+                              sessionStorage.setItem("fromSignup", "true");
+                            }
+                          }}
                         >
                           Privacy Policy
                         </Link>
