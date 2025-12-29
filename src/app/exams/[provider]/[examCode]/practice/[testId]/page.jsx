@@ -62,7 +62,7 @@ export default function TestPlayerPage() {
     setIsLoggedIn(!!token);
   }, []);
 
-  // Check enrollment status - optimized
+  // Check enrollment status
   useEffect(() => {
     const checkEnrollment = async () => {
       const token = getAuthToken();
@@ -96,18 +96,16 @@ export default function TestPlayerPage() {
     }
   }, [exam]);
 
-  // Fetch exam and questions - optimized with parallel fetching
+  // Fetch exam and questions
   useEffect(() => {
     if (!provider || !examCode) return;
 
     const fetchData = async () => {
       try {
-        // Normalize slug
         const normalizedProvider = provider.toLowerCase().replace(/_/g, '-');
         const normalizedExamCode = examCode.toLowerCase().replace(/_/g, '-');
         const slug = `${normalizedProvider}-${normalizedExamCode}`;
         
-        // Fetch exam data
         const examRes = await fetch(`${API_BASE_URL}/api/courses/exams/${slug}/`, {
           method: 'GET',
           headers: { 'Content-Type': 'application/json' },
@@ -121,7 +119,6 @@ export default function TestPlayerPage() {
         const examData = await examRes.json();
         setExam(examData);
 
-        // Fetch questions in parallel (don't wait for enrollment check)
         if (examData.id && testId) {
           const questionsRes = await fetch(`${API_BASE_URL}/api/questions/test/${examData.id}/${testId}/`, {
             method: 'GET',
@@ -187,24 +184,16 @@ export default function TestPlayerPage() {
     return `${mins} mins`;
   };
 
-  // Helper function to parse duration (handles both number and string formats)
   const parseDuration = (duration) => {
-    if (!duration) return 30; // Default 30 minutes
-    
-    if (typeof duration === 'number') {
-      return duration;
-    }
-    
+    if (!duration) return 30;
+    if (typeof duration === 'number') return duration;
     if (typeof duration === 'string') {
-      // Extract number from string (e.g., "90 minutes" -> 90, "5400 mins" -> 5400)
       const match = duration.match(/\d+/);
       return match ? parseInt(match[0]) : 30;
     }
-    
-    return 30; // Default fallback
+    return 30;
   };
 
-  // Helper function to format duration for display
   const formatDurationDisplay = (duration) => {
     const minutes = parseDuration(duration);
     return `${minutes} mins`;
@@ -218,18 +207,17 @@ export default function TestPlayerPage() {
     if (!canAccessQuestion(currentQuestion)) return;
     
     const currentQuestionData = questions[currentQuestion - 1];
-    const isSingle = currentQuestionData?.question_type === "single";
+    const questionType = currentQuestionData?.question_type?.toLowerCase();
+    const correctAnswersCount = currentQuestionData?.correct_answers?.length || 0;
+    const isSingle = questionType === "single" || (questionType !== "multiple" && correctAnswersCount <= 1);
     
     if (isSingle) {
-      // For single choice, just set the value directly
       setAnswers({ ...answers, [currentQuestion]: optionText });
     } else {
-      // For multiple choice, handle array
       const currentAnswers = Array.isArray(answers[currentQuestion]) ? answers[currentQuestion] : [];
       let newAnswers;
       
       if (checked === null) {
-        // Called from RadioGroup (single value)
         newAnswers = [optionText];
       } else if (checked) {
         newAnswers = [...currentAnswers, optionText];
@@ -251,7 +239,6 @@ export default function TestPlayerPage() {
     
     if (currentQuestion < questions.length) {
       setCurrentQuestion(nextQuestion);
-      // Update navigator page if needed
       const newPage = Math.ceil(nextQuestion / QUESTIONS_PER_PAGE);
       if (newPage !== navigatorPage) {
         setNavigatorPage(newPage);
@@ -262,7 +249,6 @@ export default function TestPlayerPage() {
   const handlePrevious = () => {
     if (currentQuestion > 1) {
       setCurrentQuestion(currentQuestion - 1);
-      // Update navigator page if needed
       const newPage = Math.ceil((currentQuestion - 1) / QUESTIONS_PER_PAGE);
       if (newPage !== navigatorPage) {
         setNavigatorPage(newPage);
@@ -276,7 +262,6 @@ export default function TestPlayerPage() {
       return;
     }
     setCurrentQuestion(questionNum);
-    // Update navigator page
     const newPage = Math.ceil(questionNum / QUESTIONS_PER_PAGE);
     setNavigatorPage(newPage);
   };
@@ -288,7 +273,6 @@ export default function TestPlayerPage() {
       if (qNum > limit) return false;
       const answer = answers[q];
       if (!answer) return false;
-      // Handle both single (string) and multiple (array) answer formats
       if (Array.isArray(answer)) {
         return answer.length > 0;
       }
@@ -309,13 +293,11 @@ export default function TestPlayerPage() {
       const confirmed = confirm(
         `You have answered ${answeredCount} out of ${totalAccessible} questions. Are you sure you want to submit?`
       );
-      
       if (!confirmed) return;
     }
 
-    // Check if we have an attempt_id
     if (!attemptId) {
-      console.error('[TestPlayer] No attempt_id found. Cannot submit test.');
+      console.error('[TestPlayer] No attempt_id found.');
       alert('Error: Test attempt not found. Please start the test again.');
       return;
     }
@@ -330,7 +312,6 @@ export default function TestPlayerPage() {
         return;
       }
 
-      // Format user answers for the API - optimized
       const userAnswers = [];
       const accessibleQuestions = questions.slice(0, totalAccessible);
       
@@ -342,7 +323,6 @@ export default function TestPlayerPage() {
         
         if (!questionId) continue;
         
-        // Handle both single (string) and multiple (array) answer formats
         const selectedAnswers = Array.isArray(userAnswer) 
           ? userAnswer.map(ans => String(ans))
           : (userAnswer && userAnswer !== "") ? [String(userAnswer)] : [];
@@ -353,7 +333,6 @@ export default function TestPlayerPage() {
         });
       }
 
-      // Submit test attempt to backend
       const submitResponse = await fetch(`${API_BASE_URL}/api/exams/attempt/${attemptId}/submit/`, {
         method: 'POST',
         headers: {
@@ -369,11 +348,9 @@ export default function TestPlayerPage() {
         let errorMessage = 'Error submitting test. Please try again.';
         try {
           const errorData = await submitResponse.json();
-          console.error('[TestPlayer] Failed to submit test:', errorData);
           errorMessage = errorData.message || errorMessage;
         } catch (parseError) {
           const errorText = await submitResponse.text().catch(() => 'Unknown error');
-          console.error('[TestPlayer] Failed to parse error response:', parseError, errorText);
           errorMessage = `Server error (${submitResponse.status}): ${errorText || 'Please try again.'}`;
         }
         alert(errorMessage);
@@ -385,7 +362,6 @@ export default function TestPlayerPage() {
       try {
         submitData = await submitResponse.json();
       } catch (parseError) {
-        const responseText = await submitResponse.text().catch(() => 'Unknown error');
         alert('Error: Invalid response from server. Please try again.');
         setIsSubmitting(false);
         return;
@@ -397,7 +373,6 @@ export default function TestPlayerPage() {
         return;
       }
 
-      // Calculate results efficiently
       let unanswered = 0;
       for (let i = 1; i <= totalAccessible; i++) {
         const userAnswer = answers[i];
@@ -427,7 +402,6 @@ export default function TestPlayerPage() {
         attemptId: attemptId
       };
       
-      // Store results and redirect immediately
       if (typeof window !== 'undefined') {
         sessionStorage.setItem('testResults', JSON.stringify(testResults));
         sessionStorage.setItem('userAnswers', JSON.stringify(answers));
@@ -435,7 +409,6 @@ export default function TestPlayerPage() {
         sessionStorage.setItem('attemptId', attemptId);
       }
       
-      // Redirect immediately without waiting
       router.push(`/test-review/${provider}/${examCode}`);
       setIsSubmitting(false);
     } catch (error) {
@@ -449,7 +422,98 @@ export default function TestPlayerPage() {
     router.push(`/exams/${provider}/${examCode}/practice/pricing`);
   };
 
-  // Loading state - only show if exam is not loaded yet
+  const handleStartTest = async () => {
+    if (!isLoggedIn) {
+      setShowLoginPrompt(true);
+      return;
+    }
+    if (questions.length === 0 && !loading) {
+      return;
+    }
+
+    const token = getAuthToken();
+    if (!token) {
+      setShowLoginPrompt(true);
+      return;
+    }
+
+    if (token.split('.').length !== 3) {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('token');
+      }
+      setShowLoginPrompt(true);
+      return;
+    }
+
+    try {
+      const examId = exam.id ? String(exam.id) : null;
+      
+      if (!examId) {
+        alert('Error: Could not find exam information. Please try again.');
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/exams/attempt/get-or-create/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          exam_id: examId,
+          test_id: String(testId)
+        })
+      });
+
+      const responseText = await response.text();
+
+      if (!response.ok) {
+        let errorMessage = 'Error starting test. Please try again.';
+        let errorData = {};
+        
+        try {
+          errorData = JSON.parse(responseText);
+        } catch (jsonError) {
+          errorMessage = responseText || `Server error (${response.status})`;
+        }
+        
+        if (errorData && typeof errorData === 'object' && Object.keys(errorData).length > 0) {
+          errorMessage = errorData.message || errorData.error || errorMessage;
+        }
+        
+        if (response.status === 401) {
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem('token');
+          }
+          setShowLoginPrompt(true);
+          return;
+        }
+        
+        alert(errorMessage);
+        return;
+      }
+
+      let attemptData;
+      try {
+        attemptData = JSON.parse(responseText);
+      } catch (parseError) {
+        alert('Invalid response from server. Please try again.');
+        return;
+      }
+      
+      if (attemptData.success && attemptData.attempt_id) {
+        setAttemptId(attemptData.attempt_id);
+        setTestStarted(true);
+      } else {
+        const errorMsg = attemptData.message || 'Invalid response from server. Please try again.';
+        alert(errorMsg);
+      }
+    } catch (error) {
+      const errorMsg = error.message || 'Network error. Please check your connection and try again.';
+      alert(errorMsg);
+    }
+  };
+
   if (loading && !exam) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
@@ -461,7 +525,6 @@ export default function TestPlayerPage() {
     );
   }
 
-  // Error state - only show if we're done loading and exam is not found
   if ((error || !exam) && !loading) {
     return (
       <div className="min-h-screen bg-white">
@@ -472,45 +535,7 @@ export default function TestPlayerPage() {
           <p className="text-[#0C1A35]/70 mb-2">
             {errorMessage || "The exam you're looking for doesn't exist or has been moved."}
           </p>
-          {errorMessage && errorMessage.includes('connect') && (
-            <p className="text-sm text-[#0C1A35]/50 mb-4">
-              API URL: {API_BASE_URL}
-            </p>
-          )}
-          <p className="text-sm text-[#0C1A35]/50 mb-6">
-            Provider: {provider}, Exam Code: {examCode}
-          </p>
-          <div className="flex gap-3 justify-center">
-            <Button 
-              onClick={() => {
-                setError(false);
-                setErrorMessage(null);
-                setLoading(true);
-                // Retry fetching
-                const fetchData = async () => {
-                  try {
-                    const normalizedProvider = provider.toLowerCase().replace(/_/g, '-');
-                    const normalizedExamCode = examCode.toLowerCase().replace(/_/g, '-');
-                    const slug = `${normalizedProvider}-${normalizedExamCode}`;
-                    const examRes = await fetch(`${API_BASE_URL}/api/courses/exams/${slug}/`);
-                    if (examRes.ok) {
-                      const examData = await examRes.json();
-                      setExam(examData);
-                      setError(false);
-                    }
-                  } catch (err) {
-                    setErrorMessage(err.message);
-                    setError(true);
-                  } finally {
-                    setLoading(false);
-                  }
-                };
-                fetchData();
-              }}
-              className="bg-[#1A73E8] text-white hover:bg-[#1557B0]"
-            >
-              Retry
-            </Button>
+          <div className="flex gap-3 justify-center mt-6">
             <Button asChild variant="outline">
               <Link href="/exams">Return to Exams</Link>
             </Button>
@@ -523,7 +548,6 @@ export default function TestPlayerPage() {
     );
   }
   
-  // Still loading exam
   if (!exam && loading) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
@@ -535,25 +559,25 @@ export default function TestPlayerPage() {
     );
   }
 
-  // Find the specific test
   const practiceTests = exam.practice_tests_list || [];
   let currentTest = null;
   
-  // Try to find test by slug first (SEO-friendly)
   if (practiceTests.length > 0) {
-    currentTest = practiceTests.find(t => {
-      return t.slug === testId;
-    });
+    // Remove ObjectId hash from testId for matching (e.g., "test-name-694e3de3" -> "test-name")
+    const testIdWithoutHash = testId && typeof testId === 'string' ? testId.replace(/-[a-f0-9]{8}$/i, '') : testId;
     
-    // If not found by slug, try by ID
+    // Try exact match first
+    currentTest = practiceTests.find(t => t.slug === testId);
     if (!currentTest) {
+      // Try match without hash (e.g., "test-name" matches "test-name-694e3de3")
       currentTest = practiceTests.find(t => {
-        const testIdStr = String(t.id || t._id || '');
-        return testIdStr === String(testId);
+        const slugWithoutHash = t.slug && typeof t.slug === 'string' ? t.slug.replace(/-[a-f0-9]{8}$/i, '') : t.slug;
+        return slugWithoutHash === testIdWithoutHash || slugWithoutHash === testId;
       });
     }
-    
-    // If not found by ID, try by index (testId is 1-based) for backward compatibility
+    if (!currentTest) {
+      currentTest = practiceTests.find(t => String(t.id || t._id || '') === String(testId));
+    }
     if (!currentTest && testId) {
       const testIndex = parseInt(testId) - 1;
       if (testIndex >= 0 && testIndex < practiceTests.length) {
@@ -562,7 +586,6 @@ export default function TestPlayerPage() {
     }
   }
   
-  // Create a default test object if not found
   if (!currentTest) {
     currentTest = {
       id: testId,
@@ -573,8 +596,6 @@ export default function TestPlayerPage() {
     };
   }
 
-  // Don't block if questions are still loading but exam is loaded
-  // Show the pre-test screen even if questions aren't loaded yet
   if (questions.length === 0 && !loading) {
     return (
       <div className="min-h-screen bg-white">
@@ -593,161 +614,10 @@ export default function TestPlayerPage() {
     );
   }
 
-  // Pre-test instructions screen
-  const handleStartTest = async () => {
-    if (!isLoggedIn) {
-      setShowLoginPrompt(true);
-      return;
-    }
-    // Only allow starting if we have questions
-    if (questions.length === 0 && !loading) {
-      return;
-    }
-
-    // Create or get test attempt
-    const token = getAuthToken();
-    if (!token) {
-      console.log('[TestPlayer] No token found, showing login prompt');
-      setShowLoginPrompt(true);
-      return;
-    }
-
-    // Validate token format (basic check)
-    if (token.split('.').length !== 3) {
-      console.error('[TestPlayer] Invalid token format');
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('token');
-      }
-      setShowLoginPrompt(true);
-      return;
-    }
-
-    try {
-      // The backend can handle test_id as either an ObjectId or an index (1-based)
-      // Pass exam_id (Course ID) and test_id (from URL, could be "1" or ObjectId)
-      // The backend will find the PracticeTest from the course's practice_tests_list
-      const examId = exam.id ? String(exam.id) : null;
-      
-      if (!examId) {
-        console.error('[TestPlayer] Exam ID not found');
-        alert('Error: Could not find exam information. Please try again.');
-        return;
-      }
-
-      // Call get_or_create_test_attempt API
-      // Backend will handle finding PracticeTest from exam_id + test_id
-      // Don't pass category_id - let backend find it from exam_id + test_id
-      console.log('[TestPlayer] Creating test attempt:', { examId, testId });
-      
-      const response = await fetch(`${API_BASE_URL}/api/exams/attempt/get-or-create/`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          exam_id: examId, // Course ID
-          test_id: String(testId) // Can be "1" (index) or ObjectId - backend will handle it
-        })
-      });
-
-      console.log('[TestPlayer] Response status:', response.status, response.statusText);
-
-      // Read response once - check if it's ok first
-      const responseText = await response.text();
-      console.log('[TestPlayer] Response text:', responseText);
-
-      if (!response.ok) {
-        let errorMessage = 'Error starting test. Please try again.';
-        let errorData = {};
-        
-        try {
-          // Try to parse as JSON
-          errorData = JSON.parse(responseText);
-          console.error('[TestPlayer] Failed to create/get test attempt:', errorData);
-        } catch (jsonError) {
-          // If not JSON, use the text as error message
-          console.error('[TestPlayer] Response is not JSON:', jsonError);
-          errorMessage = responseText || `Server error (${response.status}): ${response.statusText}`;
-        }
-        
-        // Extract error message from parsed data
-        if (errorData && typeof errorData === 'object' && Object.keys(errorData).length > 0) {
-          errorMessage = errorData.message || errorData.error || errorMessage;
-        }
-        
-        // Handle specific error cases
-        if (response.status === 401) {
-          errorMessage = errorMessage || 'Authentication required. Please log in.';
-          if (typeof window !== 'undefined') {
-            localStorage.removeItem('token');
-          }
-          setShowLoginPrompt(true);
-          return;
-        }
-        
-        if (response.status === 404) {
-          // Check if it's a user not found error
-          const lowerMessage = errorMessage.toLowerCase();
-          if (lowerMessage.includes('user') || lowerMessage.includes('account') || lowerMessage.includes('not found')) {
-            errorMessage = 'Your session has expired or your account was not found. Please log in again.';
-            // Clear invalid token and show login prompt
-            if (typeof window !== 'undefined') {
-              localStorage.removeItem('token');
-            }
-            setShowLoginPrompt(true);
-            return;
-          }
-          errorMessage = errorMessage || 'Test not found. Please check if the test exists.';
-        }
-        
-        if (response.status === 400) {
-          errorMessage = errorMessage || 'Invalid request. Please check your input.';
-        }
-        
-        if (response.status === 500) {
-          errorMessage = errorMessage || 'Server error. Please try again later.';
-        }
-        
-        console.error('[TestPlayer] Final error message:', errorMessage);
-        alert(errorMessage);
-        return;
-      }
-
-      // Parse successful response
-      let attemptData;
-      try {
-        attemptData = JSON.parse(responseText);
-        console.log('[TestPlayer] Attempt data received:', attemptData);
-      } catch (parseError) {
-        console.error('[TestPlayer] Failed to parse success response:', parseError);
-        alert('Invalid response from server. Please try again.');
-        return;
-      }
-      
-      if (attemptData.success && attemptData.attempt_id) {
-        setAttemptId(attemptData.attempt_id);
-        console.log('[TestPlayer] Test attempt created/retrieved:', attemptData.attempt_id);
-        setTestStarted(true);
-      } else {
-        console.error('[TestPlayer] Invalid response from get_or_create_test_attempt:', attemptData);
-        const errorMsg = attemptData.message || 'Invalid response from server. Please try again.';
-        alert(errorMsg);
-      }
-    } catch (error) {
-      console.error('[TestPlayer] Error creating/getting test attempt:', error);
-      const errorMsg = error.message || 'Network error. Please check your connection and try again.';
-      alert(errorMsg);
-    }
-  };
-
-  // Show pre-test screen if test hasn't started
-  // Also show it if questions are still loading
   if (!testStarted || (questions.length === 0 && loading)) {
     return (
       <div className="min-h-screen bg-gray-50">
         <div className="container mx-auto px-4 py-8 max-w-5xl">
-          {/* Back Button */}
           <div className="mb-4">
             <Button
               variant="ghost"
@@ -814,9 +684,11 @@ export default function TestPlayerPage() {
     );
   }
 
-  // Test in progress
   const currentQuestionData = questions[currentQuestion - 1];
-  const isSingleChoice = currentQuestionData?.question_type === "single";
+  const questionType = currentQuestionData?.question_type?.toLowerCase();
+  const correctAnswersCount = currentQuestionData?.correct_answers?.length || 0;
+  const isSingleChoice = questionType === "single" || 
+    (questionType !== "multiple" && correctAnswersCount <= 1);
   const currentAnswer = isSingleChoice 
     ? (answers[currentQuestion] || "") 
     : (Array.isArray(answers[currentQuestion]) ? answers[currentQuestion] : []);
@@ -825,7 +697,6 @@ export default function TestPlayerPage() {
   const answeredCount = getAnsweredCount();
   const progressPercentage = (answeredCount / accessibleQuestions) * 100;
 
-  // Get options - handle both array format and option_a, option_b format
   const getOptions = () => {
     if (currentQuestionData.options && Array.isArray(currentQuestionData.options)) {
       return currentQuestionData.options;
@@ -841,14 +712,12 @@ export default function TestPlayerPage() {
   };
 
   const options = getOptions();
-  // Show ALL questions in navigator, not just accessible ones
   const totalNavigatorPages = Math.ceil(totalQuestions / QUESTIONS_PER_PAGE);
   const startQuestion = (navigatorPage - 1) * QUESTIONS_PER_PAGE + 1;
   const endQuestion = Math.min(navigatorPage * QUESTIONS_PER_PAGE, totalQuestions);
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
-      {/* Top Banner - Dark Blue */}
       <div className="bg-gradient-to-r from-[#0C1A35] to-[#0E2444] text-white px-6 py-4">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -873,7 +742,6 @@ export default function TestPlayerPage() {
       </div>
 
       <div className="flex-1 flex">
-        {/* Left Panel - Question Navigator */}
         <div className="w-64 bg-white border-r border-gray-200 flex flex-col">
           <div className="p-4 border-b border-gray-200">
             <div className="flex items-center gap-2 mb-3">
@@ -940,7 +808,6 @@ export default function TestPlayerPage() {
             </div>
           </div>
 
-          {/* Navigator Pagination */}
           {totalNavigatorPages > 1 && (
             <div className="p-4 border-t border-gray-200 flex items-center justify-between">
               <button
@@ -962,9 +829,7 @@ export default function TestPlayerPage() {
           )}
         </div>
 
-        {/* Right Panel - Main Content */}
         <div className="flex-1 flex flex-col bg-white">
-          {/* Progress Bar */}
           <div className="px-6 py-4 border-b border-gray-200">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm text-gray-600">
@@ -982,7 +847,6 @@ export default function TestPlayerPage() {
             <Progress value={progressPercentage} className="h-1" />
           </div>
 
-          {/* Question Content */}
           <div className="flex-1 overflow-y-auto px-6 py-6">
             <div className="max-w-4xl">
               <h2 className="text-2xl font-bold text-[#0C1A35] mb-2">
@@ -994,7 +858,6 @@ export default function TestPlayerPage() {
                 </span>
               </div>
 
-              {/* Answer Options */}
               <div className="space-y-3">
                 {isSingleChoice ? (
                   <RadioGroup
@@ -1056,7 +919,6 @@ export default function TestPlayerPage() {
             </div>
           </div>
 
-          {/* Navigation Buttons */}
           <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
             <Button
               variant="outline"
@@ -1089,7 +951,6 @@ export default function TestPlayerPage() {
         </div>
       </div>
 
-      {/* Upgrade Modal */}
       <Dialog open={showUpgradeModal} onOpenChange={setShowUpgradeModal}>
         <DialogContent>
           <DialogHeader>
@@ -1113,7 +974,6 @@ export default function TestPlayerPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Login Prompt Modal */}
       <Dialog open={showLoginPrompt} onOpenChange={setShowLoginPrompt}>
         <DialogContent>
           <DialogHeader>
@@ -1146,3 +1006,4 @@ export default function TestPlayerPage() {
     </div>
   );
 }
+

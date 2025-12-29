@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, BookOpen, Clock, Target, Award, CheckCircle2, Star, TrendingUp, Users } from "lucide-react";
+import { ArrowLeft, BookOpen, Clock, Target, Award, CheckCircle2, Star, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -46,7 +46,12 @@ export default function PracticePage() {
   // Handle Start Test button click
   const handleStartTest = (test) => {
     // Use slug if available, otherwise fallback to id or index
-    const testIdentifier = test.slug || test.id || test;
+    let testIdentifier = test.slug || test.id || test;
+    // Remove ObjectId hash from slug (e.g., "test-name-694e3de3" -> "test-name")
+    if (testIdentifier && typeof testIdentifier === 'string') {
+      // Match pattern: ends with hyphen followed by 8 hex characters (ObjectId hash)
+      testIdentifier = testIdentifier.replace(/-[a-f0-9]{8}$/i, '');
+    }
     const testUrl = `/exams/${provider}/${examCode}/practice/${testIdentifier}`;
     
     if (!checkLogin()) {
@@ -166,7 +171,6 @@ console.log("practice exams :",practiceTests)
     passRate: exam.pass_rate || 90,
     rating: exam.rating || 4.5,
     reviews: 2847, // Could be added to backend model later
-    learners: 145000, // Could be added to backend model later
     practiceTests: exam.practice_exams || 0,
     totalQuestions: calculatedTotalQuestions || exam.questions || 0,
     duration: exam.duration || "130 minutes",
@@ -248,10 +252,6 @@ console.log("practice exams :",practiceTests)
               <TrendingUp className="w-4 h-4 text-green-500" />
               <span className="text-green-600 font-semibold">{examData.passRate}% Pass Rate</span>
             </div>
-            <div className="flex items-center gap-1">
-              <Users className="w-4 h-4 text-[#1A73E8]" />
-              <span>{examData.learners.toLocaleString()}+ learners</span>
-            </div>
           </div>
           <div className="mt-6">
             <Button
@@ -272,7 +272,7 @@ console.log("practice exams :",practiceTests)
             <CardTitle className="text-[#0C1A35]">About This Exam</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-[#0C1A35]/80 leading-relaxed">{examData.about}</p>
+            <p className="text-[#0C1A35]/80 leading-relaxed whitespace-pre-line">{examData.about}</p>
           </CardContent>
         </Card>
 
@@ -299,7 +299,7 @@ console.log("practice exams :",practiceTests)
             <CardTitle className="text-[#0C1A35]">Why This Exam Matters</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-[#0C1A35]/80 leading-relaxed">{examData.whyMatters}</p>
+            <p className="text-[#0C1A35]/80 leading-relaxed whitespace-pre-line">{examData.whyMatters}</p>
           </CardContent>
         </Card>
 

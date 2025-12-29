@@ -62,7 +62,12 @@ export default function ExamDetailsPage() {
   const handleStartTest = (test, index = 0, practiceUrl) => {
     const { provider, examCode } = getProviderAndCode();
     // Use slug if available, otherwise fallback to id or index
-    const testIdentifier = (test && test.slug) ? test.slug : (test && test.id) ? test.id : (test || index + 1);
+    let testIdentifier = (test && test.slug) ? test.slug : (test && test.id) ? test.id : (test || index + 1);
+    // Remove ObjectId hash from slug (e.g., "test-name-694e3de3" -> "test-name")
+    if (testIdentifier && typeof testIdentifier === 'string') {
+      // Match pattern: ends with hyphen followed by 8 hex characters (ObjectId hash)
+      testIdentifier = testIdentifier.replace(/-[a-f0-9]{8}$/i, '');
+    }
     const testUrl = practiceUrl ? `${practiceUrl}/${testIdentifier}` : `/exams/${provider}/${examCode}/practice/${testIdentifier}`;
     
     if (!checkLogin()) {
@@ -262,10 +267,6 @@ export default function ExamDetailsPage() {
                   <span className="text-sm font-semibold">{exam.pass_rate}% Pass Rate</span>
                 </div>
               )}
-              <div className="flex items-center gap-2 text-[#0C1A35]/70">
-                <Users className="w-4 h-4" />
-                <span className="text-sm">145,000+ learners</span>
-              </div>
             </div>
 
             {/* About Section */}

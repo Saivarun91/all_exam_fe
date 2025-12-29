@@ -171,7 +171,17 @@ export default function CategoryPage() {
                   {/* Stats */}
                   <div className="pt-2">
                     <p className="text-sm text-[#0C1A35]/60">
-                      {course.practice_exams || 0} Practice Exams · {course.questions || 0} Questions
+                      {course.practice_exams || 0} Practice Exams · {(() => {
+                        // Calculate total questions from practice tests list if available
+                        if (course.practice_tests_list && Array.isArray(course.practice_tests_list) && course.practice_tests_list.length > 0) {
+                          const totalQuestions = course.practice_tests_list.reduce((sum, test) => {
+                            const testQuestions = parseInt(test.questions) || 0;
+                            return sum + testQuestions;
+                          }, 0);
+                          return totalQuestions > 0 ? totalQuestions : (course.questions || 0);
+                        }
+                        return course.questions || 0;
+                      })()} Questions
                     </p>
                   </div>
 

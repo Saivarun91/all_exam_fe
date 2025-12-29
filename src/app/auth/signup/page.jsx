@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, Suspense } from "react";
+import { useState, useEffect, useRef, useCallback, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
@@ -9,8 +9,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { GraduationCap, Mail, Lock, User, Phone } from "lucide-react";
+import { GraduationCap, Mail, Lock, User, Phone, Eye, EyeOff } from "lucide-react";
 import ReCAPTCHA from "react-google-recaptcha";
+import { useLogoUrl } from "@/hooks/useLogoUrl";
 
 // ----------------------- API URLs -----------------------
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
@@ -18,6 +19,7 @@ const USER_REGISTER_URL = `${API_BASE_URL}/api/users/register/`;
 
 function SignupPageContent() {
   const router = useRouter();
+  const logoUrl = useLogoUrl();
 
   const [isLoading, setIsLoading] = useState(false);
   const [signupName, setSignupName] = useState("");
@@ -33,6 +35,58 @@ function SignupPageContent() {
   const [captchaToken, setCaptchaToken] = useState(null);
   const captchaRef = useRef(null);
 
+  // Password visibility states
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  // Save form data to sessionStorage
+  const saveFormData = useCallback(() => {
+    if (typeof window !== "undefined") {
+      const formData = {
+        signupName,
+        signupEmail,
+        signupPassword,
+        signupConfirmPassword,
+        signupPhone,
+        acceptedTerms,
+        acceptedPrivacy,
+      };
+      sessionStorage.setItem("signupFormData", JSON.stringify(formData));
+    }
+  }, [signupName, signupEmail, signupPassword, signupConfirmPassword, signupPhone, acceptedTerms, acceptedPrivacy]);
+
+  // Restore form data from sessionStorage
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const savedData = sessionStorage.getItem("signupFormData");
+      if (savedData) {
+        try {
+          const formData = JSON.parse(savedData);
+          setSignupName(formData.signupName || "");
+          setSignupEmail(formData.signupEmail || "");
+          setSignupPassword(formData.signupPassword || "");
+          setSignupConfirmPassword(formData.signupConfirmPassword || "");
+          setSignupPhone(formData.signupPhone || "");
+          setAcceptedTerms(formData.acceptedTerms || false);
+          setAcceptedPrivacy(formData.acceptedPrivacy || false);
+          // Clear the saved data after restoring
+          sessionStorage.removeItem("signupFormData");
+        } catch (err) {
+          console.error("Error restoring form data:", err);
+        }
+      }
+    }
+  }, []);
+
+  // Save form data whenever it changes (debounced)
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const timeoutId = setTimeout(() => {
+        saveFormData();
+      }, 500); // Debounce: save after 500ms of no changes
+      return () => clearTimeout(timeoutId);
+    }
+  }, [saveFormData]);
 
   // Handle reCAPTCHA change
   const handleCaptchaChange = (token) => {
@@ -115,6 +169,11 @@ function SignupPageContent() {
 
       if (res.ok) {
         alert("✅ Registration successful! Please login now.");
+        // Clear saved form data on successful signup
+        if (typeof window !== "undefined") {
+          sessionStorage.removeItem("signupFormData");
+          sessionStorage.removeItem("fromSignup");
+        }
         router.push("/auth/login");
         setSignupName("");
         setSignupEmail("");
@@ -162,15 +221,26 @@ function SignupPageContent() {
             className="flex flex-col justify-center text-center lg:text-left space-y-6"
           >
             <div className="inline-flex items-center gap-3 justify-center lg:justify-start">
-              <div className="p-3 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl shadow-lg">
-                <GraduationCap className="h-8 w-8 text-white" />
-              </div>
-              <h1 className="text-3xl font-bold text-gray-800">
-                AllExam
-                <span className="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                  Questions
-                </span>
-              </h1>
+              {logoUrl ? (
+                <img 
+                  src={logoUrl}
+                  alt="AllExamQuestions Logo" 
+                  className="h-14 md:h-16 lg:h-20 w-auto object-contain max-w-[200px] md:max-w-[240px] lg:max-w-[280px]"
+                  loading="lazy"
+                />
+              ) : (
+                <div className="p-3 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl shadow-lg">
+                  <GraduationCap className="h-8 w-8 text-white" />
+                </div>
+              )}
+              {!logoUrl && (
+                <h1 className="text-3xl font-bold text-gray-800">
+                  AllExam
+                  <span className="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                    Questions
+                  </span>
+                </h1>
+              )}
             </div>
             <h2 className="text-4xl lg:text-5xl font-bold text-gray-900 leading-tight">
               Start Your Success Journey Today
@@ -264,16 +334,30 @@ function SignupPageContent() {
                       <Lock className="w-4 h-4" />
                       Password *
                     </Label>
-                    <Input 
-                      id="password"
-                      type="password" 
-                      value={signupPassword} 
-                      onChange={(e) => setSignupPassword(e.target.value)} 
-                      required 
-                      minLength={6}
-                      placeholder="Create a password (min. 6 characters)" 
-                      className="mt-2 h-11"
-                    />
+                    <div className="relative mt-2">
+                      <Input 
+                        id="password"
+                        type={showPassword ? "text" : "password"} 
+                        value={signupPassword} 
+                        onChange={(e) => setSignupPassword(e.target.value)} 
+                        required 
+                        minLength={6}
+                        placeholder="Create a password (min. 6 characters)" 
+                        className="h-11 pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 focus:outline-none"
+                        aria-label={showPassword ? "Hide password" : "Show password"}
+                      >
+                        {showPassword ? (
+                          <EyeOff className="w-5 h-5" />
+                        ) : (
+                          <Eye className="w-5 h-5" />
+                        )}
+                      </button>
+                    </div>
                   </div>
                   
                   <div>
@@ -281,16 +365,30 @@ function SignupPageContent() {
                       <Lock className="w-4 h-4" />
                       Confirm Password *
                     </Label>
-                    <Input 
-                      id="confirmPassword"
-                      type="password" 
-                      value={signupConfirmPassword} 
-                      onChange={(e) => setSignupConfirmPassword(e.target.value)} 
-                      required 
-                      minLength={6}
-                      placeholder="Confirm your password" 
-                      className="mt-2 h-11"
-                    />
+                    <div className="relative mt-2">
+                      <Input 
+                        id="confirmPassword"
+                        type={showConfirmPassword ? "text" : "password"} 
+                        value={signupConfirmPassword} 
+                        onChange={(e) => setSignupConfirmPassword(e.target.value)} 
+                        required 
+                        minLength={6}
+                        placeholder="Confirm your password" 
+                        className="h-11 pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 focus:outline-none"
+                        aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+                      >
+                        {showConfirmPassword ? (
+                          <EyeOff className="w-5 h-5" />
+                        ) : (
+                          <Eye className="w-5 h-5" />
+                        )}
+                      </button>
+                    </div>
                   </div>
                   
                   {/* Terms and Privacy */}
@@ -310,6 +408,7 @@ function SignupPageContent() {
                           onClick={(e) => {
                             e.stopPropagation();
                             if (typeof window !== "undefined") {
+                              saveFormData(); // Save form data before navigating
                               sessionStorage.setItem("fromSignup", "true");
                             }
                           }}
@@ -333,6 +432,7 @@ function SignupPageContent() {
                           onClick={(e) => {
                             e.stopPropagation();
                             if (typeof window !== "undefined") {
+                              saveFormData(); // Save form data before navigating
                               sessionStorage.setItem("fromSignup", "true");
                             }
                           }}

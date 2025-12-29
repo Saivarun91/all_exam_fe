@@ -535,7 +535,17 @@ export default function ExamsPageContent({
                     </div>
 
                     <p className="text-sm text-[#0C1A35]/70 mb-4">
-                      {exam.practice_exams || 0} Practice Exams · {exam.questions || 0} Questions
+                      {exam.practice_exams || 0} Practice Exams · {(() => {
+                        // Calculate total questions from practice tests list if available
+                        if (exam.practice_tests_list && Array.isArray(exam.practice_tests_list) && exam.practice_tests_list.length > 0) {
+                          const totalQuestions = exam.practice_tests_list.reduce((sum, test) => {
+                            const testQuestions = parseInt(test.questions) || 0;
+                            return sum + testQuestions;
+                          }, 0);
+                          return totalQuestions > 0 ? totalQuestions : (exam.questions || 0);
+                        }
+                        return exam.questions || 0;
+                      })()} Questions
                     </p>
 
                     <Button

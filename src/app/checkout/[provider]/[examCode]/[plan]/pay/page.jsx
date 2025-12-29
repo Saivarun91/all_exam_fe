@@ -47,20 +47,25 @@ export default function CheckoutPage() {
       // Try fetching from pricing API first
       const pricingRes = await fetch(`${API_BASE_URL}/api/courses/pricing/${normalizedProvider}/${normalizedExamCode}/`);
       
+      let planFound = false;
       if (pricingRes.ok) {
         const pricingData = await pricingRes.json();
-        setExam({
-          title: pricingData.course_title,
-          code: pricingData.course_code
-        });
         
-        // Find the selected plan from pricing_plans
-        if (pricingData.pricing_plans && Array.isArray(pricingData.pricing_plans)) {
+        // Check if pricing_plans exist and are not empty
+        if (pricingData.pricing_plans && Array.isArray(pricingData.pricing_plans) && pricingData.pricing_plans.length > 0) {
+          setExam({
+            title: pricingData.course_title,
+            code: pricingData.course_code
+          });
+          
+          // Find the selected plan from pricing_plans
           const normalizedPlanSlug = planSlug?.toLowerCase().trim();
           const selectedPlan = pricingData.pricing_plans.find(p => {
+            if (!p.name) return false;
             const planNameNormalized = p.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
             return planNameNormalized === normalizedPlanSlug || 
-                   p.name.toLowerCase() === normalizedPlanSlug.replace(/-/g, ' ');
+                   p.name.toLowerCase() === normalizedPlanSlug?.replace(/-/g, ' ') ||
+                   p.name.toLowerCase() === normalizedPlanSlug;
           });
           
           if (selectedPlan) {
@@ -72,18 +77,23 @@ export default function CheckoutPage() {
               }
             }
             setPlan(selectedPlan);
+            planFound = true;
           } else if (pricingData.pricing_plans.length > 0) {
+            // Fallback to first plan if exact match not found
             const fallbackPlan = pricingData.pricing_plans[0];
             if (!fallbackPlan.features || fallbackPlan.features.length === 0) {
               if (pricingData.pricing_features && pricingData.pricing_features.length > 0) {
                 fallbackPlan.features = pricingData.pricing_features.map(f => f.title || f.description || f);
               }
             }
-            setPlan(fallbackPlan); // Fallback to first plan
+            setPlan(fallbackPlan);
+            planFound = true;
           }
         }
-      } else {
-        // Fallback: try course API
+      }
+      
+      // Fallback: try course API if pricing API didn't return plans or plan not found
+      if (!planFound) {
         const slug = `${normalizedProvider}-${normalizedExamCode}`;
         const examRes = await fetch(`${API_BASE_URL}/api/courses/exams/${slug}/`);
         
@@ -91,10 +101,15 @@ export default function CheckoutPage() {
           const examData = await examRes.json();
           setExam(examData);
           
-          if (examData.pricing_plans && Array.isArray(examData.pricing_plans)) {
-            const selectedPlan = examData.pricing_plans.find(p => 
-              p.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') === planSlug
-            ) || examData.pricing_plans[0];
+          if (examData.pricing_plans && Array.isArray(examData.pricing_plans) && examData.pricing_plans.length > 0) {
+            const normalizedPlanSlug = planSlug?.toLowerCase().trim();
+            const selectedPlan = examData.pricing_plans.find(p => {
+              if (!p.name) return false;
+              const planNameNormalized = p.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+              return planNameNormalized === normalizedPlanSlug || 
+                     p.name.toLowerCase() === normalizedPlanSlug?.replace(/-/g, ' ') ||
+                     p.name.toLowerCase() === normalizedPlanSlug;
+            }) || examData.pricing_plans[0];
             
             // Ensure features are populated
             if (selectedPlan && (!selectedPlan.features || selectedPlan.features.length === 0)) {

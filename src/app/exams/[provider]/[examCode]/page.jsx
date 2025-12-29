@@ -45,7 +45,12 @@ export default function ExamDetailPage() {
   // Handle Start Test button click
   const handleStartTest = (test, index = 0) => {
     // Use slug if available, otherwise fallback to id or index
-    const testIdentifier = (test && test.slug) ? test.slug : (test && test.id) ? test.id : (test || (index + 1));
+    let testIdentifier = (test && test.slug) ? test.slug : (test && test.id) ? test.id : (test || (index + 1));
+    // Remove ObjectId hash from slug (e.g., "test-name-694e3de3" -> "test-name")
+    if (testIdentifier && typeof testIdentifier === 'string') {
+      // Match pattern: ends with hyphen followed by 8 hex characters (ObjectId hash)
+      testIdentifier = testIdentifier.replace(/-[a-f0-9]{8}$/i, '');
+    }
     const testUrl = `/exams/${provider}/${examCode}/practice/${testIdentifier}`;
     
     if (!checkLogin()) {
@@ -329,7 +334,7 @@ export default function ExamDetailPage() {
                 <CardTitle className="text-[#0C1A35]">About This Exam</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-[#0C1A35]/80 leading-relaxed">{examData.about}</p>
+                <p className="text-[#0C1A35]/80 leading-relaxed whitespace-pre-line">{examData.about}</p>
               </CardContent>
             </Card>
 
@@ -376,7 +381,7 @@ export default function ExamDetailPage() {
                 <CardTitle className="text-[#0C1A35]">Why This Exam Matters</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-[#0C1A35]/80 leading-relaxed">{examData.whyMatters}</p>
+                <p className="text-[#0C1A35]/80 leading-relaxed whitespace-pre-line">{examData.whyMatters}</p>
               </CardContent>
             </Card>
 

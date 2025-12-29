@@ -15,7 +15,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { GraduationCap, Mail, Lock } from "lucide-react";
+import { GraduationCap, Mail, Lock, Eye, EyeOff } from "lucide-react";
+import { useLogoUrl } from "@/hooks/useLogoUrl";
 
 // ----------------------- API URLs -----------------------
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
@@ -28,11 +29,13 @@ const GOOGLE_OAUTH_URL = `${API_BASE_URL}/api/users/google-oauth/`;
 function LoginPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const logoUrl = useLogoUrl();
 
   const [isLoading, setIsLoading] = useState(false);
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [loginError, setLoginError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   // Forgot Password states
   const [showForgotPassword, setShowForgotPassword] = useState(false);
@@ -414,15 +417,26 @@ function LoginPageContent() {
             className="flex flex-col justify-center text-center lg:text-left space-y-6"
           >
             <div className="inline-flex items-center gap-3 justify-center lg:justify-start">
-              <div className="p-3 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl shadow-lg">
-                <GraduationCap className="h-8 w-8 text-white" />
-              </div>
-              <h1 className="text-3xl font-bold text-gray-800">
-                AllExam
-                <span className="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                  Questions
-                </span>
-              </h1>
+              {logoUrl ? (
+                <img 
+                  src={logoUrl}
+                  alt="AllExamQuestions Logo" 
+                  className="h-14 md:h-16 lg:h-20 w-auto object-contain max-w-[200px] md:max-w-[240px] lg:max-w-[280px]"
+                  loading="lazy"
+                />
+              ) : (
+                <div className="p-3 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl shadow-lg">
+                  <GraduationCap className="h-8 w-8 text-white" />
+                </div>
+              )}
+              {!logoUrl && (
+                <h1 className="text-3xl font-bold text-gray-800">
+                  AllExam
+                  <span className="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                    Questions
+                  </span>
+                </h1>
+              )}
             </div>
             <h2 className="text-4xl lg:text-5xl font-bold text-gray-900 leading-tight">
               Welcome Back!
@@ -483,15 +497,29 @@ function LoginPageContent() {
                       <Lock className="w-4 h-4" />
                       Password
                     </Label>
-                    <Input 
-                      id="login-password"
-                      type="password" 
-                      value={loginPassword} 
-                      onChange={(e) => setLoginPassword(e.target.value)} 
-                      required 
-                      placeholder="Enter your password" 
-                      className="mt-2 h-11"
-                    />
+                    <div className="relative mt-2">
+                      <Input 
+                        id="login-password"
+                        type={showPassword ? "text" : "password"} 
+                        value={loginPassword} 
+                        onChange={(e) => setLoginPassword(e.target.value)} 
+                        required 
+                        placeholder="Enter your password" 
+                        className="h-11 pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 focus:outline-none"
+                        aria-label={showPassword ? "Hide password" : "Show password"}
+                      >
+                        {showPassword ? (
+                          <EyeOff className="w-5 h-5" />
+                        ) : (
+                          <Eye className="w-5 h-5" />
+                        )}
+                      </button>
+                    </div>
                   </div>
 
                   {/* Forgot Password Link */}

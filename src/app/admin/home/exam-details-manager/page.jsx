@@ -175,7 +175,7 @@ export default function ExamDetailsManager() {
     setSelectedCourse(course);
     setAbout(course.about || "");
     setTestDescription(course.test_description || "");
-    setPassRate(course.pass_rate || "");
+    setPassRate(course.pass_rate ? String(course.pass_rate) : "");
     setRating(course.rating || "");
     setDifficulty(course.difficulty || "");
     setDuration(course.duration || "");
@@ -213,7 +213,7 @@ export default function ExamDetailsManager() {
       const payload = {
         about,
         test_description: testDescription,
-        pass_rate: (passRate && passRate.trim() !== "") ? parseInt(passRate) : null,
+        pass_rate: (passRate && String(passRate).trim() !== "") ? parseInt(String(passRate)) : null,
         rating: (rating && rating.toString().trim() !== "") ? parseFloat(rating) : null,
         difficulty,
         duration,

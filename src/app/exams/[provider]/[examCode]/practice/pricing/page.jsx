@@ -43,15 +43,36 @@ export default function PricingPage() {
         // Normalize provider and examCode for URL
         const normalizedProvider = provider.toLowerCase().replace(/_/g, '-');
         const normalizedExamCode = examCode.toLowerCase().replace(/_/g, '-');
+        const slug = `${normalizedProvider}-${normalizedExamCode}`;
         
-        const url = `${API_BASE_URL}/api/courses/pricing/${normalizedProvider}/${normalizedExamCode}/`;
-        console.log("Pricing API URL:", url);
+        // First, try to fetch the course to verify it exists (same as exam detail page)
+        const courseUrl = `${API_BASE_URL}/api/courses/exams/${slug}/`;
+        console.log("Course API URL:", courseUrl);
+        
+        const courseRes = await fetch(courseUrl, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+        
+        let courseData = null;
+        if (courseRes.ok) {
+          courseData = await courseRes.json();
+          console.log("Course data received:", courseData);
+        } else {
+          throw new Error("Exam not found. Please check the provider and exam code.");
+        }
+        
+        // Now try to fetch pricing data
+        const pricingUrl = `${API_BASE_URL}/api/courses/pricing/${normalizedProvider}/${normalizedExamCode}/`;
+        console.log("Pricing API URL:", pricingUrl);
         
         // Create abort controller for timeout
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
         
-        const res = await fetch(url, {
+        const res = await fetch(pricingUrl, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
@@ -61,7 +82,29 @@ export default function PricingPage() {
         
         clearTimeout(timeoutId);
         
-        if (!res.ok) {
+        let pricingData = null;
+        
+        if (res.ok) {
+          pricingData = await res.json();
+          console.log("Pricing data received:", pricingData);
+        } else if (res.status === 404) {
+          // If pricing endpoint returns 404, construct pricing data from course data
+          console.log("Pricing endpoint returned 404, constructing from course data");
+          pricingData = {
+            success: true,
+            course_id: courseData.id || "",
+            course_title: courseData.title || courseData.code || "",
+            course_code: courseData.code || "",
+            provider: courseData.provider || normalizedProvider,
+            hero_title: courseData.hero_title || "Choose Your Access Plan",
+            hero_subtitle: courseData.hero_subtitle || "Unlock full access for this exam — all questions, explanations, analytics, and unlimited attempts.",
+            pricing_plans: courseData.pricing_plans || [],
+            pricing_features: courseData.pricing_features || [],
+            pricing_testimonials: courseData.pricing_testimonials || [],
+            pricing_faqs: courseData.pricing_faqs || [],
+            pricing_comparison: courseData.pricing_comparison || [],
+          };
+        } else {
           let errorData = {};
           try {
             errorData = await res.json();
@@ -71,24 +114,33 @@ export default function PricingPage() {
           }
           console.error("Pricing API error:", res.status, errorData);
           
-          if (res.status === 404) {
-            throw new Error("Pricing data not found for this exam");
-          } else if (res.status >= 500) {
+          if (res.status >= 500) {
             throw new Error("Server error. Please try again later.");
           } else {
-            throw new Error(errorData.error || "Failed to load pricing information");
+            // Even if there's an error, try to construct from course data
+            pricingData = {
+              success: true,
+              course_id: courseData.id || "",
+              course_title: courseData.title || courseData.code || "",
+              course_code: courseData.code || "",
+              provider: courseData.provider || normalizedProvider,
+              hero_title: courseData.hero_title || "Choose Your Access Plan",
+              hero_subtitle: courseData.hero_subtitle || "Unlock full access for this exam — all questions, explanations, analytics, and unlimited attempts.",
+              pricing_plans: courseData.pricing_plans || [],
+              pricing_features: courseData.pricing_features || [],
+              pricing_testimonials: courseData.pricing_testimonials || [],
+              pricing_faqs: courseData.pricing_faqs || [],
+              pricing_comparison: courseData.pricing_comparison || [],
+            };
           }
         }
         
-        const data = await res.json();
-        console.log("Pricing data received:", data);
-        
         // Ensure we have the data structure
-        if (!data) {
+        if (!pricingData) {
           throw new Error("No pricing data received");
         }
         
-        setPricingData(data);
+        setPricingData(pricingData);
         setLoading(false);
 
         // Set canonical URL
