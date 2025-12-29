@@ -210,15 +210,33 @@ export default function EnrollmentsPage() {
                     <td className="px-4 py-4 whitespace-nowrap text-gray-700">
                       {enroll.payment ? (
                         <div className="text-xs">
-                          <div className="font-medium">₹{enroll.payment.amount}</div>
-                          {enroll.payment.coupon_code && enroll.payment.discount_amount > 0 && (
-                            <div className="text-xs text-blue-600 mt-1">
-                              Coupon: {enroll.payment.coupon_code} (-₹{enroll.payment.discount_amount})
-                            </div>
-                          )}
-                          <div className={`text-xs ${enroll.payment.status === "completed" ? "text-green-600" : "text-orange-600"}`}>
-                            {enroll.payment.status}
-                          </div>
+                          {(() => {
+                            // Calculate actual paid amount after coupon discount
+                            const paymentAmount = parseFloat(enroll.payment.amount || 0);
+                            const discountAmount = parseFloat(enroll.payment.discount_amount || 0);
+                            const hasCoupon = enroll.payment.coupon_code && discountAmount > 0;
+                            
+                            // Calculate actual paid amount: payment.amount - discount_amount (when coupon is used)
+                            // This ensures we show the amount student actually paid after discount
+                            let actualPaidAmount = paymentAmount;
+                            if (hasCoupon && discountAmount > 0) {
+                              actualPaidAmount = Math.max(0, paymentAmount - discountAmount);
+                            }
+                            
+                            return (
+                              <>
+                                <div className="font-medium text-base">₹{actualPaidAmount.toFixed(2)}</div>
+                                {hasCoupon && (
+                                  <div className="text-xs text-blue-600 mt-1">
+                                    Coupon: {enroll.payment.coupon_code} (-₹{discountAmount.toFixed(2)})
+                                  </div>
+                                )}
+                                <div className={`text-xs mt-1 font-medium ${enroll.payment.status === "completed" ? "text-green-600" : "text-orange-600"}`}>
+                                  {enroll.payment.status}
+                                </div>
+                              </>
+                            );
+                          })()}
                         </div>
                       ) : (
                         <span className="text-gray-400 text-xs">No payment</span>
@@ -271,15 +289,32 @@ export default function EnrollmentsPage() {
               <h3 className="text-lg font-semibold mb-4 text-gray-700 bg-green-50 px-4 py-2 rounded-lg">Payment Details</h3>
               {selectedStudent.payment ? (
                 <div className="space-y-3 text-gray-700 pl-4">
-                  <div className="flex items-start"><span className="font-medium min-w-[140px]">Payment ID:</span> <span className="text-gray-800 font-mono text-sm break-all">{selectedStudent.payment.razorpay_payment_id || "N/A"}</span></div>
-                  <div className="flex items-start"><span className="font-medium min-w-[140px]">Order ID:</span> <span className="text-gray-800 font-mono text-sm break-all">{selectedStudent.payment.razorpay_order_id}</span></div>
-                  <div className="flex items-start"><span className="font-medium min-w-[140px]">Amount Paid:</span> <span className="text-gray-800 font-semibold">{selectedStudent.payment.currency || "INR"} {selectedStudent.payment.amount}</span></div>
-                  {selectedStudent.payment.coupon_code && selectedStudent.payment.discount_amount > 0 && (
-                    <>
-                      <div className="flex items-start"><span className="font-medium min-w-[140px]">Coupon Code:</span> <span className="text-gray-800 font-semibold text-blue-600">{selectedStudent.payment.coupon_code}</span></div>
-                      <div className="flex items-start"><span className="font-medium min-w-[140px]">Discount Applied:</span> <span className="text-gray-800 font-semibold text-green-600">-{selectedStudent.payment.currency || "INR"} {selectedStudent.payment.discount_amount}</span></div>
-                    </>
-                  )}
+                  {(() => {
+                    const paymentAmount = parseFloat(selectedStudent.payment.amount || 0);
+                    const discountAmount = parseFloat(selectedStudent.payment.discount_amount || 0);
+                    const hasCoupon = selectedStudent.payment.coupon_code && discountAmount > 0;
+                    
+                    // Calculate actual paid amount after coupon discount
+                    let actualPaidAmount = paymentAmount;
+                    if (hasCoupon && discountAmount > 0) {
+                      actualPaidAmount = Math.max(0, paymentAmount - discountAmount);
+                    }
+                    
+                    return (
+                      <>
+                        <div className="flex items-start"><span className="font-medium min-w-[140px]">Payment ID:</span> <span className="text-gray-800 font-mono text-sm break-all">{selectedStudent.payment.razorpay_payment_id || "N/A"}</span></div>
+                        <div className="flex items-start"><span className="font-medium min-w-[140px]">Order ID:</span> <span className="text-gray-800 font-mono text-sm break-all">{selectedStudent.payment.razorpay_order_id}</span></div>
+                        <div className="flex items-start"><span className="font-medium min-w-[140px]">Amount Paid:</span> <span className="text-gray-800 font-semibold">{selectedStudent.payment.currency || "INR"} ₹{actualPaidAmount.toFixed(2)}</span></div>
+                        {hasCoupon && (
+                          <>
+                            <div className="flex items-start"><span className="font-medium min-w-[140px]">Coupon Code:</span> <span className="text-gray-800 font-semibold text-blue-600">{selectedStudent.payment.coupon_code}</span></div>
+                            <div className="flex items-start"><span className="font-medium min-w-[140px]">Discount Applied:</span> <span className="text-gray-800 font-semibold text-green-600">-{selectedStudent.payment.currency || "INR"} ₹{discountAmount.toFixed(2)}</span></div>
+                            <div className="flex items-start"><span className="font-medium min-w-[140px]">Original Price:</span> <span className="text-gray-500 line-through text-sm">{selectedStudent.payment.currency || "INR"} ₹{paymentAmount.toFixed(2)}</span></div>
+                          </>
+                        )}
+                      </>
+                    );
+                  })()}
                   <div className="flex items-start"><span className="font-medium min-w-[140px]">Payment Status:</span> <span className={`font-semibold ${selectedStudent.payment.status === "completed" ? "text-green-600" : selectedStudent.payment.status === "pending" ? "text-orange-600" : "text-red-500"}`}>{selectedStudent.payment.status.toUpperCase()}</span></div>
                   {selectedStudent.payment.paid_at && (<div className="flex items-start"><span className="font-medium min-w-[140px]">Paid At:</span> <span className="text-gray-800">{new Date(selectedStudent.payment.paid_at).toLocaleString()}</span></div>)}
                 </div>

@@ -570,7 +570,12 @@ function LoginPageContent() {
                   <p className="text-xs text-center text-gray-500 mt-4">
                     Don't have an account?{" "}
                     <Link
-                      href="/auth/signup"
+                      href={(() => {
+                        const redirectUrl = searchParams.get('redirect');
+                        return redirectUrl 
+                          ? `/auth/signup?redirect=${encodeURIComponent(redirectUrl)}`
+                          : '/auth/signup';
+                      })()}
                       className="text-blue-600 hover:underline font-medium"
                     >
                       Sign up here

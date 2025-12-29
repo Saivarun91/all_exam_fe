@@ -9,7 +9,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import PricingJsonLd from "@/components/PricingJsonLd";
 import {
   CheckCircle2, Clock, BookOpen, RefreshCw, BarChart3, Target, TrendingUp, Bell,
-  ArrowRight, Check, X, Star
+  ArrowRight, Check, X, Star, Shield
 } from "lucide-react";
 
 export default function PricingPage() {
@@ -21,6 +21,8 @@ export default function PricingPage() {
   const [loading, setLoading] = useState(true);
   const [pricingData, setPricingData] = useState(null);
   const [error, setError] = useState("");
+  const [isEnrolled, setIsEnrolled] = useState(false);
+  const [checkingEnrollment, setCheckingEnrollment] = useState(true);
 
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
 
@@ -143,6 +145,11 @@ export default function PricingPage() {
         setPricingData(pricingData);
         setLoading(false);
 
+        // Check enrollment status if user is logged in
+        if (courseData && courseData.id) {
+          checkEnrollmentStatus(courseData.id);
+        }
+
         // Set canonical URL
         if (typeof window !== "undefined") {
           const currentPath = window.location.pathname;
@@ -174,6 +181,37 @@ export default function PricingPage() {
     fetchPricingData();
   }, [provider, examCode, API_BASE_URL]);
 
+  // Check enrollment status
+  const checkEnrollmentStatus = async (courseId) => {
+    try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+      if (!token) {
+        setIsEnrolled(false);
+        setCheckingEnrollment(false);
+        return;
+      }
+
+      const res = await fetch(`${API_BASE_URL}/api/enrollments/check/${courseId}/`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setIsEnrolled(data.already_enrolled || false);
+      } else {
+        setIsEnrolled(false);
+      }
+    } catch (err) {
+      console.error("Error checking enrollment:", err);
+      setIsEnrolled(false);
+    } finally {
+      setCheckingEnrollment(false);
+    }
+  };
+
   const handleUpgrade = (plan) => {
     // Navigate to checkout with plan data (SEO-friendly URL, no query strings)
     console.log("Plan:", plan);
@@ -192,7 +230,7 @@ export default function PricingPage() {
     });
   };
 
-  if (loading) {
+  if (loading || checkingEnrollment) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-lg">Loading pricing...</div>
@@ -265,8 +303,48 @@ export default function PricingPage() {
           </div>
         </section>
 
+        {/* Already Enrolled Message */}
+        {!checkingEnrollment && isEnrolled && (
+          <section id="pricing-cards" className="py-16 px-4">
+            <div className="container mx-auto max-w-4xl">
+              <Card className="border-2 border-[#10B981] bg-gradient-to-br from-[#10B981]/5 to-[#059669]/5 shadow-lg">
+                <CardContent className="p-8 text-center">
+                  <div className="flex justify-center mb-4">
+                    <div className="w-16 h-16 rounded-full bg-[#10B981] flex items-center justify-center">
+                      <CheckCircle2 className="w-10 h-10 text-white" />
+                    </div>
+                  </div>
+                  <h2 className="text-3xl font-bold text-[#0C1A35] mb-3">
+                    You're Already Enrolled!
+                  </h2>
+                  <p className="text-lg text-[#0C1A35]/80 mb-6">
+                    You have full access to <span className="font-semibold text-[#1A73E8]">{course_title}</span>. Start practicing now!
+                  </p>
+                  <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                    <Button
+                      onClick={() => router.push(`/exams/${provider}/${examCode}/practice`)}
+                      className="bg-[#1A73E8] hover:bg-[#1557B0] text-white font-semibold px-8 py-6 text-lg"
+                    >
+                      <BookOpen className="w-5 h-5 mr-2" />
+                      Go to Practice Tests
+                    </Button>
+                    <Button
+                      onClick={() => router.push(`/dashboard`)}
+                      variant="outline"
+                      className="border-[#1A73E8] text-[#1A73E8] hover:bg-[#1A73E8]/10 font-semibold px-8 py-6 text-lg"
+                    >
+                      <ArrowRight className="w-5 h-5 mr-2" />
+                      View Dashboard
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </section>
+        )}
+
         {/* Pricing Cards */}
-        {pricing_plans && pricing_plans.length > 0 && pricing_plans.filter(p => !p.status || p.status !== "inactive").length > 0 ? (
+        {!checkingEnrollment && !isEnrolled && pricing_plans && pricing_plans.length > 0 && pricing_plans.filter(p => !p.status || p.status !== "inactive").length > 0 ? (
           <section id="pricing-cards" className="py-16 px-4">
             <div className="container mx-auto max-w-7xl">
               <div className="grid md:grid-cols-3 gap-6 lg:gap-8">
@@ -544,25 +622,27 @@ export default function PricingPage() {
           </section>
         )}
 
-        {/* Final CTA */}
-        <section className="py-16 px-4 bg-gradient-to-br from-[#1A73E8] via-[#4A90E2] to-[#1A73E8]">
-          <div className="container mx-auto max-w-3xl text-center">
-            <h2 className="text-3xl md:text-4xl font-bold mb-6 text-white">
-              Ready to Unlock the Full Exam?
-            </h2>
-            <p className="text-lg text-white/90 mb-8">
-              Join thousands of successful students who passed their exams with our platform
-            </p>
-            <Button 
-              size="lg" 
-              onClick={scrollToPricing} 
-              className="gap-2 bg-white text-[#1A73E8] hover:bg-[#F5F8FF] font-semibold shadow-xl hover:shadow-2xl transition-all duration-200 px-8 py-6 text-lg"
-            >
-              Upgrade Now
-              <ArrowRight className="h-5 w-5" />
-            </Button>
-          </div>
-        </section>
+        {/* Final CTA - Only show if not enrolled */}
+        {!isEnrolled && (
+          <section className="py-16 px-4 bg-gradient-to-br from-[#1A73E8] via-[#4A90E2] to-[#1A73E8]">
+            <div className="container mx-auto max-w-3xl text-center">
+              <h2 className="text-3xl md:text-4xl font-bold mb-6 text-white">
+                Ready to Unlock the Full Exam?
+              </h2>
+              <p className="text-lg text-white/90 mb-8">
+                Join thousands of successful students who passed their exams with our platform
+              </p>
+              <Button 
+                size="lg" 
+                onClick={scrollToPricing} 
+                className="gap-2 bg-white text-[#1A73E8] hover:bg-[#F5F8FF] font-semibold shadow-xl hover:shadow-2xl transition-all duration-200 px-8 py-6 text-lg"
+              >
+                Upgrade Now
+                <ArrowRight className="h-5 w-5" />
+              </Button>
+            </div>
+          </section>
+        )}
       </main>
     </div>
   );

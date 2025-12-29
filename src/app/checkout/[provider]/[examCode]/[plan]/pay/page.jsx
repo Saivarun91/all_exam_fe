@@ -361,17 +361,24 @@ export default function CheckoutPage() {
   
   // Calculate final amount with coupon discount
   let finalAmount = priceNum;
+  let couponDiscountAmount = 0;
   if (selectedCoupon) {
     const discountValue = parseFloat(selectedCoupon.discount_value || 0);
     const discountType = selectedCoupon.discount_type || 'percentage';
     
     if (discountType === 'percentage') {
+      couponDiscountAmount = priceNum * (discountValue / 100);
       finalAmount = priceNum * (1 - discountValue / 100);
     } else {
+      couponDiscountAmount = discountValue;
       finalAmount = Math.max(0, priceNum - discountValue);
     }
     finalAmount = Math.round(finalAmount * 100) / 100;
+    couponDiscountAmount = Math.round(couponDiscountAmount * 100) / 100;
   }
+  
+  // Calculate the amount to display on button (always show final amount after all discounts)
+  const displayAmount = finalAmount > 0 ? finalAmount : priceNum;
 
   return (
     <>
@@ -542,24 +549,33 @@ export default function CheckoutPage() {
                   <div className="flex items-center justify-between mb-4">
                     <span className="text-lg text-gray-700">Plan Price:</span>
                     <div className="text-right">
-                      {plan.original_price && plan.original_price !== plan.price && (
-                        <span className="text-lg text-gray-400 line-through block">{plan.original_price}</span>
-                      )}
-                      {selectedCoupon && priceNum !== finalAmount && (
-                        <span className="text-lg text-gray-400 line-through block">{plan.price}</span>
-                      )}
+                      {/* Show original price as strikethrough only if it exists and is different from final amount */}
+                      {(() => {
+                        // Determine which price to show as strikethrough
+                        // Priority: original_price > plan.price (when coupon applied) > none
+                        if (originalPriceNum > 0 && originalPriceNum > displayAmount) {
+                          // Show original_price if it exists and is higher than final amount
+                          return (
+                            <span className="text-lg text-gray-400 line-through block">₹{originalPriceNum.toFixed(2)}</span>
+                          );
+                        } else if (selectedCoupon && priceNum > finalAmount && priceNum !== originalPriceNum) {
+                          // Show plan.price as strikethrough when coupon is applied (if different from original_price)
+                          return (
+                            <span className="text-lg text-gray-400 line-through block">₹{priceNum.toFixed(2)}</span>
+                          );
+                        }
+                        return null;
+                      })()}
                       <span className="text-3xl font-bold text-gray-900">
-                        {selectedCoupon && priceNum !== finalAmount 
-                          ? `₹${finalAmount.toFixed(2)}`
-                          : plan.price}
+                        ₹{displayAmount.toFixed(2)}
                       </span>
                     </div>
                   </div>
-                  {selectedCoupon && priceNum !== finalAmount && (
+                  {selectedCoupon && priceNum !== finalAmount && couponDiscountAmount > 0 && (
                     <div className="flex items-center justify-between py-2 border-t">
                       <span className="text-sm text-green-600 font-semibold">Coupon Discount ({selectedCoupon.code})</span>
                       <span className="text-sm text-green-600 font-semibold">
-                        -₹{(priceNum - finalAmount).toFixed(2)}
+                        -₹{couponDiscountAmount.toFixed(2)}
                       </span>
                     </div>
                   )}
@@ -592,18 +608,23 @@ export default function CheckoutPage() {
                 <div className="pt-4">
                   <Button
                     onClick={handlePayment}
-                    disabled={processing || !razorpayLoaded}
-                    className="w-full bg-[#1A73E8] hover:bg-[#1557B0] text-white py-6 text-lg font-semibold shadow-lg"
+                    disabled={processing || !razorpayLoaded || displayAmount <= 0}
+                    className="w-full bg-[#1A73E8] hover:bg-[#1557B0] text-white py-6 text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {processing ? (
                       <>
                         <Loader2 className="w-5 h-5 mr-2 animate-spin" />
                         Processing Payment...
                       </>
+                    ) : !razorpayLoaded ? (
+                      <>
+                        <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                        Loading Payment Gateway...
+                      </>
                     ) : (
                       <>
                         <CreditCard className="w-5 h-5 mr-2" />
-                        Pay {plan.price} and Continue
+                        Pay ₹{displayAmount.toFixed(2)} and Continue
                       </>
                     )}
                   </Button>

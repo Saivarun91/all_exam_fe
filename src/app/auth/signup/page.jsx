@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback, Suspense } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
@@ -19,6 +19,7 @@ const USER_REGISTER_URL = `${API_BASE_URL}/api/users/register/`;
 
 function SignupPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const logoUrl = useLogoUrl();
 
   const [isLoading, setIsLoading] = useState(false);
@@ -174,7 +175,13 @@ function SignupPageContent() {
           sessionStorage.removeItem("signupFormData");
           sessionStorage.removeItem("fromSignup");
         }
-        router.push("/auth/login");
+        // Preserve redirect parameter if present
+        const redirectUrl = searchParams.get('redirect');
+        if (redirectUrl) {
+          router.push(`/auth/login?redirect=${encodeURIComponent(redirectUrl)}`);
+        } else {
+          router.push("/auth/login");
+        }
         setSignupName("");
         setSignupEmail("");
         setSignupPassword("");
@@ -472,7 +479,12 @@ function SignupPageContent() {
                   <p className="text-xs text-center text-gray-500 mt-4">
                     Already have an account?{" "}
                     <Link
-                      href="/auth/login"
+                      href={(() => {
+                        const redirectUrl = searchParams.get('redirect');
+                        return redirectUrl 
+                          ? `/auth/login?redirect=${encodeURIComponent(redirectUrl)}`
+                          : '/auth/login';
+                      })()}
                       className="text-blue-600 hover:underline font-medium"
                     >
                       Login here
