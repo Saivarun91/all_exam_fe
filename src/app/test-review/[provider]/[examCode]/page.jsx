@@ -511,7 +511,7 @@ export default function TestReview() {
                 <ul className="text-left max-w-md mx-auto mb-6 space-y-2">
                   <li className="flex items-start gap-2">
                     <span className="text-white">✓</span>
-                    <span>All {totalQuestions} practice questions</span>
+                    <span>All practice questions</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="text-white">✓</span>
@@ -525,10 +525,10 @@ export default function TestReview() {
                     <span className="text-white">✓</span>
                     <span>Unlimited practice attempts</span>
                   </li>
-                  <li className="flex items-start gap-2">
+                  {/* <li className="flex items-start gap-2">
                     <span className="text-white">✓</span>
                     <span>No Captcha / Robot Checks</span>
-                  </li>
+                  </li> */}
                 </ul>
                 <Button
                   size="lg"
