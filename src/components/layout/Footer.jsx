@@ -309,7 +309,8 @@ const Footer = () => {
 
         <div className="border-t border-[#1A73E8]/15 pt-4 md:pt-5 mt-4 md:mt-5">
           <p className="text-[#E7ECF6] text-[10px] md:text-xs leading-relaxed max-w-4xl mx-auto text-center">
-            <strong className="text-[#F5F8FF]">Disclaimer:</strong> All the course names, logos, and certification titles we use are their respective owners' property. The firm, service, or product names on the website are solely for identification purposes. We do not own, endorse or have the copyright of any brand/logo/name in any manner. Few graphics on our website are freely available on public domains.
+            <strong className="text-[#F5F8FF]">Disclaimer:</strong> All trademarks, certification names, course titles, and logos displayed on this website are the property of their respective owners and are used solely for identification and informational purposes.AllExamQuestions is an independent exam preparation platform and is not affiliated with, endorsed by, authorized by, or sponsored by any exam provider, certification body, or brand mentioned on this website.Any brand names, product names, or service names are used only to describe the corresponding exams or content. Some graphics used on this website are sourced from royalty-free or publicly available resources and are believed to be free for commercial use.
+            
           </p>
         </div>
       </div>

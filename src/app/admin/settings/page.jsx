@@ -201,22 +201,25 @@ export default function AdminSettingsPage() {
         // Trigger events to refresh components
         if (typeof window !== 'undefined') {
           // If site name was updated, trigger site name update event
-          if (updatedFields.site_name !== undefined) {
+          if (updatedFields.site_name !== undefined || payload.site_name) {
             window.dispatchEvent(new CustomEvent('siteNameUpdated'));
             localStorage.removeItem('siteNameCache');
           }
           
           // If logo was updated, trigger logo update event
-          if (updatedFields.logo_url !== undefined) {
+          if (updatedFields.logo_url !== undefined || payload.logo_url) {
             window.dispatchEvent(new CustomEvent('logoUpdated'));
           }
         }
       } else {
-        toast.error(res.data.message || "⚠️ Failed to update settings");
+        const errorMsg = res.data.error || res.data.message || "⚠️ Failed to update settings";
+        toast.error(errorMsg);
+        console.error("Settings update error:", res.data);
       }
     } catch (err) {
       console.error("Error updating settings:", err);
-      toast.error("❌ Something went wrong while saving");
+      const errorMsg = err.response?.data?.error || err.response?.data?.message || err.message || "❌ Something went wrong while saving";
+      toast.error(errorMsg);
     }
   };
 
