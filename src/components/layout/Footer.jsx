@@ -76,7 +76,7 @@ const Footer = () => {
   const socialLinks = [
     { icon: Facebook, label: "Facebook", url: "https://www.facebook.com" },
     { icon: Twitter, label: "Twitter", url: "https://www.twitter.com" },
-    { icon: Linkedin, label: "LinkedIn", url: "https://www.linkedin.com" },
+    { icon: Linkedin, label: "LinkedIn", url: "https://www.linkedin.com/company/allexamquestions" },
     { icon: Youtube, label: "YouTube", url: "https://www.youtube.com" },
   ];
 
@@ -119,7 +119,7 @@ const Footer = () => {
           {/* Providers Section - Only show if providers exist */}
           {hasProviders && (
             <div>
-              <h3 className="font-bold text-base md:text-lg mb-2 md:mb-3 text-[#F5F8FF]">Providers</h3>
+              <h3 className="font-bold text-base md:text-lg mb-2 md:mb-3 text-[#F5F8FF]"> Exam Providers Covered</h3>
               <ul className="space-y-1 md:space-y-1.5">
                 {loading ? (
                   <li className="text-[#F0F4FF] text-xs md:text-sm">Loading...</li>
@@ -308,8 +308,8 @@ const Footer = () => {
         </div>
 
         <div className="border-t border-[#1A73E8]/15 pt-4 md:pt-5 mt-4 md:mt-5">
-          <p className="text-[#E7ECF6] text-[10px] md:text-xs leading-relaxed max-w-4xl mx-auto text-center">
-            <strong className="text-[#F5F8FF]">Disclaimer:</strong> All trademarks, certification names, course titles, and logos displayed on this website are the property of their respective owners and are used solely for identification and informational purposes.AllExamQuestions is an independent exam preparation platform and is not affiliated with, endorsed by, authorized by, or sponsored by any exam provider, certification body, or brand mentioned on this website.Any brand names, product names, or service names are used only to describe the corresponding exams or content. Some graphics used on this website are sourced from royalty-free or publicly available resources and are believed to be free for commercial use.
+          <p className="text-[#E7ECF6] text-[10px] md:text-xs leading-relaxed max-w-4xl mx-auto text-left">
+            <strong className="text-[#F5F8FF]">Disclaimer:</strong> <br></br>All trademarks, certification names, course titles, and logos displayed on this website are the property of their respective owners and are used solely for identification and informational purposes.<br></br>AllExamQuestions is an independent exam preparation platform and is not affiliated with, endorsed by, authorized by, or sponsored by any exam provider, certification body, or brand mentioned on this website.<br></br>Any brand names, product names, or service names are used only to describe the corresponding exams or content. Some graphics used on this website are sourced from royalty-free or publicly available resources and are believed to be free for commercial use.
             
           </p>
         </div>

@@ -322,6 +322,11 @@ export default function PopularProviders() {
             duplicatedProviders={duplicatedProviders}
           />
         </div>
+
+        
+        <p className="text-left text-[#0C1A35]/60 text-xs md:text-sm mt-6 md:mt-8 px-2">
+          Logos and trademarks are the property of their respective owners. AllExamQuestions is not affiliated with or endorsed by these organizations.
+        </p>
       </div>
     </section>
   );
