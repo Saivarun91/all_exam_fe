@@ -87,9 +87,9 @@ export default function AdminSidebar() {
             ) : (
             <GraduationCap className="w-8 h-8 text-[#1A73E8]" />
             )}
-            {siteName && siteName.trim() && (
+            {/* {siteName && siteName.trim() && (
             <span className="text-xl font-bold text-white">{siteName}</span>
-            )}
+            )} */}
           </div>
         </div>
 

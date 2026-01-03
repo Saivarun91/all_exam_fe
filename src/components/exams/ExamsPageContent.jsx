@@ -588,14 +588,16 @@ export default function ExamsPageContent({
           {aboutSection.content && (
             <section className="mt-12 mb-8">
               <Card className="p-8 border border-gray-200 bg-white shadow-sm">
-                <h2 className="text-2xl font-bold text-[#0C1A35] mb-4">
-                  {aboutSection.heading || "About All Popular Exams Preparation"}
-                </h2>
-                <div className="space-y-4 text-[#0C1A35]/80 leading-relaxed">
-                  {aboutSection.content.split('\n\n').map((paragraph, index) => (
-                    <p key={index}>{paragraph}</p>
-                  ))}
-                </div>
+                <div 
+                  className="text-[#0C1A35] mb-4"
+                  dangerouslySetInnerHTML={{ 
+                    __html: aboutSection.heading || "<h2 class=\"text-2xl font-bold\">About All Popular Exams Preparation</h2>"
+                  }}
+                />
+                <div 
+                  className="space-y-4 text-[#0C1A35]/80 leading-relaxed tiptap-editor-content"
+                  dangerouslySetInnerHTML={{ __html: aboutSection.content }}
+                />
               </Card>
             </section>
           )}

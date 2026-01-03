@@ -7,6 +7,7 @@ import { ArrowLeft, Calendar, User, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import BlogJsonLd from "@/components/BlogJsonLd";
+import BreadcrumbJsonLd from "@/components/BreadcrumbJsonLd";
 import { getOptimizedImageUrl } from "@/utils/imageUtils";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
@@ -105,15 +106,31 @@ export default function BlogDetailPage() {
     );
   }
 
+  // Prepare breadcrumb items for schema
+  const breadcrumbItems = [
+    { name: "Home", url: "/" },
+    { name: "Blog", url: "/blog" },
+    { name: blog?.title || "Blog Post", url: `/blog/${slug}` },
+  ];
+
   return (
     <div className="min-h-screen bg-white">
       {blog && <BlogJsonLd blog={blog} />}
+      {blog && <BreadcrumbJsonLd items={breadcrumbItems} />}
       {/* Header with Back Button */}
       <div className="bg-white py-6 px-4">
         <div className="container mx-auto max-w-4xl">
           <Button
             variant="ghost"
-            onClick={() => router.back()}
+            onClick={() => {
+              // Use browser history to go back to previous page
+              if (window.history.length > 1) {
+                router.back();
+              } else {
+                // If no history, navigate to home page
+                router.push("/");
+              }
+            }}
             className="text-[#0C1A35] hover:text-[#1A73E8] hover:bg-gray-50 transition-colors"
           >
             <ArrowLeft className="mr-2 w-4 h-4" />
@@ -179,14 +196,14 @@ export default function BlogDetailPage() {
 
         {/* Blog Content */}
         <div className="prose prose-lg max-w-none">
-          {blog.content ? (
+          {blog.content && blog.content.trim() ? (
             <div 
-              className="text-[#0C1A35]/80 leading-relaxed"
+              className="tiptap-editor-content text-[#0C1A35]/80 leading-relaxed"
               dangerouslySetInnerHTML={{ __html: blog.content }}
             />
           ) : (
             <div className="text-[#0C1A35]/80 leading-relaxed whitespace-pre-wrap">
-              {blog.excerpt}
+              {blog.excerpt || "No content available for this blog post."}
             </div>
           )}
         </div>

@@ -20,6 +20,15 @@ export default function AdminSettingsPage() {
   const [maintenanceMode, setMaintenanceMode] = useState(false);
   const [defaultUserRole, setDefaultUserRole] = useState("user");
   const [sessionTimeout, setSessionTimeout] = useState(30);
+  const [socialFacebookUrl, setSocialFacebookUrl] = useState("");
+  const [socialTwitterUrl, setSocialTwitterUrl] = useState("");
+  const [socialLinkedinUrl, setSocialLinkedinUrl] = useState("");
+  const [socialYoutubeUrl, setSocialYoutubeUrl] = useState("");
+  const [socialInstagramUrl, setSocialInstagramUrl] = useState("");
+  const [fontFamily, setFontFamily] = useState("Poppins");
+  const [fontSize, setFontSize] = useState("16");
+  const [fontFamilyMode, setFontFamilyMode] = useState("dropdown"); // "dropdown" or "custom"
+  const [customFontFamily, setCustomFontFamily] = useState("");
 
   console.log("logoUrl", logoUrl);
   // Admin credentials change states
@@ -60,6 +69,25 @@ export default function AdminSettingsPage() {
           setMaintenanceMode(d.maintenance_mode || false);
           setDefaultUserRole(d.default_user_role || "user");
           setSessionTimeout(Number(d.session_timeout) || 30);
+          setSocialFacebookUrl(d.social_facebook_url || "");
+          setSocialTwitterUrl(d.social_twitter_url || "");
+          setSocialLinkedinUrl(d.social_linkedin_url || "");
+          setSocialYoutubeUrl(d.social_youtube_url || "");
+          setSocialInstagramUrl(d.social_instagram_url || "");
+          const savedFontFamily = d.font_family || "Poppins";
+          setFontSize(d.font_size || "16");
+          
+          // Check if saved font is in the dropdown list
+          const commonFonts = ["Poppins", "Arial", "Helvetica", "Times New Roman", "Georgia", "Verdana", "Courier New", "Calibri", "Tahoma", "Trebuchet MS", "Comic Sans MS", "Impact", "Lucida Console", "Palatino", "Garamond", "Book Antiqua", "Arial Black", "Century Gothic", "Franklin Gothic Medium", "Lucida Sans Unicode", "MS Sans Serif", "MS Serif"];
+          if (commonFonts.includes(savedFontFamily)) {
+            setFontFamily(savedFontFamily);
+            setFontFamilyMode("dropdown");
+            setCustomFontFamily("");
+          } else {
+            setFontFamily("Custom");
+            setFontFamilyMode("custom");
+            setCustomFontFamily(savedFontFamily);
+          }
         }
       } catch (err) {
         console.error("Error fetching settings:", err);
@@ -178,6 +206,13 @@ export default function AdminSettingsPage() {
         maintenance_mode: maintenanceMode,
         default_user_role: defaultUserRole,
         session_timeout: sessionTimeout,
+        social_facebook_url: socialFacebookUrl,
+        social_twitter_url: socialTwitterUrl,
+        social_linkedin_url: socialLinkedinUrl,
+        social_youtube_url: socialYoutubeUrl,
+        social_instagram_url: socialInstagramUrl,
+        font_family: fontFamilyMode === "custom" ? customFontFamily : fontFamily,
+        font_size: fontSize,
         ...updatedFields,
       };
 
@@ -201,25 +236,36 @@ export default function AdminSettingsPage() {
         // Trigger events to refresh components
         if (typeof window !== 'undefined') {
           // If site name was updated, trigger site name update event
-          if (updatedFields.site_name !== undefined || payload.site_name) {
+          if (updatedFields.site_name !== undefined) {
             window.dispatchEvent(new CustomEvent('siteNameUpdated'));
             localStorage.removeItem('siteNameCache');
           }
           
           // If logo was updated, trigger logo update event
-          if (updatedFields.logo_url !== undefined || payload.logo_url) {
+          if (updatedFields.logo_url !== undefined) {
             window.dispatchEvent(new CustomEvent('logoUpdated'));
+          }
+          
+          // If social media URLs were updated, trigger social media update event
+          if (updatedFields.social_facebook_url !== undefined || 
+              updatedFields.social_twitter_url !== undefined ||
+              updatedFields.social_linkedin_url !== undefined ||
+              updatedFields.social_youtube_url !== undefined ||
+              updatedFields.social_instagram_url !== undefined) {
+            window.dispatchEvent(new CustomEvent('socialMediaUrlsUpdated'));
+          }
+          
+          // If font settings were updated, trigger font update event
+          if (updatedFields.font_family !== undefined || updatedFields.font_size !== undefined) {
+            window.dispatchEvent(new CustomEvent('fontSettingsUpdated'));
           }
         }
       } else {
-        const errorMsg = res.data.error || res.data.message || "⚠️ Failed to update settings";
-        toast.error(errorMsg);
-        console.error("Settings update error:", res.data);
+        toast.error(res.data.message || "⚠️ Failed to update settings");
       }
     } catch (err) {
       console.error("Error updating settings:", err);
-      const errorMsg = err.response?.data?.error || err.response?.data?.message || err.message || "❌ Something went wrong while saving";
-      toast.error(errorMsg);
+      toast.error("❌ Something went wrong while saving");
     }
   };
 
@@ -311,6 +357,185 @@ export default function AdminSettingsPage() {
             }
           >
             Save General Settings
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Social Media Settings */}
+      <Card className="border hover:shadow-lg transition-all">
+        <CardHeader>
+          <CardTitle>Social Media URLs</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          <div className="flex flex-col md:flex-row md:items-center gap-4">
+            <label className="w-40 font-medium text-gray-700">Facebook URL:</label>
+            <Input
+              className="flex-1"
+              type="url"
+              value={socialFacebookUrl}
+              onChange={(e) => setSocialFacebookUrl(e.target.value)}
+              placeholder="https://www.facebook.com/yourpage"
+            />
+          </div>
+
+          <div className="flex flex-col md:flex-row md:items-center gap-4">
+            <label className="w-40 font-medium text-gray-700">Twitter URL:</label>
+            <Input
+              className="flex-1"
+              type="url"
+              value={socialTwitterUrl}
+              onChange={(e) => setSocialTwitterUrl(e.target.value)}
+              placeholder="https://www.twitter.com/yourhandle"
+            />
+          </div>
+
+          <div className="flex flex-col md:flex-row md:items-center gap-4">
+            <label className="w-40 font-medium text-gray-700">LinkedIn URL:</label>
+            <Input
+              className="flex-1"
+              type="url"
+              value={socialLinkedinUrl}
+              onChange={(e) => setSocialLinkedinUrl(e.target.value)}
+              placeholder="https://www.linkedin.com/company/yourcompany"
+            />
+          </div>
+
+          <div className="flex flex-col md:flex-row md:items-center gap-4">
+            <label className="w-40 font-medium text-gray-700">YouTube URL:</label>
+            <Input
+              className="flex-1"
+              type="url"
+              value={socialYoutubeUrl}
+              onChange={(e) => setSocialYoutubeUrl(e.target.value)}
+              placeholder="https://www.youtube.com/@yourchannel"
+            />
+          </div>
+
+          <div className="flex flex-col md:flex-row md:items-center gap-4">
+            <label className="w-40 font-medium text-gray-700">Instagram URL:</label>
+            <Input
+              className="flex-1"
+              type="url"
+              value={socialInstagramUrl}
+              onChange={(e) => setSocialInstagramUrl(e.target.value)}
+              placeholder="https://www.instagram.com/yourhandle"
+            />
+          </div>
+
+          <Button
+            className="w-fit mt-2"
+            onClick={() =>
+              updateSettings(
+                {
+                  social_facebook_url: socialFacebookUrl,
+                  social_twitter_url: socialTwitterUrl,
+                  social_linkedin_url: socialLinkedinUrl,
+                  social_youtube_url: socialYoutubeUrl,
+                  social_instagram_url: socialInstagramUrl,
+                },
+                "✅ Social media URLs saved successfully!"
+              )
+            }
+          >
+            Save Social Media URLs
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Font Settings */}
+      <Card className="border hover:shadow-lg transition-all">
+        <CardHeader>
+          <CardTitle>Font Settings</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          <div className="flex flex-col md:flex-row md:items-center gap-4">
+            <label className="w-40 font-medium text-gray-700">Font Family:</label>
+            <div className="flex-1 flex flex-col gap-2">
+              <select
+                className="border border-gray-300 rounded-lg p-2"
+                value={fontFamilyMode === "custom" ? "Custom" : fontFamily}
+                onChange={(e) => {
+                  if (e.target.value === "Custom") {
+                    setFontFamilyMode("custom");
+                    setFontFamily("Custom");
+                  } else {
+                    setFontFamilyMode("dropdown");
+                    setFontFamily(e.target.value);
+                    setCustomFontFamily("");
+                  }
+                }}
+              >
+                <option value="Poppins">Poppins</option>
+                <option value="Arial">Arial</option>
+                <option value="Helvetica">Helvetica</option>
+                <option value="Times New Roman">Times New Roman</option>
+                <option value="Georgia">Georgia</option>
+                <option value="Verdana">Verdana</option>
+                <option value="Courier New">Courier New</option>
+                <option value="Calibri">Calibri</option>
+                <option value="Tahoma">Tahoma</option>
+                <option value="Trebuchet MS">Trebuchet MS</option>
+                <option value="Comic Sans MS">Comic Sans MS</option>
+                <option value="Impact">Impact</option>
+                <option value="Lucida Console">Lucida Console</option>
+                <option value="Palatino">Palatino</option>
+                <option value="Garamond">Garamond</option>
+                <option value="Book Antiqua">Book Antiqua</option>
+                <option value="Arial Black">Arial Black</option>
+                <option value="Century Gothic">Century Gothic</option>
+                <option value="Franklin Gothic Medium">Franklin Gothic Medium</option>
+                <option value="Lucida Sans Unicode">Lucida Sans Unicode</option>
+                <option value="MS Sans Serif">MS Sans Serif</option>
+                <option value="MS Serif">MS Serif</option>
+                <option value="Custom">Custom (Enter manually)</option>
+              </select>
+              {fontFamilyMode === "custom" && (
+                <Input
+                  type="text"
+                  className="border border-gray-300 rounded-lg p-2"
+                  value={customFontFamily}
+                  onChange={(e) => setCustomFontFamily(e.target.value)}
+                  placeholder="Enter custom font name (e.g., Roboto, Open Sans)"
+                />
+              )}
+            </div>
+          </div>
+
+          <div className="flex flex-col md:flex-row md:items-center gap-4">
+            <label className="w-40 font-medium text-gray-700">Font Size (px):</label>
+            <Input
+              type="number"
+              className="flex-1"
+              value={fontSize}
+              onChange={(e) => setFontSize(e.target.value)}
+              placeholder="Enter font size in pixels"
+              min="10"
+              max="24"
+            />
+          </div>
+
+          <p className="text-xs text-gray-500">
+            These settings will apply to the entire website. Select a font from the dropdown or choose "Custom" to enter a font name manually. Default: Poppins, 16px
+          </p>
+
+          <Button
+            className="w-fit mt-2"
+            onClick={() => {
+              const finalFontFamily = fontFamilyMode === "custom" ? customFontFamily : fontFamily;
+              if (fontFamilyMode === "custom" && !customFontFamily.trim()) {
+                toast.error("❌ Please enter a custom font name");
+                return;
+              }
+              updateSettings(
+                {
+                  font_family: finalFontFamily,
+                  font_size: fontSize,
+                },
+                "✅ Font settings saved successfully!"
+              );
+            }}
+          >
+            Save Font Settings
           </Button>
         </CardContent>
       </Card>

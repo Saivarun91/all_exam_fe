@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Award, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { getExamUrl } from "@/lib/utils";
+import ItemListJsonLd from "@/components/ItemListJsonLd";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
@@ -40,6 +41,7 @@ const RecentlyUpdated = () => {
       .catch((err) => console.error("Error fetching recently updated exams:", err))
       .finally(() => setLoading(false));
   }, []);
+  
 
   if (loading) {
     return (
@@ -55,8 +57,24 @@ const RecentlyUpdated = () => {
     return null; // Hide section if no exams
   }
 
+  // Prepare items for schema
+  const schemaItems = exams.map((exam) => ({
+    title: exam.title,
+    description: exam.description || exam.excerpt || "",
+    provider: exam.provider || "",
+    url: getExamUrl(exam),
+  }));
+
   return (
     <section className="py-12 md:py-20 bg-gradient-to-b from-[#0C1A35]/2 to-white">
+      {exams.length > 0 && (
+        <ItemListJsonLd
+          items={schemaItems}
+          listName={sectionSettings.heading || "Recently Updated Exams"}
+          itemType="Course"
+          schemaId="recently-updated-json-ld-schema"
+        />
+      )}
       <div className="container mx-auto px-4">
         <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-center mb-3 md:mb-4 text-[#0C1A35] px-2">
           {sectionSettings.heading || "Recently Updated Exams"}

@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { getExamUrl } from "@/lib/utils";
+import BreadcrumbJsonLd from "@/components/BreadcrumbJsonLd";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -93,8 +94,16 @@ export default function CategoryPage() {
     );
   }
 
+  // Prepare breadcrumb items for schema
+  const breadcrumbItems = [
+    { name: "Home", url: "/" },
+    { name: "Exams", url: "/exams" },
+    { name: category?.title || "Category", url: `/categories/${slug}` },
+  ];
+
   return (
     <div className="min-h-screen bg-white">
+      {category && <BreadcrumbJsonLd items={breadcrumbItems} />}
       <div className="container mx-auto px-4 py-8">
         {/* Breadcrumb */}
         <Breadcrumb className="mb-6">

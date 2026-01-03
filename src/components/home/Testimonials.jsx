@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Star, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import TestimonialsJsonLd from "@/components/TestimonialsJsonLd";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
@@ -86,6 +87,7 @@ const Testimonials = () => {
 
   return (
     <section className="py-12 md:py-20 bg-[#0B1A35]">
+      {testimonials.length > 0 && <TestimonialsJsonLd testimonials={testimonials} />}
       <div className="container mx-auto px-4">
         <div className="text-center mb-8 md:mb-12">
           <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-3 md:mb-4 text-white px-2">

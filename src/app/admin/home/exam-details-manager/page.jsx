@@ -26,6 +26,7 @@ import { Plus, Edit, Trash2, Save, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { checkAuth, getAuthHeaders } from "@/utils/authCheck";
+import TipTapEditor from "@/components/editor/TipTapEditor";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
@@ -46,6 +47,54 @@ export default function ExamDetailsManager() {
   });
 
   // Form states for exam details
+  const [aboutHeading, setAboutHeading] = useState("");
+  const [aboutHeadingText, setAboutHeadingText] = useState("");
+  const [aboutHeadingTag, setAboutHeadingTag] = useState("h2");
+  const [aboutHeadingFontSize, setAboutHeadingFontSize] = useState("24");
+  const [aboutHeadingFontWeight, setAboutHeadingFontWeight] = useState("700");
+  
+  // Why Matters Heading
+  const [whyMattersHeadingText, setWhyMattersHeadingText] = useState("");
+  const [whyMattersHeadingTag, setWhyMattersHeadingTag] = useState("h2");
+  const [whyMattersHeadingFontSize, setWhyMattersHeadingFontSize] = useState("24");
+  const [whyMattersHeadingFontWeight, setWhyMattersHeadingFontWeight] = useState("700");
+  
+  // What's Included Heading
+  const [whatsIncludedHeadingText, setWhatsIncludedHeadingText] = useState("");
+  const [whatsIncludedHeadingTag, setWhatsIncludedHeadingTag] = useState("h2");
+  const [whatsIncludedHeadingFontSize, setWhatsIncludedHeadingFontSize] = useState("24");
+  const [whatsIncludedHeadingFontWeight, setWhatsIncludedHeadingFontWeight] = useState("700");
+  
+  // Topics Covered Heading
+  const [topicsHeadingText, setTopicsHeadingText] = useState("");
+  const [topicsHeadingTag, setTopicsHeadingTag] = useState("h2");
+  const [topicsHeadingFontSize, setTopicsHeadingFontSize] = useState("24");
+  const [topicsHeadingFontWeight, setTopicsHeadingFontWeight] = useState("700");
+  
+  // Practice Tests Heading
+  const [practiceTestsHeadingText, setPracticeTestsHeadingText] = useState("");
+  const [practiceTestsHeadingTag, setPracticeTestsHeadingTag] = useState("h2");
+  const [practiceTestsHeadingFontSize, setPracticeTestsHeadingFontSize] = useState("24");
+  const [practiceTestsHeadingFontWeight, setPracticeTestsHeadingFontWeight] = useState("700");
+  
+  // Testimonials Heading
+  const [testimonialsHeadingText, setTestimonialsHeadingText] = useState("");
+  const [testimonialsHeadingTag, setTestimonialsHeadingTag] = useState("h2");
+  const [testimonialsHeadingFontSize, setTestimonialsHeadingFontSize] = useState("24");
+  const [testimonialsHeadingFontWeight, setTestimonialsHeadingFontWeight] = useState("700");
+  
+  // FAQs Heading
+  const [faqsHeadingText, setFaqsHeadingText] = useState("");
+  const [faqsHeadingTag, setFaqsHeadingTag] = useState("h2");
+  const [faqsHeadingFontSize, setFaqsHeadingFontSize] = useState("24");
+  const [faqsHeadingFontWeight, setFaqsHeadingFontWeight] = useState("700");
+  
+  // Test Instructions Heading
+  const [testInstructionsHeadingText, setTestInstructionsHeadingText] = useState("");
+  const [testInstructionsHeadingTag, setTestInstructionsHeadingTag] = useState("h2");
+  const [testInstructionsHeadingFontSize, setTestInstructionsHeadingFontSize] = useState("24");
+  const [testInstructionsHeadingFontWeight, setTestInstructionsHeadingFontWeight] = useState("700");
+  
   const [about, setAbout] = useState("");
   const [testDescription, setTestDescription] = useState("");
   const [passRate, setPassRate] = useState("");
@@ -68,6 +117,172 @@ export default function ExamDetailsManager() {
   const [testimonials, setTestimonials] = useState([{ name: "", role: "", rating: 5, review: "", verified: false }]);
   const [faqs, setFaqs] = useState([{ question: "", answer: "" }]);
   const [testInstructions, setTestInstructions] = useState([""]);
+
+  // Reusable Heading Component Function
+  const HeadingInput = ({ 
+    label, 
+    text, 
+    setText, 
+    tag, 
+    setTag, 
+    fontSize, 
+    setFontSize, 
+    fontWeight, 
+    setFontWeight,
+    placeholder = "Heading"
+  }) => (
+    <div>
+      <Label>{label}</Label>
+      <div className="space-y-3 mt-2">
+        <Input
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder={placeholder}
+        />
+        <div className="grid grid-cols-3 gap-3">
+          <div>
+            <Label className="text-xs text-gray-600">Heading Tag</Label>
+            <Select value={tag || "h2"} onValueChange={(value) => setTag(value)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select tag" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="h1">H1</SelectItem>
+                <SelectItem value="h2">H2</SelectItem>
+                <SelectItem value="h3">H3</SelectItem>
+                <SelectItem value="h4">H4</SelectItem>
+                <SelectItem value="h5">H5</SelectItem>
+                <SelectItem value="h6">H6</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-xs text-gray-600">Font Size (px)</Label>
+            <Select value={String(fontSize || "24")} onValueChange={(value) => setFontSize(value)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select size" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="12">12px</SelectItem>
+                <SelectItem value="14">14px</SelectItem>
+                <SelectItem value="16">16px</SelectItem>
+                <SelectItem value="18">18px</SelectItem>
+                <SelectItem value="20">20px</SelectItem>
+                <SelectItem value="22">22px</SelectItem>
+                <SelectItem value="24">24px</SelectItem>
+                <SelectItem value="28">28px</SelectItem>
+                <SelectItem value="32">32px</SelectItem>
+                <SelectItem value="36">36px</SelectItem>
+                <SelectItem value="40">40px</SelectItem>
+                <SelectItem value="48">48px</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-xs text-gray-600">Font Weight</Label>
+            <Select value={String(fontWeight || "700")} onValueChange={(value) => setFontWeight(value)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select weight" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="normal">Normal</SelectItem>
+                <SelectItem value="400">Regular (400)</SelectItem>
+                <SelectItem value="500">Medium (500)</SelectItem>
+                <SelectItem value="600">Semibold (600)</SelectItem>
+                <SelectItem value="700">Bold (700)</SelectItem>
+                <SelectItem value="800">Extra Bold (800)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  // Function to escape HTML special characters
+  const escapeHTML = (str) => {
+    if (!str) return "";
+    return str
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  };
+
+  // Function to generate heading HTML from components
+  const generateHeadingHTML = (text, tag, fontSize, fontWeight) => {
+    const Tag = tag || "h2";
+    const size = fontSize || "24";
+    const weight = fontWeight || "700";
+    const escapedText = escapeHTML(text || "");
+    return `<${Tag} style="font-size: ${size}px; font-weight: ${weight};">${escapedText}</${Tag}>`;
+  };
+
+  // Function to parse heading HTML and extract components
+  const parseHeadingHTML = (html, defaultText = "About This Exam") => {
+    if (!html) {
+      return {
+        text: defaultText,
+        tag: "h2",
+        fontSize: "24",
+        fontWeight: "700"
+      };
+    }
+
+    // Check if it's plain text (doesn't contain HTML tags)
+    if (!html.includes("<") || !html.includes(">")) {
+      return {
+        text: html,
+        tag: "h2",
+        fontSize: "24",
+        fontWeight: "700"
+      };
+    }
+
+    // Try to parse HTML
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, "text/html");
+    const element = doc.body.firstElementChild;
+
+    if (!element || !element.tagName) {
+      return {
+        text: html.replace(/<[^>]*>/g, ""), // Strip HTML tags if any
+        tag: "h2",
+        fontSize: "24",
+        fontWeight: "700"
+      };
+    }
+
+    const tag = element.tagName.toLowerCase();
+    const text = element.textContent || element.innerText || "";
+    const style = element.getAttribute("style") || "";
+    
+    // Extract font-size
+    const fontSizeMatch = style.match(/font-size:\s*(\d+)px/);
+    const fontSize = fontSizeMatch ? fontSizeMatch[1] : "24";
+
+    // Extract font-weight (can be numeric or text)
+    const fontWeightMatch = style.match(/font-weight:\s*([\w\d]+)/);
+    let fontWeight = fontWeightMatch ? fontWeightMatch[1] : "700";
+    
+    // Convert text values to numeric equivalents for consistency
+    if (fontWeight === "bold") {
+      fontWeight = "700";
+    } else if (fontWeight === "normal") {
+      fontWeight = "normal";
+    } else if (fontWeight === "semibold" || fontWeight === "semi-bold") {
+      fontWeight = "600";
+    }
+
+    // Ensure all values are strings for Select components
+    return { 
+      text: String(text || defaultText), 
+      tag: String(tag || "h2"), 
+      fontSize: String(fontSize || "24"), 
+      fontWeight: String(fontWeight || "700")
+    };
+  };
 
   useEffect(() => {
     // Check authentication
@@ -173,6 +388,64 @@ export default function ExamDetailsManager() {
 
   const loadCourseDetails = (course, showMessage = true) => {
     setSelectedCourse(course);
+    
+    // Load About heading
+    const aboutHeadingData = parseHeadingHTML(course.about_heading || "");
+    setAboutHeading(course.about_heading || "");
+    setAboutHeadingText(aboutHeadingData.text);
+    setAboutHeadingTag(aboutHeadingData.tag);
+    setAboutHeadingFontSize(aboutHeadingData.fontSize);
+    setAboutHeadingFontWeight(aboutHeadingData.fontWeight);
+    
+    // Load Why Matters heading
+    const whyMattersHeadingData = parseHeadingHTML(course.why_matters_heading || "", "Why This Certification Matters");
+    setWhyMattersHeadingText(whyMattersHeadingData.text);
+    setWhyMattersHeadingTag(whyMattersHeadingData.tag);
+    setWhyMattersHeadingFontSize(whyMattersHeadingData.fontSize);
+    setWhyMattersHeadingFontWeight(whyMattersHeadingData.fontWeight);
+    
+    // Load What's Included heading
+    const whatsIncludedHeadingData = parseHeadingHTML(course.whats_included_heading || "", "What's Included in This Practice Pack");
+    setWhatsIncludedHeadingText(whatsIncludedHeadingData.text);
+    setWhatsIncludedHeadingTag(whatsIncludedHeadingData.tag);
+    setWhatsIncludedHeadingFontSize(whatsIncludedHeadingData.fontSize);
+    setWhatsIncludedHeadingFontWeight(whatsIncludedHeadingData.fontWeight);
+    
+    // Load Topics heading
+    const topicsHeadingData = parseHeadingHTML(course.topics_heading || "", "Topics Covered");
+    setTopicsHeadingText(topicsHeadingData.text);
+    setTopicsHeadingTag(topicsHeadingData.tag);
+    setTopicsHeadingFontSize(topicsHeadingData.fontSize);
+    setTopicsHeadingFontWeight(topicsHeadingData.fontWeight);
+    
+    // Load Practice Tests heading
+    const practiceTestsHeadingData = parseHeadingHTML(course.practice_tests_heading || "", "Available Practice Tests");
+    setPracticeTestsHeadingText(practiceTestsHeadingData.text);
+    setPracticeTestsHeadingTag(practiceTestsHeadingData.tag);
+    setPracticeTestsHeadingFontSize(practiceTestsHeadingData.fontSize);
+    setPracticeTestsHeadingFontWeight(practiceTestsHeadingData.fontWeight);
+    
+    // Load Testimonials heading
+    const testimonialsHeadingData = parseHeadingHTML(course.testimonials_heading || "", "Student Success Stories");
+    setTestimonialsHeadingText(testimonialsHeadingData.text);
+    setTestimonialsHeadingTag(testimonialsHeadingData.tag);
+    setTestimonialsHeadingFontSize(testimonialsHeadingData.fontSize);
+    setTestimonialsHeadingFontWeight(testimonialsHeadingData.fontWeight);
+    
+    // Load FAQs heading
+    const faqsHeadingData = parseHeadingHTML(course.faqs_heading || "", "Frequently Asked Questions");
+    setFaqsHeadingText(faqsHeadingData.text);
+    setFaqsHeadingTag(faqsHeadingData.tag);
+    setFaqsHeadingFontSize(faqsHeadingData.fontSize);
+    setFaqsHeadingFontWeight(faqsHeadingData.fontWeight);
+    
+    // Load Test Instructions heading
+    const testInstructionsHeadingData = parseHeadingHTML(course.test_instructions_heading || "", "Test Instructions");
+    setTestInstructionsHeadingText(testInstructionsHeadingData.text);
+    setTestInstructionsHeadingTag(testInstructionsHeadingData.tag);
+    setTestInstructionsHeadingFontSize(testInstructionsHeadingData.fontSize);
+    setTestInstructionsHeadingFontWeight(testInstructionsHeadingData.fontWeight);
+    
     setAbout(course.about || "");
     setTestDescription(course.test_description || "");
     setPassRate(course.pass_rate ? String(course.pass_rate) : "");
@@ -210,7 +483,72 @@ export default function ExamDetailsManager() {
 
     setLoading(true);
     try {
+      // Generate heading HTML from components
+      const aboutHeadingHTML = generateHeadingHTML(
+        aboutHeadingText,
+        aboutHeadingTag,
+        aboutHeadingFontSize,
+        aboutHeadingFontWeight
+      );
+      
+      const whyMattersHeadingHTML = generateHeadingHTML(
+        whyMattersHeadingText,
+        whyMattersHeadingTag,
+        whyMattersHeadingFontSize,
+        whyMattersHeadingFontWeight
+      );
+      
+      const whatsIncludedHeadingHTML = generateHeadingHTML(
+        whatsIncludedHeadingText,
+        whatsIncludedHeadingTag,
+        whatsIncludedHeadingFontSize,
+        whatsIncludedHeadingFontWeight
+      );
+      
+      const topicsHeadingHTML = generateHeadingHTML(
+        topicsHeadingText,
+        topicsHeadingTag,
+        topicsHeadingFontSize,
+        topicsHeadingFontWeight
+      );
+      
+      const practiceTestsHeadingHTML = generateHeadingHTML(
+        practiceTestsHeadingText,
+        practiceTestsHeadingTag,
+        practiceTestsHeadingFontSize,
+        practiceTestsHeadingFontWeight
+      );
+      
+      const testimonialsHeadingHTML = generateHeadingHTML(
+        testimonialsHeadingText,
+        testimonialsHeadingTag,
+        testimonialsHeadingFontSize,
+        testimonialsHeadingFontWeight
+      );
+      
+      const faqsHeadingHTML = generateHeadingHTML(
+        faqsHeadingText,
+        faqsHeadingTag,
+        faqsHeadingFontSize,
+        faqsHeadingFontWeight
+      );
+      
+      const testInstructionsHeadingHTML = generateHeadingHTML(
+        testInstructionsHeadingText,
+        testInstructionsHeadingTag,
+        testInstructionsHeadingFontSize,
+        testInstructionsHeadingFontWeight
+      );
+
       const payload = {
+        about_heading: aboutHeadingHTML || "",
+        why_matters_heading: whyMattersHeadingHTML || "",
+        whats_included_heading: whatsIncludedHeadingHTML || "",
+        topics_heading: topicsHeadingHTML || "",
+        practice_tests_heading: practiceTestsHeadingHTML || "",
+        testimonials_heading: testimonialsHeadingHTML || "",
+        faqs_heading: faqsHeadingHTML || "",
+        test_instructions_heading: testInstructionsHeadingHTML || "",
         about,
         test_description: testDescription,
         pass_rate: (passRate && String(passRate).trim() !== "") ? parseInt(String(passRate)) : null,
@@ -607,14 +945,28 @@ export default function ExamDetailsManager() {
                 </TabsContent>
 
                 <TabsContent value="basic" className="space-y-4">
+                  <HeadingInput
+                    label="About Section Heading"
+                    text={aboutHeadingText}
+                    setText={setAboutHeadingText}
+                    tag={aboutHeadingTag}
+                    setTag={setAboutHeadingTag}
+                    fontSize={aboutHeadingFontSize}
+                    setFontSize={setAboutHeadingFontSize}
+                    fontWeight={aboutHeadingFontWeight}
+                    setFontWeight={setAboutHeadingFontWeight}
+                    placeholder="About This Exam"
+                  />
+
                   <div>
                     <Label>About (Description)</Label>
-                    <Textarea
-                      value={about}
-                      onChange={(e) => setAbout(e.target.value)}
-                      placeholder="Describe the exam certification..."
-                      rows={4}
-                    />
+                    <div className="mt-2">
+                      <TipTapEditor
+                        content={about || ""}
+                        onChange={(html) => setAbout(html)}
+                        placeholder="Describe the exam certification..."
+                      />
+                    </div>
                   </div>
 
                   <div>
@@ -685,15 +1037,42 @@ export default function ExamDetailsManager() {
                 </TabsContent>
 
                 <TabsContent value="content" className="space-y-4">
+                  <HeadingInput
+                    label="Why This Certification Matters Heading"
+                    text={whyMattersHeadingText}
+                    setText={setWhyMattersHeadingText}
+                    tag={whyMattersHeadingTag}
+                    setTag={setWhyMattersHeadingTag}
+                    fontSize={whyMattersHeadingFontSize}
+                    setFontSize={setWhyMattersHeadingFontSize}
+                    fontWeight={whyMattersHeadingFontWeight}
+                    setFontWeight={setWhyMattersHeadingFontWeight}
+                    placeholder="Why This Certification Matters"
+                  />
+                  
                   <div>
                     <Label>Why This Certification Matters</Label>
-                    <Textarea
-                      value={whyMatters}
-                      onChange={(e) => setWhyMatters(e.target.value)}
-                      placeholder="Explain why this certification is important..."
-                      rows={4}
-                    />
+                    <div className="mt-2">
+                      <TipTapEditor
+                        content={whyMatters || ""}
+                        onChange={(html) => setWhyMatters(html)}
+                        placeholder="Explain why this certification is important..."
+                      />
+                    </div>
                   </div>
+
+                  <HeadingInput
+                    label="What's Included Heading"
+                    text={whatsIncludedHeadingText}
+                    setText={setWhatsIncludedHeadingText}
+                    tag={whatsIncludedHeadingTag}
+                    setTag={setWhatsIncludedHeadingTag}
+                    fontSize={whatsIncludedHeadingFontSize}
+                    setFontSize={setWhatsIncludedHeadingFontSize}
+                    fontWeight={whatsIncludedHeadingFontWeight}
+                    setFontWeight={setWhatsIncludedHeadingFontWeight}
+                    placeholder="What's Included in This Practice Pack"
+                  />
 
                   <div>
                     <div className="flex items-center justify-between mb-2">
@@ -704,13 +1083,14 @@ export default function ExamDetailsManager() {
                     </div>
                     {whatsIncluded.map((item, index) => (
                       <div key={index} className="flex gap-2 mb-2">
-                        <Textarea
-                          value={item}
-                          onChange={(e) => updateWhatsIncluded(index, e.target.value)}
-                          placeholder="Feature included... (supports multiple lines and paragraphs)"
-                          rows={4}
-                          className="flex-1 resize-y"
-                        />
+                        <div className="flex-1">
+                          <TipTapEditor
+                            content={item || ""}
+                            onChange={(html) => updateWhatsIncluded(index, html)}
+                            placeholder="Feature included... (supports rich text formatting)"
+                            className="min-h-[100px]"
+                          />
+                        </div>
                         <Button
                           size="sm"
                           variant="destructive"
@@ -722,6 +1102,19 @@ export default function ExamDetailsManager() {
                       </div>
                     ))}
                   </div>
+
+                  <HeadingInput
+                    label="Topics Covered Heading"
+                    text={topicsHeadingText}
+                    setText={setTopicsHeadingText}
+                    tag={topicsHeadingTag}
+                    setTag={setTopicsHeadingTag}
+                    fontSize={topicsHeadingFontSize}
+                    setFontSize={setTopicsHeadingFontSize}
+                    fontWeight={topicsHeadingFontWeight}
+                    setFontWeight={setTopicsHeadingFontWeight}
+                    placeholder="Topics Covered"
+                  />
 
                   <div>
                     <div className="flex items-center justify-between mb-2">
@@ -758,6 +1151,19 @@ export default function ExamDetailsManager() {
                 </TabsContent>
 
                 <TabsContent value="tests" className="space-y-4">
+                  <HeadingInput
+                    label="Practice Tests Heading"
+                    text={practiceTestsHeadingText}
+                    setText={setPracticeTestsHeadingText}
+                    tag={practiceTestsHeadingTag}
+                    setTag={setPracticeTestsHeadingTag}
+                    fontSize={practiceTestsHeadingFontSize}
+                    setFontSize={setPracticeTestsHeadingFontSize}
+                    fontWeight={practiceTestsHeadingFontWeight}
+                    setFontWeight={setPracticeTestsHeadingFontWeight}
+                    placeholder="Available Practice Tests"
+                  />
+                  
                   <div className="flex items-center justify-between mb-2">
                     <Label>Practice Tests</Label>
                     <Button size="sm" onClick={addPracticeTest}>
@@ -820,7 +1226,20 @@ export default function ExamDetailsManager() {
                   ))}
 
                   <div className="mt-6 pt-6 border-t border-gray-200">
-                    <div className="flex items-center justify-between mb-2">
+                    <HeadingInput
+                      label="Test Instructions Heading"
+                      text={testInstructionsHeadingText}
+                      setText={setTestInstructionsHeadingText}
+                      tag={testInstructionsHeadingTag}
+                      setTag={setTestInstructionsHeadingTag}
+                      fontSize={testInstructionsHeadingFontSize}
+                      setFontSize={setTestInstructionsHeadingFontSize}
+                      fontWeight={testInstructionsHeadingFontWeight}
+                      setFontWeight={setTestInstructionsHeadingFontWeight}
+                      placeholder="Test Instructions"
+                    />
+                    
+                    <div className="flex items-center justify-between mb-2 mt-4">
                       <Label>Test Instructions (shown on test player page)</Label>
                       <Button size="sm" onClick={addTestInstruction}>
                         <Plus className="w-4 h-4 mr-1" /> Add Instruction
@@ -847,6 +1266,19 @@ export default function ExamDetailsManager() {
                 </TabsContent>
 
                 <TabsContent value="social" className="space-y-4">
+                  <HeadingInput
+                    label="Testimonials Heading"
+                    text={testimonialsHeadingText}
+                    setText={setTestimonialsHeadingText}
+                    tag={testimonialsHeadingTag}
+                    setTag={setTestimonialsHeadingTag}
+                    fontSize={testimonialsHeadingFontSize}
+                    setFontSize={setTestimonialsHeadingFontSize}
+                    fontWeight={testimonialsHeadingFontWeight}
+                    setFontWeight={setTestimonialsHeadingFontWeight}
+                    placeholder="Student Success Stories"
+                  />
+                  
                   <div className="flex items-center justify-between mb-2">
                     <Label>Testimonials</Label>
                     <Button size="sm" onClick={addTestimonial}>
@@ -912,6 +1344,19 @@ export default function ExamDetailsManager() {
                 </TabsContent>
 
                 <TabsContent value="faq" className="space-y-4">
+                  <HeadingInput
+                    label="FAQs Heading"
+                    text={faqsHeadingText}
+                    setText={setFaqsHeadingText}
+                    tag={faqsHeadingTag}
+                    setTag={setFaqsHeadingTag}
+                    fontSize={faqsHeadingFontSize}
+                    setFontSize={setFaqsHeadingFontSize}
+                    fontWeight={faqsHeadingFontWeight}
+                    setFontWeight={setFaqsHeadingFontWeight}
+                    placeholder="Frequently Asked Questions"
+                  />
+                  
                   <div className="flex items-center justify-between mb-2">
                     <Label>FAQs</Label>
                     <Button size="sm" onClick={addFaq}>
@@ -936,12 +1381,14 @@ export default function ExamDetailsManager() {
                             <Trash2 className="w-4 h-4" />
                           </Button>
                         </div>
-                        <Textarea
-                          value={faq.answer}
-                          onChange={(e) => updateFaq(index, "answer", e.target.value)}
-                          placeholder="Answer"
-                          rows={2}
-                        />
+                        <div>
+                          <Label className="text-sm text-gray-600 mb-1 block">Answer</Label>
+                          <TipTapEditor
+                            content={faq.answer || ""}
+                            onChange={(html) => updateFaq(index, "answer", html)}
+                            placeholder="Answer (supports rich text formatting)"
+                          />
+                        </div>
                       </div>
                     </Card>
                   ))}

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { getOptimizedImageUrl } from "@/utils/imageUtils";
+import BlogCollectionJsonLd from "@/components/BlogCollectionJsonLd";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
@@ -98,6 +99,7 @@ const BlogSection = () => {
 
   return (
     <section className="py-12 md:py-20 bg-[#F5F8FC]">
+      {articles.length > 0 && <BlogCollectionJsonLd articles={articles} />}
       <div className="container mx-auto px-4">
         <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-center mb-3 md:mb-4 text-[#0C1A35] px-2">
           {sectionSettings.heading || "Latest Blog Posts"}

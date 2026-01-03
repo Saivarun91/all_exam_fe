@@ -17,6 +17,7 @@ import {
 import { Plus, Trash2, Save, Eye } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { checkAuth, getAuthHeaders } from "@/utils/authCheck";
+import TipTapEditor from "@/components/editor/TipTapEditor";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
@@ -54,7 +55,90 @@ export default function ExamsPageManager() {
 
   // About Section State
   const [aboutHeading, setAboutHeading] = useState("About All Popular Exams Preparation");
+  const [aboutHeadingText, setAboutHeadingText] = useState("About All Popular Exams Preparation");
+  const [aboutHeadingTag, setAboutHeadingTag] = useState("h2");
+  const [aboutHeadingFontSize, setAboutHeadingFontSize] = useState("24");
+  const [aboutHeadingFontWeight, setAboutHeadingFontWeight] = useState("700");
   const [aboutContent, setAboutContent] = useState("");
+
+  // Function to escape HTML special characters
+  const escapeHTML = (str) => {
+    if (!str) return "";
+    return str
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  };
+
+  // Function to generate heading HTML from components
+  const generateHeadingHTML = (text, tag, fontSize, fontWeight) => {
+    const Tag = tag || "h2";
+    const size = fontSize || "24";
+    const weight = fontWeight || "700";
+    const escapedText = escapeHTML(text || "");
+    return `<${Tag} style="font-size: ${size}px; font-weight: ${weight};">${escapedText}</${Tag}>`;
+  };
+
+  // Function to parse heading HTML and extract components
+  const parseHeadingHTML = (html) => {
+    if (!html) {
+      return {
+        text: "About All Popular Exams Preparation",
+        tag: "h2",
+        fontSize: "24",
+        fontWeight: "700"
+      };
+    }
+
+    // Check if it's plain text (doesn't contain HTML tags)
+    if (!html.includes("<") || !html.includes(">")) {
+      return {
+        text: html,
+        tag: "h2",
+        fontSize: "24",
+        fontWeight: "700"
+      };
+    }
+
+    // Try to parse HTML
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, "text/html");
+    const element = doc.body.firstElementChild;
+
+    if (!element || !element.tagName) {
+      return {
+        text: html.replace(/<[^>]*>/g, ""), // Strip HTML tags if any
+        tag: "h2",
+        fontSize: "24",
+        fontWeight: "700"
+      };
+    }
+
+    const tag = element.tagName.toLowerCase();
+    const text = element.textContent || element.innerText || "";
+    const style = element.getAttribute("style") || "";
+    
+    // Extract font-size
+    const fontSizeMatch = style.match(/font-size:\s*(\d+)px/);
+    const fontSize = fontSizeMatch ? fontSizeMatch[1] : "24";
+
+    // Extract font-weight (can be numeric or text)
+    const fontWeightMatch = style.match(/font-weight:\s*([\w\d]+)/);
+    let fontWeight = fontWeightMatch ? fontWeightMatch[1] : "700";
+    
+    // Convert text values to numeric equivalents for consistency
+    if (fontWeight === "bold") {
+      fontWeight = "700";
+    } else if (fontWeight === "normal") {
+      fontWeight = "normal";
+    } else if (fontWeight === "semibold" || fontWeight === "semi-bold") {
+      fontWeight = "600";
+    }
+
+    return { text, tag, fontSize, fontWeight };
+  };
 
   useEffect(() => {
     // Check authentication
@@ -160,7 +244,12 @@ export default function ExamsPageManager() {
 
       const aboutData = await aboutRes.json();
       if (aboutData.success) {
+        const headingData = parseHeadingHTML(aboutData.data.heading || "About All Popular Exams Preparation");
         setAboutHeading(aboutData.data.heading || "About All Popular Exams Preparation");
+        setAboutHeadingText(headingData.text);
+        setAboutHeadingTag(headingData.tag);
+        setAboutHeadingFontSize(headingData.fontSize);
+        setAboutHeadingFontWeight(headingData.fontWeight);
         setAboutContent(aboutData.data.content || "");
       }
     } catch (error) {
@@ -215,11 +304,19 @@ export default function ExamsPageManager() {
 
     setLoading(true);
     try {
+      // Generate heading HTML from components
+      const headingHTML = generateHeadingHTML(
+        aboutHeadingText,
+        aboutHeadingTag,
+        aboutHeadingFontSize,
+        aboutHeadingFontWeight
+      );
+      
       const res = await fetch(`${API_BASE_URL}/api/home/admin/exams-about/`, {
         method: "POST",
         headers: getAuthHeaders(),
         body: JSON.stringify({
-          heading: aboutHeading,
+          heading: headingHTML,
           content: aboutContent
         })
       });
@@ -420,24 +517,89 @@ export default function ExamsPageManager() {
             <CardContent className="space-y-4">
               <div>
                 <Label>Heading</Label>
-                <Input
-                  value={aboutHeading}
-                  onChange={(e) => setAboutHeading(e.target.value)}
-                  placeholder="About All Popular Exams Preparation"
-                />
+                <div className="space-y-3 mt-2">
+                  <Input
+                    value={aboutHeadingText}
+                    onChange={(e) => setAboutHeadingText(e.target.value)}
+                    placeholder="About All Popular Exams Preparation"
+                  />
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <Label className="text-xs text-gray-600">Heading Tag</Label>
+                      <Select
+                        value={aboutHeadingTag}
+                        onValueChange={(value) => setAboutHeadingTag(value)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="h1">H1</SelectItem>
+                          <SelectItem value="h2">H2</SelectItem>
+                          <SelectItem value="h3">H3</SelectItem>
+                          <SelectItem value="h4">H4</SelectItem>
+                          <SelectItem value="h5">H5</SelectItem>
+                          <SelectItem value="h6">H6</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-gray-600">Font Size (px)</Label>
+                      <Select
+                        value={aboutHeadingFontSize}
+                        onValueChange={(value) => setAboutHeadingFontSize(value)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="12">12px</SelectItem>
+                          <SelectItem value="14">14px</SelectItem>
+                          <SelectItem value="16">16px</SelectItem>
+                          <SelectItem value="18">18px</SelectItem>
+                          <SelectItem value="20">20px</SelectItem>
+                          <SelectItem value="22">22px</SelectItem>
+                          <SelectItem value="24">24px</SelectItem>
+                          <SelectItem value="28">28px</SelectItem>
+                          <SelectItem value="32">32px</SelectItem>
+                          <SelectItem value="36">36px</SelectItem>
+                          <SelectItem value="40">40px</SelectItem>
+                          <SelectItem value="48">48px</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-gray-600">Font Weight</Label>
+                      <Select
+                        value={aboutHeadingFontWeight}
+                        onValueChange={(value) => setAboutHeadingFontWeight(value)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="normal">Normal</SelectItem>
+                          <SelectItem value="400">Regular (400)</SelectItem>
+                          <SelectItem value="500">Medium (500)</SelectItem>
+                          <SelectItem value="600">Semibold (600)</SelectItem>
+                          <SelectItem value="700">Bold (700)</SelectItem>
+                          <SelectItem value="800">Extra Bold (800)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <div>
                 <Label>Content</Label>
-                <Textarea
-                  value={aboutContent}
-                  onChange={(e) => setAboutContent(e.target.value)}
-                  placeholder="Enter content here. Use double line breaks (press Enter twice) to separate paragraphs."
-                  rows={10}
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Tip: Use two line breaks (press Enter twice) to create separate paragraphs
-                </p>
+                <div className="mt-2">
+                  <TipTapEditor
+                    content={aboutContent}
+                    onChange={(html) => setAboutContent(html)}
+                    placeholder="Enter content here..."
+                  />
+                </div>
               </div>
 
               <Button

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { getOptimizedImageUrl } from "@/utils/imageUtils";
+import ItemListJsonLd from "@/components/ItemListJsonLd";
 
 // Import icons
 import {
@@ -299,8 +300,23 @@ export default function PopularProviders() {
     return null;
   }
 
+  // Prepare items for schema
+  const schemaItems = providers.map((provider) => ({
+    name: provider.name,
+    description: provider.description || "",
+    url: `/exams/${provider.slug}`,
+  }));
+
   return (
     <section id="popular-providers" className="py-12 md:py-20 bg-[#F5F8FC]">
+      {providers.length > 0 && (
+        <ItemListJsonLd
+          items={schemaItems}
+          listName={sectionSettings.heading || "Popular Providers"}
+          itemType="Organization"
+          schemaId="popular-providers-json-ld-schema"
+        />
+      )}
       <div className="container mx-auto px-4">
         <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-center mb-3 md:mb-4 text-[#0C1A35] px-2">
           {sectionSettings.heading || "Popular Providers"}

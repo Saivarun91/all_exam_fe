@@ -11,6 +11,7 @@ import { Progress } from "@/components/ui/progress";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import ReviewsJsonLd from "@/components/ReviewsJsonLd";
+import BreadcrumbJsonLd from "@/components/BreadcrumbJsonLd";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -205,6 +206,13 @@ export default function ExamDetailPage() {
     totalQuestions: calculatedTotalQuestions || exam.questions || 0,
     duration: calculatedDuration || exam.duration || null,
     passingScore: exam.passing_score || "720/1000",
+    about_heading: exam.about_heading || null,
+    why_matters_heading: exam.why_matters_heading || null,
+    whats_included_heading: exam.whats_included_heading || null,
+    topics_heading: exam.topics_heading || null,
+    practice_tests_heading: exam.practice_tests_heading || null,
+    testimonials_heading: exam.testimonials_heading || null,
+    faqs_heading: exam.faqs_heading || null,
     about: exam.about || "Prepare for your certification exam with our comprehensive practice tests.",
     whatsIncluded: exam.whats_included && exam.whats_included.length > 0 
       ? exam.whats_included 
@@ -229,8 +237,17 @@ export default function ExamDetailPage() {
     faqs: exam.faqs || []
   };
 
+  // Prepare breadcrumb items for schema
+  const breadcrumbItems = [
+    { name: "Home", url: "/" },
+    { name: "Exams", url: "/exams" },
+    { name: examData.provider, url: `/exams/${provider}` },
+    { name: examData.code, url: `/exams/${provider}/${examCode}` },
+  ];
+
   return (
     <div className="min-h-screen bg-white">
+      {exam && <BreadcrumbJsonLd items={breadcrumbItems} />}
       <div className="container mx-auto px-4 py-8">
         {/* Breadcrumb */}
         <Breadcrumb className="mb-6">
@@ -331,10 +348,20 @@ export default function ExamDetailPage() {
             {/* About Section */}
             <Card className="border-[#DDE7FF]">
               <CardHeader>
-                <CardTitle className="text-[#0C1A35]">About This Exam</CardTitle>
+                {examData.about_heading ? (
+                  <div 
+                    className="text-[#0C1A35]"
+                    dangerouslySetInnerHTML={{ __html: examData.about_heading }}
+                  />
+                ) : (
+                  <CardTitle className="text-[#0C1A35]">About This Exam</CardTitle>
+                )}
               </CardHeader>
               <CardContent>
-                <p className="text-[#0C1A35]/80 leading-relaxed whitespace-pre-line">{examData.about}</p>
+                <div 
+                  className="tiptap-editor-content text-[#0C1A35]/80 leading-relaxed"
+                  dangerouslySetInnerHTML={{ __html: examData.about }}
+                />
               </CardContent>
             </Card>
 
@@ -342,7 +369,14 @@ export default function ExamDetailPage() {
             {examData.topics && examData.topics.length > 0 && (
             <Card className="border-[#DDE7FF]">
               <CardHeader>
-                <CardTitle className="text-[#0C1A35]">Topics Covered</CardTitle>
+                {examData.topics_heading ? (
+                  <div 
+                    className="text-[#0C1A35]"
+                    dangerouslySetInnerHTML={{ __html: examData.topics_heading }}
+                  />
+                ) : (
+                  <CardTitle className="text-[#0C1A35]">Topics Covered</CardTitle>
+                )}
               </CardHeader>
               <CardContent className="space-y-4">
                 {examData.topics.map((topic, idx) => (
@@ -361,27 +395,45 @@ export default function ExamDetailPage() {
             {/* What's Included */}
             <Card className="border-[#DDE7FF]">
               <CardHeader>
-                <CardTitle className="text-[#0C1A35]">What's Included in This Practice Pack</CardTitle>
+                {examData.whats_included_heading ? (
+                  <div 
+                    className="text-[#0C1A35]"
+                    dangerouslySetInnerHTML={{ __html: examData.whats_included_heading }}
+                  />
+                ) : (
+                  <CardTitle className="text-[#0C1A35]">What's Included in This Practice Pack</CardTitle>
+                )}
               </CardHeader>
               <CardContent>
-                <ul className="space-y-3">
+                <div className="space-y-3">
                   {examData.whatsIncluded.map((item, idx) => (
-                    <li key={idx} className="flex items-start gap-3 text-[#0C1A35]/80">
-                      <CheckCircle2 className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
-                      <span>{item}</span>
-                    </li>
+                    <div 
+                      key={idx}
+                      className="tiptap-editor-content text-[#0C1A35]/80"
+                      dangerouslySetInnerHTML={{ __html: item }}
+                    />
                   ))}
-                </ul>
+                </div>
               </CardContent>
             </Card>
 
             {/* Why This Exam Matters */}
             <Card className="border-[#DDE7FF]">
               <CardHeader>
-                <CardTitle className="text-[#0C1A35]">Why This Exam Matters</CardTitle>
+                {examData.why_matters_heading ? (
+                  <div 
+                    className="text-[#0C1A35]"
+                    dangerouslySetInnerHTML={{ __html: examData.why_matters_heading }}
+                  />
+                ) : (
+                  <CardTitle className="text-[#0C1A35]">Why This Exam Matters</CardTitle>
+                )}
               </CardHeader>
               <CardContent>
-                <p className="text-[#0C1A35]/80 leading-relaxed whitespace-pre-line">{examData.whyMatters}</p>
+                <div 
+                  className="text-[#0C1A35]/80 leading-relaxed tiptap-editor-content"
+                  dangerouslySetInnerHTML={{ __html: examData.whyMatters }}
+                />
               </CardContent>
             </Card>
 
@@ -420,7 +472,14 @@ export default function ExamDetailPage() {
             {examData.practiceTestsList && examData.practiceTestsList.length > 0 && (
               <Card className="border-[#DDE7FF]">
                 <CardHeader>
-                  <CardTitle className="text-[#0C1A35]">Available Practice Tests</CardTitle>
+                  {examData.practice_tests_heading ? (
+                    <div 
+                      className="text-[#0C1A35]"
+                      dangerouslySetInnerHTML={{ __html: examData.practice_tests_heading }}
+                    />
+                  ) : (
+                    <CardTitle className="text-[#0C1A35]">Available Practice Tests</CardTitle>
+                  )}
                   <CardDescription>Choose a practice test to start your preparation</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
@@ -466,7 +525,14 @@ export default function ExamDetailPage() {
             {examData.testimonials && examData.testimonials.length > 0 && (
               <Card className="border-[#DDE7FF]">
                 <CardHeader>
-                  <CardTitle className="text-[#0C1A35]">Student Success Stories</CardTitle>
+                  {examData.testimonials_heading ? (
+                    <div 
+                      className="text-[#0C1A35]"
+                      dangerouslySetInnerHTML={{ __html: examData.testimonials_heading }}
+                    />
+                  ) : (
+                    <CardTitle className="text-[#0C1A35]">Student Success Stories</CardTitle>
+                  )}
                   <CardDescription>Hear from those who passed with our practice tests</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -503,7 +569,14 @@ export default function ExamDetailPage() {
             {examData.faqs && examData.faqs.length > 0 && (
               <Card className="border-[#DDE7FF]">
                 <CardHeader>
-                  <CardTitle className="text-[#0C1A35]">Frequently Asked Questions</CardTitle>
+                  {examData.faqs_heading ? (
+                    <div 
+                      className="text-[#0C1A35]"
+                      dangerouslySetInnerHTML={{ __html: examData.faqs_heading }}
+                    />
+                  ) : (
+                    <CardTitle className="text-[#0C1A35]">Frequently Asked Questions</CardTitle>
+                  )}
                 </CardHeader>
                 <CardContent>
                   <Accordion type="single" collapsible className="w-full">
@@ -513,7 +586,10 @@ export default function ExamDetailPage() {
                           {faq.question}
                         </AccordionTrigger>
                         <AccordionContent className="text-[#0C1A35]/80">
-                          {faq.answer}
+                          <div 
+                            className="tiptap-editor-content"
+                            dangerouslySetInnerHTML={{ __html: faq.answer }}
+                          />
                         </AccordionContent>
                       </AccordionItem>
                     ))}

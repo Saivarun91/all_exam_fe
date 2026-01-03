@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { createSlug } from "@/lib/utils";
+import WebSiteJsonLd from "@/components/WebSiteJsonLd";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
@@ -119,6 +120,7 @@ const HeroSection = () => {
       className="relative min-h-[450px] md:min-h-[550px] flex items-center overflow-hidden "
       style={heroData?.background_image_url ? backgroundStyle : {}}
     >
+      <WebSiteJsonLd heroData={heroData} siteName="AllExamQuestions" />
       {/* Gradient overlay or default gradient background */}
       {heroData?.background_image_url ? (
         <div className="absolute inset-0 bg-gradient-to-br from-[#0C1A35]/90 via-[#0F2847]/85 to-[#132A54]/90"></div>

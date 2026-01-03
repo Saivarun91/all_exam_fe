@@ -11,6 +11,7 @@ import { Progress } from "@/components/ui/progress";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import FAQJsonLd from "@/components/FAQJsonLd";
+import BreadcrumbJsonLd from "@/components/BreadcrumbJsonLd";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -200,8 +201,18 @@ export default function ExamDetailsPage() {
   const practiceExamCode = exam.code?.toLowerCase().replace(/\s+/g, '-').replace(/_/g, '-') || exam.slug?.toLowerCase().replace(/\s+/g, '-').replace(/_/g, '-') || 'exam';
   const practiceUrl = practiceProvider && practiceExamCode ? `/exams/${practiceProvider}/${practiceExamCode}/practice` : null;
 
+  // Prepare breadcrumb items for schema
+  const breadcrumbItems = exam
+    ? [
+        { name: "Home", url: "/" },
+        { name: exam.provider || "Provider", url: `/exams?provider=${exam.provider?.toLowerCase()}` },
+        { name: exam.code || "Exam", url: typeof window !== "undefined" ? window.location.pathname : "" },
+      ]
+    : [];
+
   return (
     <div className="min-h-screen bg-white">
+      {exam && <BreadcrumbJsonLd items={breadcrumbItems} />}
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         {/* Breadcrumb */}
         <Breadcrumb className="mb-6">
@@ -273,9 +284,10 @@ export default function ExamDetailsPage() {
             {exam.about && (
               <div className="mb-6">
                 <h2 className="text-2xl font-bold text-[#0C1A35] mb-4">About This Exam</h2>
-                <p className="text-[#0C1A35]/80 leading-relaxed whitespace-pre-line">
-                  {exam.about}
-                </p>
+                <div 
+                  className="tiptap-editor-content text-[#0C1A35]/80 leading-relaxed"
+                  dangerouslySetInnerHTML={{ __html: exam.about }}
+                />
               </div>
             )}
           </div>
@@ -340,12 +352,13 @@ export default function ExamDetailsPage() {
             <h2 className="text-2xl font-bold text-[#0C1A35] mb-6">What's Included in This Practice Pack</h2>
             <Card className="border-[#DDE7FF]">
               <CardContent className="p-6">
-                <div className="grid md:grid-cols-2 gap-4">
+                <div className="space-y-3">
                   {exam.whats_included.map((item, index) => (
-                    <div key={index} className="flex items-start gap-3">
-                      <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-                      <span className="text-[#0C1A35]/80">{item}</span>
-                    </div>
+                    <div 
+                      key={index}
+                      className="tiptap-editor-content text-[#0C1A35]/80"
+                      dangerouslySetInnerHTML={{ __html: item }}
+                    />
                   ))}
                 </div>
               </CardContent>
@@ -359,9 +372,10 @@ export default function ExamDetailsPage() {
             <h2 className="text-2xl font-bold text-[#0C1A35] mb-6">Why This Exam Matters</h2>
             <Card className="border-[#DDE7FF]">
               <CardContent className="p-6">
-                <p className="text-[#0C1A35]/80 leading-relaxed whitespace-pre-line">
-                  {exam.why_matters}
-                </p>
+                <div 
+                  className="tiptap-editor-content text-[#0C1A35]/80 leading-relaxed"
+                  dangerouslySetInnerHTML={{ __html: exam.why_matters }}
+                />
               </CardContent>
             </Card>
           </section>

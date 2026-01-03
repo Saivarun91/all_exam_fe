@@ -128,10 +128,19 @@ const Header = () => {
       requestAnimationFrame(() => {
         const element = document.getElementById(anchorId);
         if (element) {
-          element.scrollIntoView({ behavior: "smooth", block: "start" });
+          // Account for fixed header height (64px mobile, 80px desktop)
+          const headerHeight = window.innerWidth >= 768 ? 80 : 64;
+          const elementPosition = element.getBoundingClientRect().top + window.pageYOffset;
+          const offsetPosition = elementPosition - headerHeight;
+          
+          window.scrollTo({
+            top: offsetPosition,
+            behavior: "smooth"
+          });
         }
       });
     } else {
+      // Navigate to home page with hash, the page's useEffect will handle scrolling
       window.location.href = `/#${anchorId}`;
     }
   };

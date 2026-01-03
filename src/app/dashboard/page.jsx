@@ -554,14 +554,17 @@ export default function Dashboard() {
             <CardDescription>
               {coupons.filter(c => {
                 const isExpired = c.expiry_date ? new Date(c.expiry_date) < new Date() : false;
-                return !c.is_used && !isExpired;
+                const userAlreadyUsed = c.user_already_used || c.is_used;
+                return !userAlreadyUsed && !isExpired && c.is_active !== false;
               }).length > 0 
                 ? `${coupons.filter(c => {
                     const isExpired = c.expiry_date ? new Date(c.expiry_date) < new Date() : false;
-                    return !c.is_used && !isExpired;
+                    const userAlreadyUsed = c.user_already_used || c.is_used;
+                    return !userAlreadyUsed && !isExpired && c.is_active !== false;
                   }).length} available coupon${coupons.filter(c => {
                     const isExpired = c.expiry_date ? new Date(c.expiry_date) < new Date() : false;
-                    return !c.is_used && !isExpired;
+                    const userAlreadyUsed = c.user_already_used || c.is_used;
+                    return !userAlreadyUsed && !isExpired && c.is_active !== false;
                   }).length !== 1 ? 's' : ''} - Use each coupon only once`
                 : "Discount codes available to you"}
             </CardDescription>
@@ -580,14 +583,16 @@ export default function Dashboard() {
                 {/* Available Coupons Section */}
                 {coupons.filter(c => {
                   const isExpired = c.expiry_date ? new Date(c.expiry_date) < new Date() : false;
-                  return !c.is_used && !isExpired;
+                  const userAlreadyUsed = c.user_already_used || c.is_used;
+                  return !userAlreadyUsed && !isExpired && c.is_active !== false;
                 }).length > 0 && (
                   <div className="mb-6">
                     <h3 className="text-lg font-semibold mb-4 text-green-700">Available Coupons</h3>
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
                       {coupons.filter(c => {
                         const isExpired = c.expiry_date ? new Date(c.expiry_date) < new Date() : false;
-                        return !c.is_used && !isExpired;
+                        const userAlreadyUsed = c.user_already_used || c.is_used;
+                        return !userAlreadyUsed && !isExpired && c.is_active !== false;
                       }).map((coupon) => (
                   <div 
                     key={coupon.id} 
@@ -637,14 +642,16 @@ export default function Dashboard() {
                 {/* Expired Coupons Section */}
                 {coupons.filter(c => {
                   const isExpired = c.expiry_date ? new Date(c.expiry_date) < new Date() : false;
-                  return !c.is_used && isExpired;
+                  const userAlreadyUsed = c.user_already_used || c.is_used;
+                  return !userAlreadyUsed && isExpired;
                 }).length > 0 && (
                   <div className="mb-6">
                     <h3 className="text-lg font-semibold mb-4 text-red-700">Expired Coupons</h3>
                     <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
                       {coupons.filter(c => {
                         const isExpired = c.expiry_date ? new Date(c.expiry_date) < new Date() : false;
-                        return !c.is_used && isExpired;
+                        const userAlreadyUsed = c.user_already_used || c.is_used;
+                        return !userAlreadyUsed && isExpired;
                       }).map((coupon) => (
                         <div 
                           key={coupon.id} 
@@ -700,11 +707,11 @@ export default function Dashboard() {
                 )}
 
                 {/* Used/Not Available Coupons Section */}
-                {coupons.filter(c => c.is_used).length > 0 && (
+                {coupons.filter(c => c.is_used || c.user_already_used).length > 0 && (
                   <div>
                     <h3 className="text-lg font-semibold mb-4 text-gray-600">Already Used</h3>
                     <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {coupons.filter(c => c.is_used).map((coupon) => (
+                      {coupons.filter(c => c.is_used || c.user_already_used).map((coupon) => (
                         <div 
                           key={coupon.id} 
                           className="p-5 rounded-lg border-2 bg-gradient-to-br from-gray-50 to-gray-100 border-gray-300 opacity-75 relative"

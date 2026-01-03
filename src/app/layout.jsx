@@ -1,10 +1,21 @@
 import "./globals.css";
 import dynamic from "next/dynamic";
 import Script from "next/script";
+import { Poppins } from "next/font/google";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { TestProvider } from "@/contexts/TestContext";
 import BodyWrapper from "@/components/layout/BodyWrapper";
 import HeaderSpacer from "@/components/layout/HeaderSpacer";
+import FontSettingsProvider from "@/components/layout/FontSettingsProvider";
+
+/* ================= FONT CONFIGURATION ================= */
+const poppins = Poppins({
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700", "800", "900"],
+  display: "swap",
+  preload: true,
+  variable: "--font-poppins",
+});
 
 /* ================= METADATA (SERVER-SIDE SEO) ================= */
 
@@ -53,8 +64,8 @@ const Footer = dynamic(() => import("@/components/layout/Footer"), {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en">
-      <body className="flex flex-col min-h-screen bg-gray-50 text-gray-900">
+    <html lang="en" className={poppins.variable}>
+      <body className={`${poppins.className} flex flex-col min-h-screen bg-gray-50 text-gray-900`}>
 
         {/* ================= GOOGLE ANALYTICS ================= */}
         <Script
@@ -74,13 +85,15 @@ export default function RootLayout({ children }) {
 
         <AuthProvider>
           <TestProvider>
-            {/* Header/Footer visibility handled internally */}
-            <Header />
-            <BodyWrapper>
-              <HeaderSpacer />
-              <main className="flex-1">{children}</main>
-              <Footer />
-            </BodyWrapper>
+            <FontSettingsProvider>
+              {/* Header/Footer visibility handled internally */}
+              <Header />
+              <BodyWrapper>
+                <HeaderSpacer />
+                <main className="flex-1">{children}</main>
+                <Footer />
+              </BodyWrapper>
+            </FontSettingsProvider>
           </TestProvider>
         </AuthProvider>
 

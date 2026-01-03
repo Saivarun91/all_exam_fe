@@ -12,6 +12,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import PracticeTestJsonLd from "@/components/PracticeTestJsonLd";
 import ReviewsJsonLd from "@/components/ReviewsJsonLd";
+import BreadcrumbJsonLd from "@/components/BreadcrumbJsonLd";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -190,10 +191,20 @@ console.log("practice exams :",practiceTests)
     whyMatters: exam.why_matters || "This certification validates your expertise and can significantly boost your career prospects."
   };
 
+  // Prepare breadcrumb items for schema
+  const breadcrumbItems = [
+    { name: "Home", url: "/" },
+    { name: "Exams", url: "/exams" },
+    { name: examData.provider, url: `/exams/${provider}` },
+    { name: examData.code, url: `/exams/${provider}/${examCode}` },
+    { name: "Practice Tests", url: `/exams/${provider}/${examCode}/practice` },
+  ];
+
   return (
     <div className="min-h-screen bg-white">
       {exam && <PracticeTestJsonLd exam={exam} practiceTests={practiceTests} />}
       {testimonials.length > 0 && <ReviewsJsonLd testimonials={testimonials} itemName={exam.title} />}
+      {exam && <BreadcrumbJsonLd items={breadcrumbItems} />}
       <main className="container mx-auto px-4 py-8">
         {/* Breadcrumb */}
         <Breadcrumb className="mb-6">
@@ -272,7 +283,10 @@ console.log("practice exams :",practiceTests)
             <CardTitle className="text-[#0C1A35]">About This Exam</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-[#0C1A35]/80 leading-relaxed whitespace-pre-line">{examData.about}</p>
+            <div 
+              className="tiptap-editor-content text-[#0C1A35]/80 leading-relaxed"
+              dangerouslySetInnerHTML={{ __html: examData.about }}
+            />
           </CardContent>
         </Card>
 
@@ -282,14 +296,15 @@ console.log("practice exams :",practiceTests)
             <CardTitle className="text-[#0C1A35]">What's Included in This Practice Pack</CardTitle>
           </CardHeader>
           <CardContent>
-            <ul className="space-y-3">
+            <div className="space-y-3">
               {examData.whatsIncluded.map((item, idx) => (
-                <li key={idx} className="flex items-start gap-3 text-[#0C1A35]/80">
-                  <CheckCircle2 className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
-                  <span>{item}</span>
-                </li>
+                <div 
+                  key={idx}
+                  className="tiptap-editor-content text-[#0C1A35]/80"
+                  dangerouslySetInnerHTML={{ __html: item }}
+                />
               ))}
-            </ul>
+            </div>
           </CardContent>
         </Card>
 
@@ -299,7 +314,10 @@ console.log("practice exams :",practiceTests)
             <CardTitle className="text-[#0C1A35]">Why This Exam Matters</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-[#0C1A35]/80 leading-relaxed whitespace-pre-line">{examData.whyMatters}</p>
+            <div 
+              className="text-[#0C1A35]/80 leading-relaxed tiptap-editor-content"
+              dangerouslySetInnerHTML={{ __html: examData.whyMatters }}
+            />
           </CardContent>
         </Card>
 
@@ -459,7 +477,10 @@ console.log("practice exams :",practiceTests)
                   {faq.question}
                 </AccordionTrigger>
                 <AccordionContent className="text-[#0C1A35]/80">
-                  {faq.answer}
+                  <div 
+                    className="tiptap-editor-content"
+                    dangerouslySetInnerHTML={{ __html: faq.answer }}
+                  />
                 </AccordionContent>
               </AccordionItem>
             ))}

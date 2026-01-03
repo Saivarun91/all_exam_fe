@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { Gift, Clock, Brain, CheckCircle, Users, FileText, ChevronLeft, ChevronRight } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import ItemListJsonLd from "@/components/ItemListJsonLd";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
@@ -120,8 +121,22 @@ export default function ValuePropositions() {
     return null; // Hide section if no active value propositions
   }
 
+  // Prepare items for schema
+  const schemaItems = features.map((feature) => ({
+    title: feature.title || feature.heading || "",
+    description: feature.description || feature.text || "",
+  }));
+
   return (
     <section className="py-12 md:py-20 bg-[#0F1F3C]/10">
+      {features.length > 0 && (
+        <ItemListJsonLd
+          items={schemaItems}
+          listName={section.heading || "Why Choose AllExamQuestions?"}
+          itemType="Thing"
+          schemaId="value-propositions-json-ld-schema"
+        />
+      )}
       <div className="container mx-auto px-4">
         <h2 className={`text-2xl sm:text-3xl md:${section.heading_font_size} ${section.heading_font_family} ${section.heading_color} text-center mb-3 md:mb-4 px-2`}>
           {section.heading}

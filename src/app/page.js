@@ -48,19 +48,49 @@ const HomeFAQ = dynamic(() => import("@/components/home/HomeFAQ"), {
 
 export default function Page() {
   useEffect(() => {
-    // Handle anchor links on page load - use requestAnimationFrame to avoid forced reflow
+    // Check if this is a back/forward navigation
+    const navigationType = window.performance?.getEntriesByType?.('navigation')?.[0]?.type;
+    const isBackForward = navigationType === 'back_forward';
+    
+    // Handle anchor links on page load - wait for page to be fully rendered
     const hash = window.location.hash;
-    if (hash) {
-      // Use requestAnimationFrame to avoid forced reflow
+    
+    // Only scroll to hash section if it's a direct navigation (not back/forward)
+    if (hash && !isBackForward) {
+      // Wait for all components to load, then scroll
+      const scrollToSection = () => {
+        const element = document.getElementById(hash.substring(1));
+        if (element) {
+          // Account for fixed header height (64px mobile, 80px desktop)
+          const headerHeight = window.innerWidth >= 768 ? 80 : 64;
+          const elementPosition = element.getBoundingClientRect().top + window.pageYOffset;
+          const offsetPosition = elementPosition - headerHeight;
+          
+          window.scrollTo({
+            top: offsetPosition,
+            behavior: "smooth"
+          });
+        } else {
+          // If element not found yet, try again after a short delay
+          setTimeout(scrollToSection, 100);
+        }
+      };
+      
+      // Use multiple requestAnimationFrame calls to ensure page is rendered
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
-          const element = document.getElementById(hash.substring(1));
-          if (element) {
-            // Use scrollIntoView with requestAnimationFrame to batch layout operations
-            element.scrollIntoView({ behavior: "smooth", block: "start" });
-          }
+          // Additional delay to ensure dynamic components are loaded
+          setTimeout(scrollToSection, 300);
         });
       });
+    } else {
+      // If no hash or back/forward navigation, ensure page starts at top
+      window.scrollTo({ top: 0, behavior: 'instant' });
+      
+      // If there's a hash from back navigation, remove it
+      if (hash && isBackForward) {
+        window.history.replaceState(null, '', window.location.pathname);
+      }
     }
   }, []);
 

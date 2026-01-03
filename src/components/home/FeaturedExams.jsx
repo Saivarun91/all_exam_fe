@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { ArrowRight, Award, ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { getExamUrl } from "@/lib/utils";
+import ItemListJsonLd from "@/components/ItemListJsonLd";
 
 const FeaturedExams = () => {
   const [courses, setCourses] = useState([]);
@@ -76,8 +77,24 @@ const FeaturedExams = () => {
     return null; // Hide section if no active courses
   }
 
+  // Prepare items for schema
+  const schemaItems = courses.map((course) => ({
+    title: course.title,
+    description: course.description || course.excerpt || "",
+    provider: course.provider || "",
+    url: getExamUrl(course),
+  }));
+
   return (
     <section id="featured-exams" className="py-12 md:py-20 bg-white">
+      {courses.length > 0 && (
+        <ItemListJsonLd
+          items={schemaItems}
+          listName={sectionSettings.heading || "Featured Exams"}
+          itemType="Course"
+          schemaId="featured-exams-json-ld-schema"
+        />
+      )}
       <div className="container mx-auto px-4">
         <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-center mb-3 md:mb-4 text-[#0C1A35] px-2">
           {sectionSettings.heading || "Featured Exams"}

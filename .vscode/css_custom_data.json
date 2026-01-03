@@ -21,7 +21,8 @@
       "name": "@layer",
       "description": "Tailwind CSS layer directive (base, components, utilities)"
     }
-  ]
+  ],
+  "properties": []
 }
 
 

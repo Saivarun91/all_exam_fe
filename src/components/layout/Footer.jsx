@@ -1,12 +1,13 @@
 "use client";
 
-import { GraduationCap, Facebook, Twitter, Linkedin, Youtube, Shield, Mail, Phone, MapPin, Globe } from "lucide-react";
+import { GraduationCap, Facebook, Twitter, Linkedin, Youtube, Instagram, Shield, Mail, Phone, MapPin, Globe } from "lucide-react";
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { useSiteName } from "@/hooks/useSiteName";
 import { useContactDetails } from "@/hooks/useContactDetails";
 import { useLogoUrl } from "@/hooks/useLogoUrl";
+import { useSocialMediaUrls } from "@/hooks/useSocialMediaUrls";
 import { getOptimizedImageUrl } from "@/utils/imageUtils";
 
 /**
@@ -23,6 +24,7 @@ const Footer = () => {
   const siteName = useSiteName();
   const contactDetails = useContactDetails();
   const logoUrl = useLogoUrl();
+  const socialUrls = useSocialMediaUrls();
 
   // Don't show footer on admin routes
   if (pathname?.startsWith("/admin")) {
@@ -73,12 +75,14 @@ const Footer = () => {
     { name: "Contact Us", href: "/contact-us", exists: true },
   ];
 
+  // Build social links array from admin-configured URLs
   const socialLinks = [
-    { icon: Facebook, label: "Facebook", url: "https://www.facebook.com" },
-    { icon: Twitter, label: "Twitter", url: "https://www.twitter.com" },
-    { icon: Linkedin, label: "LinkedIn", url: "https://www.linkedin.com/company/allexamquestions" },
-    { icon: Youtube, label: "YouTube", url: "https://www.youtube.com" },
-  ];
+    { icon: Facebook, label: "Facebook", url: socialUrls.facebook },
+    { icon: Twitter, label: "Twitter", url: socialUrls.twitter },
+    { icon: Linkedin, label: "LinkedIn", url: socialUrls.linkedin },
+    { icon: Youtube, label: "YouTube", url: socialUrls.youtube },
+    { icon: Instagram, label: "Instagram", url: socialUrls.instagram },
+  ].filter(link => link.url && link.url.trim().length > 0); // Only show links with URLs
 
   // Check if any contact details are available (must be non-empty strings)
   const hasEmail = contactDetails.email && contactDetails.email.trim().length > 0;
@@ -269,9 +273,6 @@ const Footer = () => {
             ) : (
             <GraduationCap className="w-5 h-5 md:w-6 md:h-6 text-[#1A73E8]" />
             )}
-            {siteName && siteName.trim() && (
-            <span className="font-bold text-base md:text-lg text-[#F5F8FF]">{siteName}</span>
-            )}
           </div>
 
           <div className="flex items-center gap-4 md:gap-6">
@@ -301,7 +302,7 @@ const Footer = () => {
         </div>
 
         <div className="text-center text-[#E7ECF6] text-xs md:text-sm mt-4 md:mt-5 space-y-0.5 md:space-y-1">
-          <p>© 2025 {siteName && siteName.trim() ? siteName : "AllExamQuestions"}. All rights reserved.</p>
+          <p>© 2025 AllExamQuestions. All rights reserved.</p>
           <p className="text-[10px] md:text-xs text-[#E7ECF6]/85">
             A Brand of TutorKhoj Private Limited
           </p>

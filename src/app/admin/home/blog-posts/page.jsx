@@ -7,13 +7,6 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import {
   Table,
   TableBody,
   TableCell,
@@ -21,10 +14,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Edit, Trash2, Eye, FileText, Image as ImageIcon, Settings } from "lucide-react";
+import { Plus, Edit, Trash2, Eye, FileText, Image as ImageIcon, Settings, ArrowLeft } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { motion } from "framer-motion";
 import { getOptimizedImageUrl } from "@/utils/imageUtils";
+import TipTapEditor from "@/components/editor/TipTapEditor";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
@@ -32,7 +26,7 @@ export default function BlogPostsAdmin() {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
   const [message, setMessage] = useState("");
   
@@ -175,6 +169,7 @@ export default function BlogPostsAdmin() {
       is_active: true,
     });
     setEditing(null);
+    setShowForm(false);
   };
   
   const handleEdit = (post) => {
@@ -191,7 +186,7 @@ export default function BlogPostsAdmin() {
       is_featured: post.is_featured || false,
       is_active: post.is_active !== undefined ? post.is_active : true,
     });
-    setDialogOpen(true);
+    setShowForm(true);
   };
   
   const generateSlug = (title) => {
@@ -239,7 +234,7 @@ export default function BlogPostsAdmin() {
       
       if (data.success) {
         setMessage(`✅ Blog post ${editing ? 'updated' : 'created'} successfully!`);
-        setDialogOpen(false);
+        setShowForm(false);
         resetForm();
         fetchPosts();
         setTimeout(() => setMessage(""), 3000);
@@ -276,6 +271,274 @@ export default function BlogPostsAdmin() {
     }
   };
   
+  // Show form view or list view
+  if (showForm) {
+    return (
+      <div className="p-6 max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-4">
+            <Button
+              variant="outline"
+              onClick={resetForm}
+              className="gap-2"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Back to List
+            </Button>
+            <div>
+              <h1 className="text-3xl font-bold text-[#0C1A35]">
+                {editing ? "Edit Blog Post" : "Add New Blog Post"}
+              </h1>
+              <p className="text-[#0C1A35]/60 mt-1">Manage blog post content and settings</p>
+            </div>
+          </div>
+        </div>
+
+        {message && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className={`p-4 rounded-lg mb-6 ${
+              message.includes("✅")
+                ? "bg-green-50 text-green-700 border border-green-200"
+                : "bg-red-50 text-red-700 border border-red-200"
+            }`}
+          >
+            {message}
+          </motion.div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Main Content */}
+          <Card className="border-[#D3E3FF]">
+            <CardHeader className="bg-gradient-to-r from-[#1A73E8]/5 to-[#1A73E8]/10">
+              <CardTitle className="text-lg">Blog Post Content</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4 pt-6">
+              <div>
+                <Label htmlFor="title">Blog Title *</Label>
+                <Input
+                  id="title"
+                  value={formData.title}
+                  onChange={(e) => setFormData({...formData, title: e.target.value})}
+                  placeholder="How to Pass AWS SAA-C03 Exam in 30 Days"
+                  required
+                  className="mt-2 border-[#D3E3FF]"
+                />
+                <p className="text-sm text-gray-500 mt-1">Main heading for the blog post</p>
+              </div>
+              
+              <div>
+                <Label htmlFor="excerpt">Excerpt / Summary *</Label>
+                <Textarea
+                  id="excerpt"
+                  value={formData.excerpt}
+                  onChange={(e) => setFormData({...formData, excerpt: e.target.value})}
+                  placeholder="A comprehensive guide to passing your AWS certification exam in just 30 days..."
+                  rows={3}
+                  required
+                  className="mt-2 border-[#D3E3FF]"
+                />
+                <p className="text-sm text-gray-500 mt-1">Short description shown on cards</p>
+              </div>
+              
+              <div>
+                <Label htmlFor="content">Blog Content</Label>
+                <div className="mt-2">
+                  <TipTapEditor
+                    content={formData.content || ""}
+                    onChange={(html) => setFormData({...formData, content: html})}
+                    placeholder="Full blog post content..."
+                  />
+                </div>
+                <p className="text-sm text-gray-500 mt-1">Full blog post content with rich text formatting</p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="category">Category</Label>
+                  <Input
+                    id="category"
+                    value={formData.category}
+                    onChange={(e) => setFormData({...formData, category: e.target.value})}
+                    placeholder="AWS, Azure, Certification, etc."
+                    className="mt-2 border-[#D3E3FF]"
+                  />
+                  <p className="text-sm text-gray-500 mt-1">Blog category/topic</p>
+                </div>
+                
+                <div>
+                  <Label htmlFor="reading_time">Reading Time</Label>
+                  <Input
+                    id="reading_time"
+                    value={formData.reading_time}
+                    onChange={(e) => setFormData({...formData, reading_time: e.target.value})}
+                    placeholder="5 min read"
+                    className="mt-2 border-[#D3E3FF]"
+                  />
+                  <p className="text-sm text-gray-500 mt-1">Estimated reading time</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="is_featured">Featured on Homepage</Label>
+                  <select
+                    id="is_featured"
+                    value={formData.is_featured.toString()}
+                    onChange={(e) => setFormData({...formData, is_featured: e.target.value === 'true'})}
+                    className="mt-2 w-full h-10 px-3 border border-[#D3E3FF] rounded-md"
+                  >
+                    <option value="true">Yes - Show on Homepage</option>
+                    <option value="false">No - Hide</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <Label htmlFor="is_active">Status</Label>
+                  <select
+                    id="is_active"
+                    value={formData.is_active.toString()}
+                    onChange={(e) => setFormData({...formData, is_active: e.target.value === 'true'})}
+                    className="mt-2 w-full h-10 px-3 border border-[#D3E3FF] rounded-md"
+                  >
+                    <option value="true">Active</option>
+                    <option value="false">Inactive</option>
+                  </select>
+                </div>
+              </div>
+              
+              <div>
+                <Label htmlFor="image_url">Featured Image URL *</Label>
+                <Input
+                  type="file"
+                  accept="image/*"
+                  id="image_url"
+                  onChange={handleImageUpload}
+                  disabled={uploading}
+                  className="mt-2 border-[#D3E3FF]"
+                />
+                {uploading && <p className="text-sm text-blue-500 mt-1">Uploading image...</p>}
+                {formData.image_url && (
+                  <div className="mt-3">
+                    <div className="w-full aspect-[16/9] rounded-md overflow-hidden border border-[#D3E3FF] bg-gray-100">
+                      <img 
+                        src={getOptimizedImageUrl(formData.image_url, 600, 338)} 
+                        alt="Featured image preview" 
+                        width={600}
+                        height={338}
+                        className="w-full h-full object-contain"
+                        style={{ objectFit: 'contain' }}
+                        loading="lazy"
+                        sizes="(max-width: 768px) 100vw, 600px"
+                        decoding="async"
+                      />
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">Uploaded image URL: {formData.image_url}</p>
+                  </div>
+                )}
+                <p className="text-sm text-gray-500 mt-1">Main image displayed with the blog post</p>
+              </div>
+              
+              <div>
+                <Label htmlFor="slug">URL Slug</Label>
+                <Input
+                  id="slug"
+                  value={formData.slug}
+                  onChange={(e) => setFormData({...formData, slug: e.target.value})}
+                  placeholder="aws-saa-c03-guide (auto-generated if empty)"
+                  className="mt-2 border-[#D3E3FF]"
+                />
+                <p className="text-sm text-gray-500 mt-1">SEO-friendly URL slug (auto-generated from title if left empty)</p>
+              </div>
+            </CardContent>
+          </Card>
+          
+          {/* Live Preview */}
+          <Card className="border-[#D3E3FF]">
+            <CardHeader className="bg-gradient-to-r from-[#10B981]/5 to-[#10B981]/10">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Eye className="w-5 h-5 text-[#10B981]" />
+                Live Preview - How it appears on homepage
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-6">
+              <div className="border border-[#D3E3FF] rounded-lg overflow-hidden bg-white hover:shadow-lg transition-shadow">
+                {formData.image_url ? (
+                  <div className="w-full aspect-[16/9] overflow-hidden bg-gray-100">
+                    <img 
+                      src={getOptimizedImageUrl(formData.image_url, 600, 338)} 
+                      alt="Blog preview" 
+                      width={600}
+                      height={338}
+                      className="w-full h-full object-contain"
+                      style={{ objectFit: 'contain' }}
+                      loading="lazy"
+                      sizes="(max-width: 768px) 100vw, 600px"
+                      decoding="async"
+                    />
+                  </div>
+                ) : (
+                  <div className="w-full aspect-[16/9] bg-gray-100 flex items-center justify-center">
+                    <p className="text-gray-400">No image URL provided</p>
+                  </div>
+                )}
+                <div className="p-6">
+                  <div className="flex items-center gap-2 text-sm text-gray-500 mb-3">
+                    {formData.category && (
+                      <>
+                        <Badge className="bg-[#1A73E8] text-white text-xs">
+                          {formData.category}
+                        </Badge>
+                        <span>•</span>
+                      </>
+                    )}
+                    <span>{formData.reading_time || "5 min read"}</span>
+                    {formData.is_featured && (
+                      <>
+                        <span>•</span>
+                        <Badge className="bg-gradient-to-r from-yellow-400 to-orange-400 text-xs">
+                          Featured
+                        </Badge>
+                      </>
+                    )}
+                  </div>
+                  <h3 className="text-xl font-bold text-[#0C1A35] mb-3 line-clamp-2">
+                    {formData.title || "Blog Post Title"}
+                  </h3>
+                  <p className="text-[#0C1A35]/70 line-clamp-3 mb-4">
+                    {formData.excerpt || "Blog post excerpt will appear here..."}
+                  </p>
+                  <Button variant="outline" size="sm" className="text-[#1A73E8] border-[#1A73E8]">
+                    Read More →
+                  </Button>
+                </div>
+              </div>
+              <p className="text-sm text-gray-500 mt-4 text-center">
+                Preview of how this blog post will appear on the home page
+              </p>
+            </CardContent>
+          </Card>
+          
+          <div className="flex gap-3 pt-4">
+            <Button type="submit" disabled={loading || uploading} className="flex-1 bg-[#1A73E8] hover:bg-[#1557B0]">
+              {loading ? "Saving..." : uploading ? "Uploading..." : (editing ? "Update Blog Post" : "Create Blog Post")}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={resetForm}
+              className="flex-1"
+            >
+              Cancel
+            </Button>
+          </div>
+        </form>
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 max-w-7xl mx-auto">
       {/* Header */}
@@ -293,252 +556,16 @@ export default function BlogPostsAdmin() {
             <Eye className="w-4 h-4" />
             Preview Home
           </Button>
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="gap-2 bg-[#1A73E8] hover:bg-[#1557B0]" onClick={resetForm}>
-                <Plus className="w-4 h-4" />
-                Add Blog Post
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle className="text-2xl text-[#0C1A35]">
-                  {editing ? "Edit Blog Post" : "Add New Blog Post"}
-                </DialogTitle>
-              </DialogHeader>
-              
-              <form onSubmit={handleSubmit} className="space-y-6">
-                {/* Main Content */}
-                <Card className="border-[#D3E3FF]">
-                  <CardHeader className="bg-gradient-to-r from-[#1A73E8]/5 to-[#1A73E8]/10">
-                    <CardTitle className="text-lg">Blog Post Content</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4 pt-6">
-                    <div>
-                      <Label htmlFor="title">Blog Title *</Label>
-                      <Input
-                        id="title"
-                        value={formData.title}
-                        onChange={(e) => setFormData({...formData, title: e.target.value})}
-                        placeholder="How to Pass AWS SAA-C03 Exam in 30 Days"
-                        required
-                        className="mt-2 border-[#D3E3FF]"
-                      />
-                      <p className="text-sm text-gray-500 mt-1">Main heading for the blog post</p>
-                    </div>
-                    
-                    <div>
-                      <Label htmlFor="excerpt">Excerpt / Summary *</Label>
-                      <Textarea
-                        id="excerpt"
-                        value={formData.excerpt}
-                        onChange={(e) => setFormData({...formData, excerpt: e.target.value})}
-                        placeholder="A comprehensive guide to passing your AWS certification exam in just 30 days..."
-                        rows={3}
-                        required
-                        className="mt-2 border-[#D3E3FF]"
-                      />
-                      <p className="text-sm text-gray-500 mt-1">Short description shown on cards</p>
-                    </div>
-                    
-                    <div>
-                      <Label htmlFor="content">Blog Content</Label>
-                      <Textarea
-                        id="content"
-                        value={formData.content}
-                        onChange={(e) => setFormData({...formData, content: e.target.value})}
-                        placeholder="Full blog post content (HTML or markdown supported)..."
-                        rows={8}
-                        className="mt-2 border-[#D3E3FF]"
-                      />
-                      <p className="text-sm text-gray-500 mt-1">Full blog post content</p>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label htmlFor="category">Category</Label>
-                        <Input
-                          id="category"
-                          value={formData.category}
-                          onChange={(e) => setFormData({...formData, category: e.target.value})}
-                          placeholder="AWS, Azure, Certification, etc."
-                          className="mt-2 border-[#D3E3FF]"
-                        />
-                        <p className="text-sm text-gray-500 mt-1">Blog category/topic</p>
-                      </div>
-                      
-                      <div>
-                        <Label htmlFor="reading_time">Reading Time</Label>
-                        <Input
-                          id="reading_time"
-                          value={formData.reading_time}
-                          onChange={(e) => setFormData({...formData, reading_time: e.target.value})}
-                          placeholder="5 min read"
-                          className="mt-2 border-[#D3E3FF]"
-                        />
-                        <p className="text-sm text-gray-500 mt-1">Estimated reading time</p>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label htmlFor="is_featured">Featured on Homepage</Label>
-                        <select
-                          id="is_featured"
-                          value={formData.is_featured.toString()}
-                          onChange={(e) => setFormData({...formData, is_featured: e.target.value === 'true'})}
-                          className="mt-2 w-full h-10 px-3 border border-[#D3E3FF] rounded-md"
-                        >
-                          <option value="true">Yes - Show on Homepage</option>
-                          <option value="false">No - Hide</option>
-                        </select>
-                      </div>
-                      
-                      <div>
-                        <Label htmlFor="is_active">Status</Label>
-                        <select
-                          id="is_active"
-                          value={formData.is_active.toString()}
-                          onChange={(e) => setFormData({...formData, is_active: e.target.value === 'true'})}
-                          className="mt-2 w-full h-10 px-3 border border-[#D3E3FF] rounded-md"
-                        >
-                          <option value="true">Active</option>
-                          <option value="false">Inactive</option>
-                        </select>
-                      </div>
-                    </div>
-                    
-                    <div>
-                      <Label htmlFor="image_url">Featured Image URL *</Label>
-                      <Input
-                        type="file"
-                        accept="image/*"
-                        id="image_url"
-                        onChange={handleImageUpload}
-                        disabled={uploading}
-                        className="mt-2 border-[#D3E3FF]"
-                      />
-                      {uploading && <p className="text-sm text-blue-500 mt-1">Uploading image...</p>}
-                      {formData.image_url && (
-                        <div className="mt-3">
-                          <div className="w-full aspect-[16/9] rounded-md overflow-hidden border border-[#D3E3FF] bg-gray-100">
-                            <img 
-                              src={getOptimizedImageUrl(formData.image_url, 600, 338)} 
-                              alt="Featured image preview" 
-                              width={600}
-                              height={338}
-                              className="w-full h-full object-contain"
-                              style={{ objectFit: 'contain' }}
-                              loading="lazy"
-                              sizes="(max-width: 768px) 100vw, 600px"
-                              decoding="async"
-                            />
-                          </div>
-                          <p className="text-xs text-gray-500 mt-1">Uploaded image URL: {formData.image_url}</p>
-                        </div>
-                      )}
-                      <p className="text-sm text-gray-500 mt-1">Main image displayed with the blog post</p>
-                    </div>
-                    
-                    <div>
-                      <Label htmlFor="slug">URL Slug</Label>
-                      <Input
-                        id="slug"
-                        value={formData.slug}
-                        onChange={(e) => setFormData({...formData, slug: e.target.value})}
-                        placeholder="aws-saa-c03-guide (auto-generated if empty)"
-                        className="mt-2 border-[#D3E3FF]"
-                      />
-                      <p className="text-sm text-gray-500 mt-1">SEO-friendly URL slug (auto-generated from title if left empty)</p>
-                    </div>
-                  </CardContent>
-                </Card>
-                
-                {/* Live Preview */}
-                <Card className="border-[#D3E3FF]">
-                  <CardHeader className="bg-gradient-to-r from-[#10B981]/5 to-[#10B981]/10">
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <Eye className="w-5 h-5 text-[#10B981]" />
-                      Live Preview - How it appears on homepage
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="pt-6">
-                    <div className="border border-[#D3E3FF] rounded-lg overflow-hidden bg-white hover:shadow-lg transition-shadow">
-                      {formData.image_url ? (
-                        <div className="w-full aspect-[16/9] overflow-hidden bg-gray-100">
-                          <img 
-                            src={getOptimizedImageUrl(formData.image_url, 600, 338)} 
-                            alt="Blog preview" 
-                            width={600}
-                            height={338}
-                            className="w-full h-full object-contain"
-                            style={{ objectFit: 'contain' }}
-                            loading="lazy"
-                            sizes="(max-width: 768px) 100vw, 600px"
-                            decoding="async"
-                          />
-                        </div>
-                      ) : (
-                        <div className="w-full aspect-[16/9] bg-gray-100 flex items-center justify-center">
-                          <p className="text-gray-400">No image URL provided</p>
-                        </div>
-                      )}
-                      <div className="p-6">
-                        <div className="flex items-center gap-2 text-sm text-gray-500 mb-3">
-                          {formData.category && (
-                            <>
-                              <Badge className="bg-[#1A73E8] text-white text-xs">
-                                {formData.category}
-                              </Badge>
-                              <span>•</span>
-                            </>
-                          )}
-                          <span>{formData.reading_time || "5 min read"}</span>
-                          {formData.is_featured && (
-                            <>
-                              <span>•</span>
-                              <Badge className="bg-gradient-to-r from-yellow-400 to-orange-400 text-xs">
-                                Featured
-                              </Badge>
-                            </>
-                          )}
-                        </div>
-                        <h3 className="text-xl font-bold text-[#0C1A35] mb-3 line-clamp-2">
-                          {formData.title || "Blog Post Title"}
-                        </h3>
-                        <p className="text-[#0C1A35]/70 line-clamp-3 mb-4">
-                          {formData.excerpt || "Blog post excerpt will appear here..."}
-                        </p>
-                        <Button variant="outline" size="sm" className="text-[#1A73E8] border-[#1A73E8]">
-                          Read More →
-                        </Button>
-                      </div>
-                    </div>
-                    <p className="text-sm text-gray-500 mt-4 text-center">
-                      Preview of how this blog post will appear on the home page
-                    </p>
-                  </CardContent>
-                </Card>
-                
-                <div className="flex gap-3 pt-4">
-                  <Button type="submit" disabled={loading || uploading} className="flex-1 bg-[#1A73E8] hover:bg-[#1557B0]">
-                    {loading ? "Saving..." : uploading ? "Uploading..." : (editing ? "Update Blog Post" : "Create Blog Post")}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      setDialogOpen(false);
-                      resetForm();
-                    }}
-                    className="flex-1"
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </form>
-            </DialogContent>
-          </Dialog>
+          <Button 
+            className="gap-2 bg-[#1A73E8] hover:bg-[#1557B0]" 
+            onClick={() => {
+              resetForm();
+              setShowForm(true);
+            }}
+          >
+            <Plus className="w-4 h-4" />
+            Add Blog Post
+          </Button>
         </div>
       </div>
       

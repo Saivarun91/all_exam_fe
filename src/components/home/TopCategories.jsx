@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Cloud, Shield, Briefcase, Database, Code, TrendingUp, ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
+import ItemListJsonLd from "@/components/ItemListJsonLd";
 
 const ICON_MAP = {
   Cloud,
@@ -86,8 +87,23 @@ export default function TopCategories() {
     subtitle_color: "text-[#0C1A35]/70",
   };
 
+  // Prepare items for schema
+  const schemaItems = categories.map((cat) => ({
+    name: cat.name,
+    description: cat.description || "",
+    url: `/categories/${cat.slug}`,
+  }));
+
   return (
     <section className="py-12 md:py-20 bg-[#F5F8FC]">
+      {categories.length > 0 && (
+        <ItemListJsonLd
+          items={schemaItems}
+          listName={settings.heading || "Top Certification Categories"}
+          itemType="Category"
+          schemaId="top-categories-json-ld-schema"
+        />
+      )}
       <div className="container mx-auto px-4">
         <div className="text-center mb-8 md:mb-12">
           <h2 className={`text-2xl sm:text-3xl md:${settings.heading_font_size} ${settings.heading_font_family} ${settings.heading_color} mb-3 md:mb-4`}>
