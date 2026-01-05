@@ -153,6 +153,9 @@ export default function ExamDetailPage() {
     return sum + testQuestions;
   }, 0);
   
+  // Calculate actual practice test count from the list (not from exam.practice_exams field)
+  const actualPracticeTestsCount = practiceTestsList.length;
+  
   // Calculate total duration from all practice tests - sum all durations
   let calculatedDuration = null;
   if (practiceTestsList.length > 0) {
@@ -202,7 +205,7 @@ export default function ExamDetailPage() {
     rating: ratingValue,
     // reviews: 2847, // Could be added to backend model later
     // learners: 145000, // Could be added to backend model later
-    practiceTests: exam.practice_exams || 0,
+    practiceTests: actualPracticeTestsCount > 0 ? actualPracticeTestsCount : (exam.practice_exams || 0),
     totalQuestions: calculatedTotalQuestions || exam.questions || 0,
     duration: calculatedDuration || exam.duration || null,
     passingScore: exam.passing_score || "720/1000",
@@ -217,7 +220,7 @@ export default function ExamDetailPage() {
     whatsIncluded: exam.whats_included && exam.whats_included.length > 0 
       ? exam.whats_included 
       : [
-        `${exam.practice_exams || 0} full-length practice tests`,
+        `${actualPracticeTestsCount > 0 ? actualPracticeTestsCount : (exam.practice_exams || 0)} full-length practice tests`,
       "Real exam-style difficulty and format",
       "Detailed explanations for every question",
       "Timed mode and Review mode available",

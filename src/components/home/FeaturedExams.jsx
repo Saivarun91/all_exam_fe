@@ -186,7 +186,13 @@ const FeaturedExams = () => {
                       <div className="pt-2 space-y-4">
                         {/* Practice Exams & Questions */}
                         <p className="text-sm text-[#0C1A35]/60">
-                          {exam.practice_exams || 0} Practice Exams · {(() => {
+                          {(() => {
+                            // Use actual count from practice_tests_list if available
+                            if (exam.practice_tests_list && Array.isArray(exam.practice_tests_list) && exam.practice_tests_list.length > 0) {
+                              return exam.practice_tests_list.length;
+                            }
+                            return exam.practice_exams || 0;
+                          })()} Practice Exams · {(() => {
                             // Calculate total questions from practice tests list if available
                             if (exam.practice_tests_list && Array.isArray(exam.practice_tests_list) && exam.practice_tests_list.length > 0) {
                               const totalQuestions = exam.practice_tests_list.reduce((sum, test) => {

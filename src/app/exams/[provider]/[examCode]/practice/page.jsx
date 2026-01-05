@@ -83,16 +83,68 @@ export default function PracticePage() {
     const fetchExam = async () => {
       try {
         const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
-        // Construct slug from provider and examCode (e.g., "aws-saa-c03")
-        const slug = `${provider}-${examCode}`.toLowerCase();
-        const res = await fetch(`${API_BASE}/api/courses/exams/${slug}/`);
         
-        if (!res.ok) {
-          throw new Error("Exam not found");
+        // Normalize provider and examCode: convert to lowercase, replace underscores with hyphens
+        const normalizedProvider = provider.toLowerCase().replace(/_/g, '-');
+        let normalizedExamCode = examCode.toLowerCase().replace(/_/g, '-');
+        
+        // Try multiple slug formats (matching backend lookup logic)
+        // Common patterns: C_S4CS_2508 -> c-s4cs-2508, cs4cs2508 -> c-s4cs-2508
+        const slugVariants = [
+          `${normalizedProvider}-${normalizedExamCode}`, // Direct: "sap-cs4cs2508"
+        ];
+        
+        // If examCode has no separators, try common patterns
+        if (!normalizedExamCode.includes('-') && !normalizedExamCode.includes('_')) {
+          // Pattern 1: Single letter prefix followed by mixed alphanumeric (e.g., "c" in "cs4cs2508" -> "c-s4cs-2508")
+          // Match: single letter, then letters/numbers, then numbers at end
+          if (/^[a-z][a-z0-9]*[0-9]+$/i.test(normalizedExamCode)) {
+            // Try: single letter, then rest split before final number sequence
+            const match = normalizedExamCode.match(/^([a-z])(.+?)([0-9]+)$/i);
+            if (match) {
+              const [, firstLetter, middle, numbers] = match;
+              // Try different splits of the middle part
+              slugVariants.push(`${normalizedProvider}-${firstLetter}-${middle}-${numbers}`); // "cs4cs2508" -> "c-s4cs-2508"
+              // Also try splitting middle part if it has numbers
+              if (/\d/.test(middle)) {
+                const middleSplit = middle.replace(/([a-z])([0-9])/g, '$1-$2'); // Add hyphens before numbers in middle
+                slugVariants.push(`${normalizedProvider}-${firstLetter}-${middleSplit}-${numbers}`);
+              }
+            }
+            // Simple: single letter prefix
+            slugVariants.push(`${normalizedProvider}-${normalizedExamCode.replace(/^([a-z])([0-9])/i, '$1-$2')}`); // "cs4cs2508" -> "c-s4cs2508"
+          }
+          // Pattern 2: Add hyphens before any number (general case)
+          slugVariants.push(`${normalizedProvider}-${normalizedExamCode.replace(/([a-z])([0-9])/g, '$1-$2')}`); // "cs4cs2508" -> "cs-4cs-2508"
+          // Pattern 3: Add hyphens after any number
+          slugVariants.push(`${normalizedProvider}-${normalizedExamCode.replace(/([0-9])([a-z])/g, '$1-$2')}`); // "cs4cs2508" -> "cs4-cs2508"
         }
         
-        const data = await res.json();
-        setExam(data);
+        // Remove duplicates and empty strings
+        const uniqueSlugs = [...new Set(slugVariants.filter(s => s && s.length > 0))];
+        
+        let examData = null;
+        let lastError = null;
+        
+        // Try each slug variant until one works
+        for (const slug of uniqueSlugs) {
+          try {
+            const res = await fetch(`${API_BASE}/api/courses/exams/${slug}/`);
+            if (res.ok) {
+              examData = await res.json();
+              break; // Success, exit loop
+            }
+          } catch (err) {
+            lastError = err;
+            continue; // Try next variant
+          }
+        }
+        
+        if (!examData) {
+          throw lastError || new Error("Exam not found");
+        }
+        
+        setExam(examData);
         setLoading(false);
       } catch (err) {
         console.error("Error fetching exam:", err);
@@ -135,6 +187,9 @@ export default function PracticePage() {
   const practiceTests = exam.practice_tests_list || [];
 console.log("practice exams :",practiceTests)
   
+  // Calculate actual practice test count from the list (not from exam.practice_exams field)
+  const actualPracticeTestsCount = practiceTests.length;
+  
   // Calculate total questions from practice tests list
   const calculatedTotalQuestions = practiceTests.reduce((sum, test) => {
     const testQuestions = parseInt(test.questions) || 0;
@@ -172,7 +227,7 @@ console.log("practice exams :",practiceTests)
     passRate: exam.pass_rate || 90,
     rating: exam.rating || 4.5,
     reviews: 2847, // Could be added to backend model later
-    practiceTests: exam.practice_exams || 0,
+    practiceTests: actualPracticeTestsCount > 0 ? actualPracticeTestsCount : (exam.practice_exams || 0),
     totalQuestions: calculatedTotalQuestions || exam.questions || 0,
     duration: exam.duration || "130 minutes",
     passingScore: exam.passing_score || "720/1000",
@@ -180,7 +235,7 @@ console.log("practice exams :",practiceTests)
     whatsIncluded: exam.whats_included && exam.whats_included.length > 0
       ? exam.whats_included
       : [
-          `${exam.practice_exams || 0} full-length practice tests`,
+          `${actualPracticeTestsCount > 0 ? actualPracticeTestsCount : (exam.practice_exams || 0)} full-length practice tests`,
       "Real exam-style difficulty and format",
       "Detailed explanations for every question",
       "Timed mode and Review mode available",
@@ -277,6 +332,75 @@ console.log("practice exams :",practiceTests)
           </div>
         </div>
 
+        {/* Practice Tests Section - moved to the top as requested */}
+        <section className="mb-12">
+          <h1 className="text-4xl font-bold text-[#0C1A35] mb-8">Practice Tests</h1>
+          {practiceTests.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {practiceTests.map((test, index) => (
+                <Card key={test.id || index} className="border-[#DDE7FF] hover:shadow-lg transition-all">
+                <CardContent className="p-6">
+                  <div className="flex justify-between items-start mb-4">
+                      <h3 className="text-xl font-bold text-[#0C1A35]">{test.name || `Practice Test ${index + 1}`}</h3>
+                      {test.difficulty && (
+                    <Badge
+                      variant="secondary"
+                      className={`${
+                        test.difficulty === "Advanced"
+                          ? "bg-orange-100 text-orange-700"
+                          : "bg-gray-100 text-gray-700"
+                      } border-0`}
+                    >
+                      {test.difficulty}
+                    </Badge>
+                      )}
+                  </div>
+                    <p className="text-sm text-[#0C1A35]/70 mb-3">{test.questions || 0} Questions</p>
+                  <Badge className="bg-[#1A73E8] text-white border-0 mb-4">Full-Length Test</Badge>
+                  <Button
+                    className="w-full bg-[#1A73E8] text-white hover:bg-[#1557B0]"
+                    onClick={() => handleStartTest(test)}
+                  >
+                    Start Test →
+                  </Button>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+          ) : (
+            <Card className="border-[#DDE7FF]">
+              <CardContent className="p-8 text-center">
+                <p className="text-[#0C1A35]/70">No practice tests available yet. Please check back later.</p>
+              </CardContent>
+            </Card>
+          )}
+        </section>
+
+        {/* Exam Topics & Weightage Section - moved just after Practice Tests */}
+        {topics.length > 0 && (
+        <section className="mb-12">
+          <h2 className="text-3xl font-bold text-[#0C1A35] mb-6">Exam Topics & Weightage</h2>
+          <div className="space-y-4">
+            {topics.map((topic, idx) => (
+              <Card key={idx} className="border-[#DDE7FF]">
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-4">
+                    <CheckCircle2 className="w-6 h-6 text-green-500 flex-shrink-0" />
+                    <div className="flex-1">
+                      <div className="flex justify-between mb-2">
+                        <span className="font-semibold text-[#0C1A35]">{topic.name}</span>
+                        <span className="text-sm text-[#0C1A35]/60">{topic.percentage}%</span>
+                      </div>
+                      <Progress value={topic.percentage} className="h-2" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </section>
+        )}
+
         {/* About This Exam Section */}
         <Card className="border-[#DDE7FF] mb-8">
           <CardHeader>
@@ -351,75 +475,6 @@ console.log("practice exams :",practiceTests)
             </div>
           </CardContent>
         </Card>
-
-        {/* Practice Tests Section */}
-        <section className="mb-12">
-          <h1 className="text-4xl font-bold text-[#0C1A35] mb-8">Practice Tests</h1>
-          {practiceTests.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {practiceTests.map((test, index) => (
-                <Card key={test.id || index} className="border-[#DDE7FF] hover:shadow-lg transition-all">
-                <CardContent className="p-6">
-                  <div className="flex justify-between items-start mb-4">
-                      <h3 className="text-xl font-bold text-[#0C1A35]">{test.name || `Practice Test ${index + 1}`}</h3>
-                      {test.difficulty && (
-                    <Badge
-                      variant="secondary"
-                      className={`${
-                        test.difficulty === "Advanced"
-                          ? "bg-orange-100 text-orange-700"
-                          : "bg-gray-100 text-gray-700"
-                      } border-0`}
-                    >
-                      {test.difficulty}
-                    </Badge>
-                      )}
-                  </div>
-                    <p className="text-sm text-[#0C1A35]/70 mb-3">{test.questions || 0} Questions</p>
-                  <Badge className="bg-[#1A73E8] text-white border-0 mb-4">Full-Length Test</Badge>
-                  <Button
-                    className="w-full bg-[#1A73E8] text-white hover:bg-[#1557B0]"
-                    onClick={() => handleStartTest(test)}
-                  >
-                    Start Test →
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-          ) : (
-            <Card className="border-[#DDE7FF]">
-              <CardContent className="p-8 text-center">
-                <p className="text-[#0C1A35]/70">No practice tests available yet. Please check back later.</p>
-              </CardContent>
-            </Card>
-          )}
-        </section>
-
-        {/* Exam Topics & Weightage Section */}
-        {topics.length > 0 && (
-        <section className="mb-12">
-          <h2 className="text-3xl font-bold text-[#0C1A35] mb-6">Exam Topics & Weightage</h2>
-          <div className="space-y-4">
-            {topics.map((topic, idx) => (
-              <Card key={idx} className="border-[#DDE7FF]">
-                <CardContent className="p-6">
-                  <div className="flex items-center gap-4">
-                    <CheckCircle2 className="w-6 h-6 text-green-500 flex-shrink-0" />
-                    <div className="flex-1">
-                      <div className="flex justify-between mb-2">
-                        <span className="font-semibold text-[#0C1A35]">{topic.name}</span>
-                        <span className="text-sm text-[#0C1A35]/60">{topic.percentage}%</span>
-                      </div>
-                      <Progress value={topic.percentage} className="h-2" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </section>
-        )}
 
         {/* Success Stories Section */}
         {testimonials.length > 0 && (

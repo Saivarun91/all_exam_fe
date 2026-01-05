@@ -523,7 +523,13 @@ export default function FeaturedExamsAdmin() {
                       
                       <div className="pt-2">
                         <p className="text-sm text-[#0C1A35]/60 mb-4">
-                          {course.practice_exams || 0} Practice Exams · {(() => {
+                          {(() => {
+                            // Use actual count from practice_tests_list if available
+                            if (course.practice_tests_list && Array.isArray(course.practice_tests_list) && course.practice_tests_list.length > 0) {
+                              return course.practice_tests_list.length;
+                            }
+                            return course.practice_exams || 0;
+                          })()} Practice Exams · {(() => {
                             // Calculate total questions from practice tests list if available
                             if (course.practice_tests_list && Array.isArray(course.practice_tests_list) && course.practice_tests_list.length > 0) {
                               const totalQuestions = course.practice_tests_list.reduce((sum, test) => {

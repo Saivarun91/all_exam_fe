@@ -127,7 +127,8 @@ export default function ExamDetailsPage() {
         const metaTitle = data.meta_title || `${data.title} (${data.code}) - Practice Exam | AllExamQuestions`;
         document.title = metaTitle;
 
-        const metaDescription = data.meta_description || `Practice for ${data.title} (${data.code}) with ${data.practice_exams || 0} practice exams and ${data.questions || 0}+ questions. Pass rate: ${data.pass_rate || 'N/A'}%`;
+        const practiceTestsCount = (data.practice_tests_list && Array.isArray(data.practice_tests_list)) ? data.practice_tests_list.length : (data.practice_exams || 0);
+        const metaDescription = data.meta_description || `Practice for ${data.title} (${data.code}) with ${practiceTestsCount} practice exams and ${data.questions || 0}+ questions. Pass rate: ${data.pass_rate || 'N/A'}%`;
         let metaDesc = document.querySelector('meta[name="description"]');
         if (!metaDesc) {
           metaDesc = document.createElement("meta");
@@ -309,7 +310,7 @@ export default function ExamDetailsPage() {
                 <div className="space-y-3 py-4 border-y border-gray-200">
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-[#0C1A35]/60">Practice Tests</span>
-                    <span className="font-semibold text-[#0C1A35]">{exam.practice_exams || 0}</span>
+                    <span className="font-semibold text-[#0C1A35]">{(exam.practice_tests_list && Array.isArray(exam.practice_tests_list) && exam.practice_tests_list.length > 0) ? exam.practice_tests_list.length : (exam.practice_exams || 0)}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-[#0C1A35]/60">Total Questions</span>

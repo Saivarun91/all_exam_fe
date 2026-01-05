@@ -26,6 +26,7 @@ export function useSocialMediaUrls() {
 
         if (res.ok) {
           const data = await res.json();
+          console.log("Social Media URLs:", data);
           if (data.success) {
             const urls = {
               facebook: data.social_facebook_url || '',
