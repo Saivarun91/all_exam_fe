@@ -129,21 +129,25 @@ function LoginPageContent() {
     setIsLoading(true);
     setForgotError("");
     setForgotMessage("");
-
+  
     try {
       const res = await fetch(FORGOT_PASSWORD_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: forgotEmail }),
       });
-
+  
       const data = await res.json();
-
-      if (res.ok && data.success) {
-        setForgotMessage("✅ OTP sent to your email. Please check your inbox.");
+  
+      if (res.ok) {
+        setForgotMessage(
+          data.message || "✅ OTP sent to your email. Please check your inbox."
+        );
         setForgotStep("otp");
       } else {
-        setForgotError(data.error || "Failed to send OTP");
+        setForgotError(
+          data.error || data.message || "Failed to send OTP"
+        );
       }
     } catch (err) {
       console.error(err);
@@ -152,6 +156,7 @@ function LoginPageContent() {
       setIsLoading(false);
     }
   };
+  
 
   // Handle Forgot Password - Step 2: Verify OTP
   const handleVerifyOTP = async (e) => {
@@ -215,20 +220,25 @@ function LoginPageContent() {
 
       const data = await res.json();
 
-      if (res.ok && data.success) {
-        setForgotMessage("✅ Password reset successful! Please login with your new password.");
-        setTimeout(() => {
-          setShowForgotPassword(false);
-          setForgotStep("email");
-          setForgotEmail("");
-          setOtp("");
-          setNewPassword("");
-          setConfirmNewPassword("");
-          setForgotMessage("");
-          setForgotError("");
-        }, 2000);
+      if (res.ok) {
+        // Check for success message or success field
+        if (data.success || data.message || res.status === 200) {
+          setForgotMessage("✅ Password reset successful! Please login with your new password.");
+          setTimeout(() => {
+            setShowForgotPassword(false);
+            setForgotStep("email");
+            setForgotEmail("");
+            setOtp("");
+            setNewPassword("");
+            setConfirmNewPassword("");
+            setForgotMessage("");
+            setForgotError("");
+          }, 2000);
+        } else {
+          setForgotError(data.error || "Failed to reset password");
+        }
       } else {
-        setForgotError(data.error || "Failed to reset password");
+        setForgotError(data.error || data.message || "Failed to reset password");
       }
     } catch (err) {
       console.error(err);
