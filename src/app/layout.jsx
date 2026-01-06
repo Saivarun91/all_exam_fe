@@ -7,6 +7,7 @@ import { TestProvider } from "@/contexts/TestContext";
 import BodyWrapper from "@/components/layout/BodyWrapper";
 import HeaderSpacer from "@/components/layout/HeaderSpacer";
 import FontSettingsProvider from "@/components/layout/FontSettingsProvider";
+import { Toaster } from "react-hot-toast";
 
 /* ================= FONT CONFIGURATION ================= */
 const poppins = Poppins({
@@ -86,6 +87,40 @@ export default function RootLayout({ children }) {
         <AuthProvider>
           <TestProvider>
             <FontSettingsProvider>
+              {/* Toast Notifications */}
+              <Toaster 
+                position="top-right"
+                toastOptions={{
+                  duration: 3000,
+                  style: {
+                    background: '#fff',
+                    color: '#333',
+                    padding: '16px',
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                  },
+                  success: {
+                    iconTheme: {
+                      primary: '#16a34a',
+                      secondary: '#fff',
+                    },
+                    style: {
+                      background: '#f0fdf4',
+                      color: '#16a34a',
+                    },
+                  },
+                  error: {
+                    iconTheme: {
+                      primary: '#dc2626',
+                      secondary: '#fff',
+                    },
+                    style: {
+                      background: '#fef2f2',
+                      color: '#dc2626',
+                    },
+                  },
+                }}
+              />
               {/* Header/Footer visibility handled internally */}
               <Header />
               <BodyWrapper>

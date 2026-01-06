@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
+import toast from "react-hot-toast";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
@@ -283,7 +284,10 @@ export default function CheckoutPage() {
 
   const handleApplyCoupon = async () => {
     if (!couponCode || !couponCode.trim()) {
-      setCouponError("Please enter a coupon code");
+      toast.error("Please enter a coupon code", {
+        position: "top-right",
+        duration: 3000,
+      });
       return;
     }
 
@@ -309,7 +313,10 @@ export default function CheckoutPage() {
       const data = await response.json();
 
       if (!response.ok || !data.success) {
-        setCouponError(data.message || "Invalid coupon code");
+        toast.error(data.message || "Invalid coupon code", {
+          position: "top-right",
+          duration: 3000,
+        });
         setSelectedCoupon(null);
         return;
       }
@@ -326,11 +333,18 @@ export default function CheckoutPage() {
             ? `${data.coupon.discount_value}% OFF` 
             : `₹${data.coupon.discount_value} OFF`
         });
+        toast.success(`Coupon ${data.coupon.code} applied successfully!`, {
+          position: "top-right",
+          duration: 3000,
+        });
         setCouponError(null);
       }
     } catch (error) {
       console.error("Error applying coupon:", error);
-      setCouponError("Failed to apply coupon. Please try again.");
+      toast.error("Failed to apply coupon. Please try again.", {
+        position: "top-right",
+        duration: 3000,
+      });
       setSelectedCoupon(null);
     } finally {
       setApplyingCoupon(false);
@@ -567,15 +581,7 @@ export default function CheckoutPage() {
                       )}
                     </Button>
                   </div>
-                  {couponError && (
-                    <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-lg">
-                      <p className="text-sm text-red-700 flex items-center gap-2">
-                        <XCircle className="w-4 h-4" />
-                        {couponError}
-                      </p>
-                    </div>
-                  )}
-                  {selectedCoupon && !couponError && (
+                  {selectedCoupon && (
                     <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded-lg">
                       <div className="flex items-center justify-between">
                         <p className="text-sm text-green-700 flex items-center gap-2">
@@ -587,6 +593,10 @@ export default function CheckoutPage() {
                             setSelectedCoupon(null);
                             setCouponCode("");
                             setCouponError(null);
+                            toast.success("Coupon removed", {
+                              position: "top-right",
+                              duration: 2000,
+                            });
                           }}
                           variant="ghost"
                           size="sm"
@@ -606,29 +616,13 @@ export default function CheckoutPage() {
                   <div className="flex items-center justify-between mb-4">
                     <span className="text-lg text-gray-700">Plan Price:</span>
                     <div className="text-right">
-                      {/* Show original price as strikethrough only if it exists and is different from final amount */}
-                      {(() => {
-                        // Determine which price to show as strikethrough
-                        // Priority: original_price > plan.price (when coupon applied) > none
-                        if (originalPriceNum > 0 && originalPriceNum > displayAmount) {
-                          // Show original_price if it exists and is higher than final amount
-                          return (
-                            <span className="text-lg text-gray-400 line-through block">₹{originalPriceNum.toFixed(2)}</span>
-                          );
-                        } else if (selectedCoupon && priceNum > finalAmount && priceNum !== originalPriceNum) {
-                          // Show plan.price as strikethrough when coupon is applied (if different from original_price)
-                          return (
-                            <span className="text-lg text-gray-400 line-through block">₹{priceNum.toFixed(2)}</span>
-                          );
-                        }
-                        return null;
-                      })()}
+                      {/* Always show original plan price - don't change it when coupon is applied */}
                       <span className="text-3xl font-bold text-gray-900">
-                        ₹{displayAmount.toFixed(2)}
+                        ₹{priceNum.toFixed(2)}
                       </span>
                     </div>
                   </div>
-                  {selectedCoupon && priceNum !== finalAmount && couponDiscountAmount > 0 && (
+                  {selectedCoupon && couponDiscountAmount > 0 && (
                     <div className="flex items-center justify-between py-2 border-t">
                       <span className="text-sm text-green-600 font-semibold">Coupon Discount ({selectedCoupon.code})</span>
                       <span className="text-sm text-green-600 font-semibold">
@@ -643,8 +637,8 @@ export default function CheckoutPage() {
                     </div>
                   )}
                   <div className="flex items-center justify-between pt-2 border-t mt-2">
-                    <span className="text-sm text-gray-600 font-semibold">Total Amount to Pay:</span>
-                    <span className="text-lg font-bold text-gray-900">₹{displayAmount.toFixed(2)}</span>
+                    <span className="text-lg font-semibold text-gray-900">Total Amount to Pay:</span>
+                    <span className="text-2xl font-bold text-gray-900">₹{displayAmount.toFixed(2)}</span>
                   </div>
                   <div className="flex items-center justify-between pt-2 border-t mt-2">
                     <span className="text-sm text-gray-600">Payment Type</span>
