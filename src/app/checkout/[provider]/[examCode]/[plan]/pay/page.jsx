@@ -616,29 +616,29 @@ export default function CheckoutPage() {
                   <div className="flex items-center justify-between mb-4">
                     <span className="text-lg text-gray-700">Plan Price:</span>
                     <div className="text-right">
-                      {/* Always show original plan price - don't change it when coupon is applied */}
-                      <span className="text-3xl font-bold text-gray-900">
-                        ₹{priceNum.toFixed(2)}
-                      </span>
+                      {/* Show original price and offer price if original_price exists */}
+                      {originalPriceNum > 0 && originalPriceNum > priceNum ? (
+                        <div className="flex flex-col items-end">
+                          <span className="text-lg text-gray-400 line-through">₹{Math.round(originalPriceNum)}</span>
+                          <span className="text-3xl font-bold text-gray-900">₹{Math.round(priceNum)}</span>
+                          <span className="text-sm text-green-600 font-semibold mt-1">{discount}% OFF</span>
+                        </div>
+                      ) : (
+                        <span className="text-3xl font-bold text-gray-900">₹{Math.round(priceNum)}</span>
+                      )}
                     </div>
                   </div>
                   {selectedCoupon && couponDiscountAmount > 0 && (
                     <div className="flex items-center justify-between py-2 border-t">
                       <span className="text-sm text-green-600 font-semibold">Coupon Discount ({selectedCoupon.code})</span>
                       <span className="text-sm text-green-600 font-semibold">
-                        -₹{couponDiscountAmount.toFixed(2)}
+                        -₹{Math.round(couponDiscountAmount)}
                       </span>
-                    </div>
-                  )}
-                  {discount > 0 && !selectedCoupon && (
-                    <div className="flex items-center justify-between py-2 border-t">
-                      <span className="text-sm text-green-600 font-semibold">Discount Applied</span>
-                      <span className="text-sm text-green-600 font-semibold">{discount}% OFF</span>
                     </div>
                   )}
                   <div className="flex items-center justify-between pt-2 border-t mt-2">
                     <span className="text-lg font-semibold text-gray-900">Total Amount to Pay:</span>
-                    <span className="text-2xl font-bold text-gray-900">₹{displayAmount.toFixed(2)}</span>
+                    <span className="text-2xl font-bold text-gray-900">₹{Math.round(displayAmount)}</span>
                   </div>
                   <div className="flex items-center justify-between pt-2 border-t mt-2">
                     <span className="text-sm text-gray-600">Payment Type</span>
@@ -679,7 +679,7 @@ export default function CheckoutPage() {
                     ) : (
                       <>
                         <CreditCard className="w-5 h-5 mr-2" />
-                        Pay ₹{displayAmount.toFixed(2)} and Continue
+                        Pay ₹{Math.round(displayAmount)} and Continue
                       </>
                     )}
                   </Button>
