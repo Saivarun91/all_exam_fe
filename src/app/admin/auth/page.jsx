@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { GraduationCap } from "lucide-react";
 import axios from "axios";
 import { useAuth } from "@/contexts/AuthContext";
+import { useLogoUrl } from "@/hooks/useLogoUrl";
 
 // ----------------------- API URLs -----------------------
 const API_BASE_URL =
@@ -20,6 +21,7 @@ const LOGIN_URL = `${API_BASE_URL}/api/users/admin/login/`;
 export default function AuthPage() {
   const router = useRouter();
   const { login } = useAuth();
+  const logoUrl = useLogoUrl();
 
   const [isLoading, setIsLoading] = useState(false);
   const [loginEmail, setLoginEmail] = useState("");
@@ -84,15 +86,26 @@ export default function AuthPage() {
           className="text-center lg:text-left flex flex-col justify-center"
         >
           <div className="inline-flex items-center gap-3 mb-6">
-            <div className="p-3 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl shadow-lg">
-              <GraduationCap className="h-8 w-8 text-white" />
-            </div>
-            <h1 className="text-3xl font-bold text-gray-800">
-              AllExam
-              <span className="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                Questions
-              </span>
-            </h1>
+            {logoUrl ? (
+              <img 
+                src={logoUrl}
+                alt="AllExamQuestions Logo" 
+                className="h-14 md:h-16 lg:h-20 w-auto object-contain max-w-[200px] md:max-w-[240px] lg:max-w-[280px]"
+                loading="lazy"
+              />
+            ) : (
+              <>
+                <div className="p-3 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl shadow-lg">
+                  <GraduationCap className="h-8 w-8 text-white" />
+                </div>
+                <h1 className="text-3xl font-bold text-gray-800">
+                  AllExam
+                  <span className="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                    Questions
+                  </span>
+                </h1>
+              </>
+            )}
           </div>
 
           <h2 className="text-4xl font-bold mb-4 text-gray-800">

@@ -28,6 +28,9 @@ export default function CheckoutPage() {
   const [coupons, setCoupons] = useState([]);
   const [loadingCoupons, setLoadingCoupons] = useState(true);
   const [selectedCoupon, setSelectedCoupon] = useState(null);
+  const [couponCode, setCouponCode] = useState("");
+  const [applyingCoupon, setApplyingCoupon] = useState(false);
+  const [couponError, setCouponError] = useState(null);
 
   useEffect(() => {
     console.log("Checkout page loaded:", { provider, examCode, planSlug });
@@ -278,6 +281,62 @@ export default function CheckoutPage() {
     }
   };
 
+  const handleApplyCoupon = async () => {
+    if (!couponCode || !couponCode.trim()) {
+      setCouponError("Please enter a coupon code");
+      return;
+    }
+
+    setApplyingCoupon(true);
+    setCouponError(null);
+
+    try {
+      const token = localStorage.getItem('token');
+      const priceNum = parseFloat(plan.price?.replace(/[₹$,]/g, '') || 0);
+
+      const response = await fetch(`${API_BASE_URL}/api/reviews/verify-coupon/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` })
+        },
+        body: JSON.stringify({
+          code: couponCode.trim().toUpperCase(),
+          amount: priceNum
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        setCouponError(data.message || "Invalid coupon code");
+        setSelectedCoupon(null);
+        return;
+      }
+
+      // If coupon is valid, set it as selected
+      if (data.coupon) {
+        setSelectedCoupon({
+          id: data.coupon.coupon_id,
+          code: data.coupon.code,
+          discount_type: data.coupon.discount_type,
+          discount_value: data.coupon.discount_value,
+          max_discount: data.coupon.max_discount || null,
+          discount: data.coupon.discount_type === 'percentage' 
+            ? `${data.coupon.discount_value}% OFF` 
+            : `₹${data.coupon.discount_value} OFF`
+        });
+        setCouponError(null);
+      }
+    } catch (error) {
+      console.error("Error applying coupon:", error);
+      setCouponError("Failed to apply coupon. Please try again.");
+      setSelectedCoupon(null);
+    } finally {
+      setApplyingCoupon(false);
+    }
+  };
+
   const handlePaymentSuccess = async (response, orderData) => {
     try {
       const token = localStorage.getItem('token');
@@ -470,84 +529,77 @@ export default function CheckoutPage() {
 
                 <Separator />
 
-                {/* Available Coupons */}
-                {!loadingCoupons && coupons.length > 0 && (
-                  <>
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                        <Ticket className="w-5 h-5 text-[#1A73E8]" />
-                        Available Coupons
-                      </h3>
-                      <div className="space-y-2">
-                        {coupons.map((coupon) => {
-                          const isSelected = selectedCoupon?.id === coupon.id;
-                          
-                          return (
-                            <div
-                              key={coupon.id}
-                              className={`p-4 rounded-lg border-2 transition-all ${
-                                isSelected
-                                  ? 'border-[#1A73E8] bg-blue-50'
-                                  : 'border-gray-200 bg-white hover:border-[#1A73E8] hover:bg-blue-50'
-                              }`}
-                            >
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-3 flex-1">
-                                  <Tag className={`w-5 h-5 ${isSelected ? 'text-[#1A73E8]' : 'text-gray-400'}`} />
-                                  <div className="flex-1">
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                      <span className="font-semibold text-gray-900">
-                                        {coupon.code}
-                                      </span>
-                                      <Badge className="bg-green-100 text-green-700 border-0 text-xs">
-                                        {coupon.discount}
-                                      </Badge>
-                                    </div>
-                                    {coupon.expiry_date && (
-                                      <p className="text-xs text-gray-500 mt-1">
-                                        Expires: {new Date(coupon.expiry_date).toLocaleDateString()}
-                                      </p>
-                                    )}
-                                  </div>
-                                </div>
-                                <Button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    if (isSelected) {
-                                      setSelectedCoupon(null);
-                                    } else {
-                                      setSelectedCoupon(coupon);
-                                    }
-                                  }}
-                                  variant={isSelected ? "default" : "outline"}
-                                  size="sm"
-                                  className={isSelected ? "bg-[#1A73E8] hover:bg-[#1557B0] text-white" : ""}
-                                >
-                                  {isSelected ? (
-                                    <>
-                                      <CheckCircle2 className="w-4 h-4 mr-1" />
-                                      Applied
-                                    </>
-                                  ) : (
-                                    "Apply"
-                                  )}
-                                </Button>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                      {selectedCoupon && (
-                        <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
-                          <p className="text-sm text-green-700">
-                            <strong>{selectedCoupon.code}</strong> applied! You'll save {selectedCoupon.discount} on this purchase.
-                          </p>
-                        </div>
+                {/* Manual Coupon Input */}
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                    <Ticket className="w-5 h-5 text-[#1A73E8]" />
+                    Have a Coupon Code?
+                  </h3>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={couponCode}
+                      onChange={(e) => {
+                        setCouponCode(e.target.value);
+                        setCouponError(null);
+                      }}
+                      placeholder="Enter coupon code"
+                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1A73E8] focus:border-transparent"
+                      disabled={applyingCoupon}
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter') {
+                          handleApplyCoupon();
+                        }
+                      }}
+                    />
+                    <Button
+                      onClick={handleApplyCoupon}
+                      disabled={applyingCoupon || !couponCode.trim()}
+                      className="bg-[#1A73E8] hover:bg-[#1557B0] text-white px-6"
+                    >
+                      {applyingCoupon ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Applying...
+                        </>
+                      ) : (
+                        "Apply"
                       )}
+                    </Button>
+                  </div>
+                  {couponError && (
+                    <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+                      <p className="text-sm text-red-700 flex items-center gap-2">
+                        <XCircle className="w-4 h-4" />
+                        {couponError}
+                      </p>
                     </div>
-                    <Separator />
-                  </>
-                )}
+                  )}
+                  {selectedCoupon && !couponError && (
+                    <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm text-green-700 flex items-center gap-2">
+                          <CheckCircle2 className="w-4 h-4" />
+                          <strong>{selectedCoupon.code}</strong> applied successfully! You'll save {selectedCoupon.discount} on this purchase.
+                        </p>
+                        <Button
+                          onClick={() => {
+                            setSelectedCoupon(null);
+                            setCouponCode("");
+                            setCouponError(null);
+                          }}
+                          variant="ghost"
+                          size="sm"
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50 h-auto py-1 px-2"
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <Separator />
 
                 {/* Pricing */}
                 <div className="bg-gray-50 rounded-lg p-6">

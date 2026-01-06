@@ -11,6 +11,7 @@ import { Progress } from "@/components/ui/progress";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import FAQJsonLd from "@/components/FAQJsonLd";
+import RatingJsonLd from "@/components/RatingJsonLd";
 import BreadcrumbJsonLd from "@/components/BreadcrumbJsonLd";
 import {
   Breadcrumb,
@@ -213,6 +214,15 @@ export default function ExamDetailsPage() {
 
   return (
     <div className="min-h-screen bg-white">
+      {exam && exam.rating && (
+        <RatingJsonLd 
+          rating={exam.rating} 
+          reviewCount={exam.testimonials && exam.testimonials.length > 0 ? exam.testimonials.length : null}
+          itemName={exam.title || `${exam.provider} ${exam.code}`}
+          itemType="Product"
+          schemaId="exam-details-rating-json-ld-schema"
+        />
+      )}
       {exam && <BreadcrumbJsonLd items={breadcrumbItems} />}
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         {/* Breadcrumb */}

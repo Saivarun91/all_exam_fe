@@ -12,6 +12,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import PracticeTestJsonLd from "@/components/PracticeTestJsonLd";
 import ReviewsJsonLd from "@/components/ReviewsJsonLd";
+import RatingJsonLd from "@/components/RatingJsonLd";
 import BreadcrumbJsonLd from "@/components/BreadcrumbJsonLd";
 import {
   Breadcrumb,
@@ -258,6 +259,15 @@ console.log("practice exams :",practiceTests)
   return (
     <div className="min-h-screen bg-white">
       {exam && <PracticeTestJsonLd exam={exam} practiceTests={practiceTests} />}
+      {exam && exam.rating && (
+        <RatingJsonLd 
+          rating={exam.rating} 
+          reviewCount={testimonials.length > 0 ? testimonials.length : null}
+          itemName={exam.title}
+          itemType="Course"
+          schemaId="practice-rating-json-ld-schema"
+        />
+      )}
       {testimonials.length > 0 && <ReviewsJsonLd testimonials={testimonials} itemName={exam.title} />}
       {exam && <BreadcrumbJsonLd items={breadcrumbItems} />}
       <main className="container mx-auto px-4 py-8">

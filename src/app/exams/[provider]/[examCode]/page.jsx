@@ -11,6 +11,7 @@ import { Progress } from "@/components/ui/progress";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import ReviewsJsonLd from "@/components/ReviewsJsonLd";
+import RatingJsonLd from "@/components/RatingJsonLd";
 import BreadcrumbJsonLd from "@/components/BreadcrumbJsonLd";
 import {
   Breadcrumb,
@@ -305,6 +306,15 @@ export default function ExamDetailPage() {
             )}
           </div>
         </div>
+        {examData.rating !== null && examData.rating !== undefined && (
+          <RatingJsonLd 
+            rating={examData.rating} 
+            reviewCount={examData.reviews || (examData.testimonials && examData.testimonials.length) || null}
+            itemName={examData.title}
+            itemType="Product"
+            schemaId="exam-rating-json-ld-schema"
+          />
+        )}
         {examData.testimonials && examData.testimonials.length > 0 && (
           <ReviewsJsonLd testimonials={examData.testimonials} itemName={examData.title} />
         )}

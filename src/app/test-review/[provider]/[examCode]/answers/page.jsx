@@ -348,29 +348,79 @@ export default function ReviewAnswersPage() {
                       let isCorrectAnswer = false;
                       
                       if (correctAnswers.length > 0) {
-                        // Normalize current option text
-                        const normalizedOptionText = normalizeToOptionText(optionText).toLowerCase().trim();
+                        // Normalize current option text for comparison
+                        const normalizedOptionText = String(optionText).trim().toLowerCase();
+                        const currentOptionLetter = option.toUpperCase();
+                        const currentOptionIndex = optIdx;
+                        const currentLetterIndex = currentOptionLetter.charCodeAt(0) - 65; // A=0, B=1, etc.
                         
                         // Check each correct answer - try multiple matching strategies
                         isCorrectAnswer = correctAnswers.some(ca => {
                           const caStr = String(ca).trim();
+                          const caStrLower = caStr.toLowerCase();
                           const normalizedCorrectAnswer = normalizeToOptionText(ca).toLowerCase().trim();
                           
-                          // Direct normalized comparison
+                          // Strategy 1: Direct normalized comparison (most reliable)
                           if (normalizedCorrectAnswer === normalizedOptionText) {
                             return true;
                           }
                           
-                          // Also try direct string comparison (case-insensitive)
-                          if (caStr.toLowerCase() === optionText.toLowerCase().trim()) {
+                          // Strategy 2: Direct string comparison (case-insensitive)
+                          if (caStrLower === normalizedOptionText) {
                             return true;
                           }
                           
-                          // Try matching by letter if correct answer is a single letter
-                          if (caStr.length === 1 && caStr.match(/^[A-Z]$/i)) {
-                            if (caStr.toUpperCase() === option.toUpperCase()) {
+                          // Strategy 3: Match by letter (A, B, C, D, etc.)
+                          if (caStr.length === 1 && /^[A-Z]$/i.test(caStr)) {
+                            if (caStr.toUpperCase() === currentOptionLetter) {
                               return true;
                             }
+                          }
+                          
+                          // Strategy 4: Match by numeric index (0, 1, 2, 3, etc.)
+                          if (!isNaN(caStr) && !isNaN(parseInt(caStr))) {
+                            const caIndex = parseInt(caStr);
+                            // Match by option index
+                            if (caIndex === currentOptionIndex) {
+                              return true;
+                            }
+                            // Match by letter index (A=0, B=1, etc.)
+                            if (caIndex === currentLetterIndex) {
+                              return true;
+                            }
+                          }
+                          
+                          // Strategy 5: Partial text match (for cases where correct answer might be a substring)
+                          if (normalizedOptionText.includes(caStrLower) || caStrLower.includes(normalizedOptionText)) {
+                            // Only if both are substantial strings (not single characters)
+                            if (caStr.length > 3 && normalizedOptionText.length > 3) {
+                              return true;
+                            }
+                          }
+                          
+                          // Strategy 6: Match against full option text from options array
+                          if (fullOptionsList && fullOptionsList.length > 0) {
+                            const matchingOption = fullOptionsList.find(opt => {
+                              const optText = String(opt.text).trim().toLowerCase();
+                              return optText === caStrLower || optText === normalizedCorrectAnswer;
+                            });
+                            if (matchingOption) {
+                              if (matchingOption.index === currentOptionIndex) {
+                                return true;
+                              }
+                              if (matchingOption.letter === currentOptionLetter) {
+                                return true;
+                              }
+                            }
+                          }
+                          
+                          // Strategy 7: Match against optionsList (current list being rendered)
+                          const matchingInCurrentList = optionsList.find(opt => {
+                            const optText = String(opt.text).trim().toLowerCase();
+                            return optText === caStrLower || optText === normalizedCorrectAnswer;
+                          });
+                          if (matchingInCurrentList && matchingInCurrentList.letter === currentOptionLetter) {
+                            return true;
                           }
                           
                           return false;
@@ -388,40 +438,42 @@ export default function ReviewAnswersPage() {
                     let labelColor = 'text-[#0C1A35]';
                     let badge = null;
                     
-                    // Priority: Always show correct answers in green
-                    if (isCorrectAnswer && isUserAnswer) {
-                      // User's correct answer - green with checkmark
-                      bgColor = 'bg-green-50';
-                      borderColor = 'border-green-500';
-                      textColor = 'text-green-900';
-                      labelColor = 'text-green-700';
-                      badge = (
-                        <Badge className="bg-green-100 text-green-700 border-green-300">
-                          <CheckCircle className="w-3 h-3 mr-1" />
-                          Your Answer ✓ (Correct)
-                        </Badge>
-                      );
-                    } else if (isCorrectAnswer) {
-                      // Correct answer (not selected by user) - ALWAYS show in green
-                      bgColor = 'bg-green-50';
-                      borderColor = 'border-green-500';
-                      textColor = 'text-green-900';
-                      labelColor = 'text-green-700';
-                      badge = (
-                        <Badge className="bg-green-100 text-green-700 border-green-300">
-                          <CheckCircle className="w-3 h-3 mr-1" />
-                          Correct Answer
-                        </Badge>
-                      );
+                    // Priority: Always show correct answers in green FIRST
+                    if (isCorrectAnswer) {
+                      if (isUserAnswer) {
+                        // User's correct answer - green with checkmark
+                        bgColor = 'bg-green-100';
+                        borderColor = 'border-green-600 border-2';
+                        textColor = 'text-green-900';
+                        labelColor = 'text-green-700 font-bold';
+                        badge = (
+                          <Badge className="bg-green-600 text-white border-0 font-semibold">
+                            <CheckCircle className="w-4 h-4 mr-1" />
+                            Your Answer ✓ (Correct)
+                          </Badge>
+                        );
+                      } else {
+                        // Correct answer (not selected by user) - ALWAYS show in green
+                        bgColor = 'bg-green-50';
+                        borderColor = 'border-green-500 border-2';
+                        textColor = 'text-green-900';
+                        labelColor = 'text-green-700 font-semibold';
+                        badge = (
+                          <Badge className="bg-green-500 text-white border-0 font-semibold">
+                            <CheckCircle className="w-4 h-4 mr-1" />
+                            Correct Answer
+                          </Badge>
+                        );
+                      }
                     } else if (isUserAnswer && !isCorrectAnswer) {
                       // User's wrong answer - red
                       bgColor = 'bg-red-50';
-                      borderColor = 'border-red-500';
+                      borderColor = 'border-red-500 border-2';
                       textColor = 'text-red-900';
                       labelColor = 'text-red-700';
                       badge = (
-                        <Badge className="bg-red-100 text-red-700 border-red-300">
-                          <XCircle className="w-3 h-3 mr-1" />
+                        <Badge className="bg-red-500 text-white border-0 font-semibold">
+                          <XCircle className="w-4 h-4 mr-1" />
                           Your Answer (Wrong)
                         </Badge>
                       );
@@ -436,7 +488,7 @@ export default function ReviewAnswersPage() {
                       return (
                         <div 
                           key={option}
-                          className={`p-4 rounded-lg border-2 transition-all ${bgColor} ${borderColor} shadow-sm`}
+                          className={`p-4 rounded-lg border-2 transition-all ${bgColor} ${borderColor} shadow-sm ${isCorrectAnswer ? 'ring-2 ring-green-300' : ''}`}
                         >
                           <div className="flex items-start gap-3">
                             <span className={`font-semibold min-w-[24px] ${labelColor}`}>
@@ -447,7 +499,7 @@ export default function ReviewAnswersPage() {
                                 {optionText}
                               </span>
                               {optionExplanation && optionExplanation.trim() !== '' && (
-                                <p className={`mt-2 text-sm ${isCorrectAnswer ? 'text-green-700' : isUserAnswer && !isCorrectAnswer ? 'text-red-700' : 'text-gray-600'}`}>
+                                <p className={`mt-2 text-sm ${isCorrectAnswer ? 'text-green-700 font-medium' : isUserAnswer && !isCorrectAnswer ? 'text-red-700' : 'text-gray-600'}`}>
                                   {optionExplanation}
                                 </p>
                               )}
