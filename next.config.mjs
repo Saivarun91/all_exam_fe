@@ -4,8 +4,6 @@ const nextConfig = {
   reactCompiler: true,
   // Optimize production builds (swcMinify is default in Next.js 16, no need to specify)
   compress: true,
-  // Configure Turbopack for Next.js 16 (empty config to allow webpack for production builds)
-  turbopack: {},
   // Optimize webpack to reduce HTTP requests (for production builds)
   webpack: (config, { isServer, dev }) => {
     if (!isServer && !dev) {
@@ -62,6 +60,8 @@ const nextConfig = {
       '@radix-ui/react-tabs',
       'framer-motion',
     ],
+    // Disable Turbopack to fix Google Fonts build issue - use webpack instead
+    turbo: false,
   },
   async rewrites() {
     return [
