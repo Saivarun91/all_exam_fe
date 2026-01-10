@@ -38,12 +38,14 @@ export default function ReviewsJsonLd({ testimonials, itemName }) {
         ratingValue: testimonial.rating || 5,
         bestRating: 5,
       },
+      datePublished: testimonial.created_at || new Date().toISOString(),
       reviewBody: testimonial.review || testimonial.text || testimonial.comment || "",
+
     }));
 
     const reviewsJsonLd = {
       "@context": "https://schema.org",
-      "@type": itemName ? "Product" : "Service",
+      "@type": "Course" ,
       ...(itemName && { name: itemName }),
       aggregateRating: {
         "@type": "AggregateRating",

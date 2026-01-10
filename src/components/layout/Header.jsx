@@ -14,6 +14,7 @@ const Header = () => {
   const router = useRouter();
   const siteName = useSiteName();
   const logoUrl = useLogoUrl();
+  console.log("logoUrl : ",logoUrl);
 
   // Don't show header on admin routes
   if (pathname?.startsWith("/admin")) {

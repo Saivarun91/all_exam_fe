@@ -21,6 +21,7 @@ import {
   UserCheck,
   BookOpen,
   Scale,
+  Sparkles,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -36,6 +37,7 @@ export default function AdminSidebar() {
     { name: "Home Page Management", path: "/admin/home", icon: Home },
     { name: "Exam Details Manager", path: "/admin/home/exam-details-manager", icon: BookOpen },
     { name: "Exams Page Manager", path: "/admin/home/exams-page-manager", icon: Search },
+    { name: "Question Craftsman Suite", path: "/admin/question-craftsman", icon: Sparkles },
     { name: "Pricing Plans", path: "/admin/pricing-plans", icon: DollarSign },
     { name: "Coupons", path: "/admin/coupons", icon: Ticket },
     { name: "Enrollments", path: "/admin/enrollments", icon: Users },

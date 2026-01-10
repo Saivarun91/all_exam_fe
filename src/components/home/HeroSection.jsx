@@ -23,7 +23,7 @@ const HeroSection = () => {
   const [selectedProvider, setSelectedProvider] = useState("");
   const [searchKeyword, setSearchKeyword] = useState("");
   const [providers, setProviders] = useState([]);
-
+console.log(heroData);
   useEffect(() => {
     // Defer non-critical API call using requestIdleCallback to avoid render blocking
     const fetchHeroData = async () => {

@@ -48,19 +48,29 @@ export default function PricingJsonLd({ pricingData, courseTitle, courseCode }) 
 
     const pricingJsonLd = {
       "@context": "https://schema.org",
-      "@type": "Product",
+      "@type": "Course",
       name: courseTitle || "Exam Preparation Course",
       description: `${courseTitle} (${courseCode}) - Practice Exam Preparation`,
-      offers: {
-        "@type": "AggregateOffer",
-        priceCurrency: "INR",
-        lowPrice: Math.min(...offers.map((o) => o.price)),
-        highPrice: Math.max(...offers.map((o) => o.price)),
-        offerCount: offers.length,
-        offers: offers,
+      provider:{
+        "@type":"Organization",
+        "name":"AllExamQuestions",
+        "url":"https://allexamquestions.com"
       },
-    };
+      "hasCourseInstance":{
+        "@type":"CourseInstance",
+        "CourseMode":"Online",
+        "offers": {
+          "@type": "AggregateOffer",
+          priceCurrency: "INR",
+          lowPrice: Math.min(...offers.map((o) => o.price)),
+          highPrice: Math.max(...offers.map((o) => o.price)),
+          offerCount: offers.length,
+          offers: offers,
+        },
+      }
 
+    }
+    
     // Remove any existing pricing JSON-LD scripts
     const existingScripts = document.querySelectorAll("#pricing-json-ld-schema");
     existingScripts.forEach((script) => script.remove());
