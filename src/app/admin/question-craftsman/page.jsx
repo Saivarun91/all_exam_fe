@@ -456,6 +456,21 @@ export default function QuestionCraftsmanSuite() {
     setLoading(true);
     setMessage("");
     
+    // DEBUG: Log what we're sending
+    console.log("[FRONTEND] handleSaveConfiguration - Current prompts state:", JSON.stringify(prompts, null, 2));
+    console.log("[FRONTEND] handleSaveConfiguration - Prompts type:", typeof prompts);
+    console.log("[FRONTEND] handleSaveConfiguration - Prompts keys:", Object.keys(prompts || {}));
+    
+    const requestBody = {
+      parsing_instructions: configData.parsingInstructions,
+      max_retry_count: configData.maxRetryCount,
+      temperature: configData.temperature,
+      model_selector: configData.modelSelector,
+      prompts: prompts,
+    };
+    
+    console.log("[FRONTEND] handleSaveConfiguration - Full request body:", JSON.stringify(requestBody, null, 2));
+    
     try {
       const res = await fetch(`${API_BASE_URL}/api/questions/admin/save-configuration/`, {
         method: "POST",
@@ -463,13 +478,7 @@ export default function QuestionCraftsmanSuite() {
           "Content-Type": "application/json",
           ...getAuthHeaders(),
         },
-        body: JSON.stringify({
-          parsing_instructions: configData.parsingInstructions,
-          max_retry_count: configData.maxRetryCount,
-          temperature: configData.temperature,
-          model_selector: configData.modelSelector,
-          prompts: prompts,
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       if (res.status === 401) {
@@ -481,13 +490,31 @@ export default function QuestionCraftsmanSuite() {
 
       const data = await res.json();
       
+      // DEBUG: Log response
+      console.log("[FRONTEND] handleSaveConfiguration - Response status:", res.status);
+      console.log("[FRONTEND] handleSaveConfiguration - Response data:", JSON.stringify(data, null, 2));
+      console.log("[FRONTEND] handleSaveConfiguration - Response has prompts:", !!data.prompts);
+      if (data.prompts) {
+        console.log("[FRONTEND] handleSaveConfiguration - Response prompts:", JSON.stringify(data.prompts, null, 2));
+      }
+      
       if (data.success) {
         setMessage("✅ Configuration saved successfully! Your prompts will be used for all future operations (parsing, generation, validation).");
         setMessageType("success");
         setTimeout(() => setMessage(""), 5000);
-        // Reload configuration to get updated data
-        await fetchConfiguration();
+        
+        // Update prompts immediately from response if available, otherwise reload
+        if (data.prompts && typeof data.prompts === 'object') {
+          console.log("[FRONTEND] handleSaveConfiguration - Updating prompts from response");
+          setPrompts(data.prompts);
+          console.log("[FRONTEND] handleSaveConfiguration - Prompts updated in state");
+        } else {
+          console.log("[FRONTEND] handleSaveConfiguration - No prompts in response, reloading configuration");
+          // Reload configuration to get updated data
+          await fetchConfiguration();
+        }
       } else {
+        console.error("[FRONTEND] handleSaveConfiguration - Save failed:", data.error);
         setMessage(`❌ ${data.error || "Failed to save configuration"}`);
         setMessageType("error");
       }
