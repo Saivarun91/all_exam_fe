@@ -20,12 +20,12 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { 
-  Sparkles, 
-  Loader2, 
-  Upload, 
-  FileText, 
-  Settings, 
+import {
+  Sparkles,
+  Loader2,
+  Upload,
+  FileText,
+  Settings,
   Play,
   Save,
   ChevronDown,
@@ -70,11 +70,11 @@ export default function QuestionCraftsmanSuite() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState("");
-  
+
   // Document Upload
   const [uploadedFile, setUploadedFile] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
-  
+
   // Configuration - initialized with defaults, will be loaded from backend
   const [configData, setConfigData] = useState({
     parsingInstructions: "",
@@ -82,11 +82,11 @@ export default function QuestionCraftsmanSuite() {
     temperature: 0, // Locked at 0 for deterministic output
     modelSelector: "gpt-4",
   });
-  
+
   // Prompts - initialized as empty, will be loaded from backend
   const [prompts, setPrompts] = useState({});
   const [promptsLoading, setPromptsLoading] = useState(true);
-  
+
   // Counts
   const [counts, setCounts] = useState({
     inputQuestions: 0,
@@ -99,12 +99,12 @@ export default function QuestionCraftsmanSuite() {
   const [generatedQuestions, setGeneratedQuestions] = useState([]);
   const [manualReviewQuestions, setManualReviewQuestions] = useState([]);
   const [questionsLoading, setQuestionsLoading] = useState(false);
-  
+
   // Search states
   const [inputSearch, setInputSearch] = useState("");
   const [generatedSearch, setGeneratedSearch] = useState("");
   const [reviewSearch, setReviewSearch] = useState("");
-  
+
   // Edit and Delete states
   const [editingQuestion, setEditingQuestion] = useState(null);
   const [editFormData, setEditFormData] = useState({
@@ -118,7 +118,7 @@ export default function QuestionCraftsmanSuite() {
   });
   const [deleteQuestionId, setDeleteQuestionId] = useState(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  
+
   // Bulk delete states
   const [selectedInputQuestions, setSelectedInputQuestions] = useState(new Set());
   const [selectedGeneratedQuestions, setSelectedGeneratedQuestions] = useState(new Set());
@@ -126,28 +126,59 @@ export default function QuestionCraftsmanSuite() {
   const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
   const [bulkDeleteType, setBulkDeleteType] = useState(null); // 'input', 'generated', or 'review'
 
+  // Session management - store current session_id for filtering
+  // After refresh, start with no session (new session)
+  const [currentSessionId, setCurrentSessionId] = useState(null);
+
   useEffect(() => {
     if (!checkAuth()) {
       router.push("/admin/auth");
       return;
     }
     fetchConfiguration();
-    fetchCounts();
+    // On initial load, if no session_id, set counts to 0 (new session)
+    if (!currentSessionId) {
+      setCounts({
+        inputQuestions: 0,
+        generatedQuestions: 0,
+        manualReviewQueue: 0,
+      });
+      // Clear questions if no session
+      setInputQuestions([]);
+      setGeneratedQuestions([]);
+    } else {
+      // If session exists, fetch counts for that session
+      fetchCounts();
+    }
   }, [router]);
 
   useEffect(() => {
-    // Always fetch fresh data when switching tabs (dynamic, not static)
+    // Always fetch fresh data when switching tabs
+    // Only fetch questions if there's a session_id (except for manual_review which is global)
     if (activeTab === "input-questions") {
-      fetchQuestionsByType("input");
-      fetchCounts(); // Refresh counts too
+      if (currentSessionId) {
+        fetchQuestionsByType("input");
+        fetchCounts();
+      } else {
+        // No session - clear questions and set counts to 0
+        setInputQuestions([]);
+        setCounts(prev => ({ ...prev, inputQuestions: 0 }));
+      }
     } else if (activeTab === "generated-questions") {
-      fetchQuestionsByType("generated");
-      fetchCounts(); // Refresh counts too
+      if (currentSessionId) {
+        fetchQuestionsByType("generated");
+        fetchCounts();
+      } else {
+        // No session - clear questions and set counts to 0
+        setGeneratedQuestions([]);
+        setCounts(prev => ({ ...prev, generatedQuestions: 0 }));
+      }
     } else if (activeTab === "manual-review") {
+      // Manual review is global, always fetch
       fetchQuestionsByType("manual_review");
-      fetchCounts(); // Refresh counts too
+      fetchCounts();
     }
-  }, [activeTab]);
+  }, [activeTab, currentSessionId]);
 
   const fetchConfiguration = async () => {
     setPromptsLoading(true);
@@ -162,7 +193,7 @@ export default function QuestionCraftsmanSuite() {
       }
 
       const data = await res.json();
-      
+
       if (data.success && data.config) {
         setConfigData({
           parsingInstructions: data.config.parsing_instructions || "",
@@ -170,7 +201,7 @@ export default function QuestionCraftsmanSuite() {
           temperature: data.config.temperature || 0,
           modelSelector: data.config.model_selector || "gpt-4",
         });
-        
+
         // Always set prompts from backend (backend always returns prompts, with defaults if none saved)
         if (data.config.prompts) {
           setPrompts(data.config.prompts);
@@ -185,7 +216,13 @@ export default function QuestionCraftsmanSuite() {
 
   const fetchCounts = async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/questions/admin/get-counts/`, {
+      // Build URL with session_id if available
+      let url = `${API_BASE_URL}/api/questions/admin/get-counts/`;
+      if (currentSessionId) {
+        url += `?session_id=${currentSessionId}`;
+      }
+
+      const res = await fetch(url, {
         headers: getAuthHeaders()
       });
 
@@ -195,7 +232,7 @@ export default function QuestionCraftsmanSuite() {
       }
 
       const data = await res.json();
-      
+
       if (data.success && data.counts) {
         setCounts({
           inputQuestions: data.counts.input_questions || 0,
@@ -211,7 +248,25 @@ export default function QuestionCraftsmanSuite() {
   const fetchQuestionsByType = async (type) => {
     setQuestionsLoading(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/questions/admin/questions-by-type/${type}/`, {
+      // For input and generated, require session_id. Manual review is global.
+      if ((type === "input" || type === "generated") && !currentSessionId) {
+        // No session - return empty arrays
+        if (type === "input") {
+          setInputQuestions([]);
+        } else if (type === "generated") {
+          setGeneratedQuestions([]);
+        }
+        setQuestionsLoading(false);
+        return;
+      }
+
+      // Build URL with session_id if available (except for manual_review which is global)
+      let url = `${API_BASE_URL}/api/questions/admin/questions-by-type/${type}/`;
+      if (currentSessionId && type !== 'manual_review') {
+        url += `?session_id=${currentSessionId}`;
+      }
+
+      const res = await fetch(url, {
         headers: getAuthHeaders()
       });
 
@@ -221,7 +276,7 @@ export default function QuestionCraftsmanSuite() {
       }
 
       const data = await res.json();
-      
+
       if (data.success && data.questions) {
         if (type === "input") {
           setInputQuestions(data.questions || []);
@@ -276,10 +331,10 @@ export default function QuestionCraftsmanSuite() {
   };
 
   const handleFileSelect = (file) => {
-    if (file.type === "application/pdf" || 
-        file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
-        file.name.endsWith('.pdf') || 
-        file.name.endsWith('.docx')) {
+    if (file.type === "application/pdf" ||
+      file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+      file.name.endsWith('.pdf') ||
+      file.name.endsWith('.docx')) {
       setUploadedFile(file);
       setMessage("✅ File selected successfully");
       setMessageType("success");
@@ -304,7 +359,7 @@ export default function QuestionCraftsmanSuite() {
 
     setLoading(true);
     setMessage("");
-    
+
     try {
       const formData = new FormData();
       formData.append('file', uploadedFile);
@@ -329,7 +384,7 @@ export default function QuestionCraftsmanSuite() {
       }
 
       const data = await res.json();
-      
+
       if (data.success) {
         setMessage(`✅ Successfully parsed ${data.parsed_count || 0} questions (test mode - first 5)`);
         setMessageType("success");
@@ -361,7 +416,7 @@ export default function QuestionCraftsmanSuite() {
 
     setLoading(true);
     setMessage("");
-    
+
     try {
       const formData = new FormData();
       formData.append('file', uploadedFile);
@@ -385,49 +440,59 @@ export default function QuestionCraftsmanSuite() {
       }
 
       const data = await res.json();
-      
+
       if (data.success) {
         const successMsg = data.message || `✅ Successfully parsed and saved ${data.saved_count || 0} questions to database`;
         setMessage(successMsg);
         setMessageType("success");
-        
+
+        // Store session_id from response - this is critical for showing questions
+        if (data.session_id) {
+          setCurrentSessionId(data.session_id);
+          console.log("Stored session_id:", data.session_id);
+          
+          // After storing session_id, fetch questions for this session
+          // Refresh counts and all question types in parallel for faster updates
+          try {
+            await Promise.all([
+              fetchCounts(),
+              fetchQuestionsByType("input"),
+              fetchQuestionsByType("generated"),
+              fetchQuestionsByType("manual_review")
+            ]);
+          } catch (refreshError) {
+            console.error("Error refreshing data:", refreshError);
+            // Still try to refresh individually if parallel fails
+            await fetchCounts();
+            if (activeTab === "input-questions") {
+              await fetchQuestionsByType("input");
+            } else if (activeTab === "generated-questions") {
+              await fetchQuestionsByType("generated");
+            } else if (activeTab === "manual-review") {
+              await fetchQuestionsByType("manual_review");
+            }
+          }
+        } else {
+          // No session_id returned - clear questions and set counts to 0
+          setInputQuestions([]);
+          setGeneratedQuestions([]);
+          setCounts(prev => ({
+            inputQuestions: 0,
+            generatedQuestions: 0,
+            manualReviewQueue: prev.manualReviewQueue || 0,
+          }));
+        }
+
         // Show warning if there were errors saving some questions
         if (data.errors && data.errors.length > 0) {
           console.warn("Some questions had errors:", data.errors);
         }
-        
-        // Don't clear uploaded file - keep it visible so user knows what document was parsed
-        // setUploadedFile(null);
-        // if (fileInputRef.current) {
-        //   fileInputRef.current.value = '';
-        // }
-        
-        // Refresh counts and all question types in parallel for faster updates
-        try {
-          await Promise.all([
-            fetchCounts(),
-            fetchQuestionsByType("input"),
-            fetchQuestionsByType("generated"),
-            fetchQuestionsByType("manual_review")
-          ]);
-        } catch (refreshError) {
-          console.error("Error refreshing data:", refreshError);
-          // Still try to refresh individually if parallel fails
-          await fetchCounts();
-        if (activeTab === "input-questions") {
-            await fetchQuestionsByType("input");
-        } else if (activeTab === "generated-questions") {
-            await fetchQuestionsByType("generated");
-        } else if (activeTab === "manual-review") {
-            await fetchQuestionsByType("manual_review");
-          }
-        }
-        
+
         // Switch to input questions tab to show the parsed questions (only if not already on it)
         if (activeTab !== "input-questions") {
           setActiveTab("input-questions");
         }
-        
+
         // Auto-hide success message after 8 seconds (longer if there are errors)
         setTimeout(() => setMessage(""), data.errors && data.errors.length > 0 ? 10000 : 8000);
       } else {
@@ -438,13 +503,13 @@ export default function QuestionCraftsmanSuite() {
     } catch (error) {
       console.error("Error parsing document:", error);
       let errorMessage = "Failed to parse document. Please check your file and try again.";
-      
+
       if (error.message) {
         errorMessage = error.message;
       } else if (error instanceof TypeError && error.message.includes('fetch')) {
         errorMessage = "Network error. Please check your connection and try again.";
       }
-      
+
       setMessage(`❌ Error: ${errorMessage}`);
       setMessageType("error");
     } finally {
@@ -455,12 +520,12 @@ export default function QuestionCraftsmanSuite() {
   const handleSaveConfiguration = async () => {
     setLoading(true);
     setMessage("");
-    
+
     // DEBUG: Log what we're sending
     console.log("[FRONTEND] handleSaveConfiguration - Current prompts state:", JSON.stringify(prompts, null, 2));
     console.log("[FRONTEND] handleSaveConfiguration - Prompts type:", typeof prompts);
     console.log("[FRONTEND] handleSaveConfiguration - Prompts keys:", Object.keys(prompts || {}));
-    
+
     const requestBody = {
       parsing_instructions: configData.parsingInstructions,
       max_retry_count: configData.maxRetryCount,
@@ -468,9 +533,9 @@ export default function QuestionCraftsmanSuite() {
       model_selector: configData.modelSelector,
       prompts: prompts,
     };
-    
+
     console.log("[FRONTEND] handleSaveConfiguration - Full request body:", JSON.stringify(requestBody, null, 2));
-    
+
     try {
       const res = await fetch(`${API_BASE_URL}/api/questions/admin/save-configuration/`, {
         method: "POST",
@@ -489,7 +554,7 @@ export default function QuestionCraftsmanSuite() {
       }
 
       const data = await res.json();
-      
+
       // DEBUG: Log response
       console.log("[FRONTEND] handleSaveConfiguration - Response status:", res.status);
       console.log("[FRONTEND] handleSaveConfiguration - Response data:", JSON.stringify(data, null, 2));
@@ -497,12 +562,12 @@ export default function QuestionCraftsmanSuite() {
       if (data.prompts) {
         console.log("[FRONTEND] handleSaveConfiguration - Response prompts:", JSON.stringify(data.prompts, null, 2));
       }
-      
+
       if (data.success) {
         setMessage("✅ Configuration saved successfully! Your prompts will be used for all future operations (parsing, generation, validation).");
         setMessageType("success");
         setTimeout(() => setMessage(""), 5000);
-        
+
         // Update prompts immediately from response if available, otherwise reload
         if (data.prompts && typeof data.prompts === 'object') {
           console.log("[FRONTEND] handleSaveConfiguration - Updating prompts from response");
@@ -540,12 +605,12 @@ export default function QuestionCraftsmanSuite() {
 
   const handleEditQuestion = (question) => {
     setEditingQuestion(question);
-    
+
     // Normalize options format - preserve both text and explanation
     const normalizedOptions = (question.options || [])
       .map(opt => {
         if (typeof opt === 'object' && opt !== null) {
-          return { 
+          return {
             text: (opt.text || opt.get?.('text') || '').trim(),
             explanation: (opt.explanation || opt.get?.('explanation') || '').trim()
           };
@@ -556,40 +621,40 @@ export default function QuestionCraftsmanSuite() {
         }
       })
       .filter(opt => opt.text && opt.text.trim()); // Remove empty options
-    
+
     // Ensure at least 2 options (add empty ones if needed for editing)
     while (normalizedOptions.length < 2) {
       normalizedOptions.push({ text: "", explanation: "" });
     }
-    
+
     // Normalize correct_answers format
     const normalizedCorrectAnswers = (question.correct_answers || []).map(ans => {
       return typeof ans === 'string' ? ans.trim() : String(ans).trim();
     }).filter(ans => ans); // Remove empty answers
-    
+
     // Auto-determine question type based on correct answer count
     // Support both old format (single/multiple) and new format (single-correct/multi-correct)
     let questionType = question.question_type || "single-correct";
     // Normalize old format to new format
     if (questionType === "single") questionType = "single-correct";
     if (questionType === "multiple") questionType = "multi-correct";
-    
+
     if (normalizedCorrectAnswers.length > 1) {
       questionType = "multi-correct";
     } else if (normalizedCorrectAnswers.length === 1) {
       questionType = "single-correct";
     }
-    
+
     // Extract tags - if empty, infer from question text
     let tags = question.tags || [];
     if (typeof tags === 'string') {
       tags = tags.split(',').map(t => t.trim()).filter(t => t);
     }
-    
+
     // Use tags from AI response (Gemini/OpenAI) - ONLY show what AI provides, no static inference
     // Domain is dynamically determined by AI based on question content
     // If AI didn't provide tags, show empty (don't infer static values)
-    
+
     setEditFormData({
       question_text: question.question_text || "",
       options: normalizedOptions,
@@ -624,7 +689,7 @@ export default function QuestionCraftsmanSuite() {
     }
 
     const validCorrectAnswers = editFormData.correct_answers.filter(ans => ans && ans.trim());
-    
+
     if (validCorrectAnswers.length === 0) {
       setMessage("❌ At least one correct answer is required");
       setMessageType("error");
@@ -635,7 +700,7 @@ export default function QuestionCraftsmanSuite() {
     // Support both old and new formats
     const isSingle = editFormData.question_type === "single" || editFormData.question_type === "single-correct";
     const isMultiple = editFormData.question_type === "multiple" || editFormData.question_type === "multi-correct";
-    
+
     if (isSingle && validCorrectAnswers.length !== 1) {
       setMessage(`❌ Single choice questions must have exactly 1 correct answer (currently ${validCorrectAnswers.length})`);
       setMessageType("error");
@@ -655,7 +720,7 @@ export default function QuestionCraftsmanSuite() {
       // Prepare data for API - normalize options format with explanations
       const normalizedOptions = validOptions.map(opt => {
         if (typeof opt === 'object' && opt !== null) {
-          return { 
+          return {
             text: (opt.text || '').trim(),
             explanation: (opt.explanation || '').trim()
           };
@@ -721,7 +786,7 @@ export default function QuestionCraftsmanSuite() {
         setMessage("✅ Question updated successfully");
         setMessageType("success");
         setEditingQuestion(null);
-        
+
         // Refresh ALL tabs dynamically (not just current tab)
         await Promise.all([
           fetchCounts(),
@@ -729,7 +794,7 @@ export default function QuestionCraftsmanSuite() {
           fetchQuestionsByType("generated"),
           fetchQuestionsByType("manual_review")
         ]);
-        
+
         setTimeout(() => setMessage(""), 3000);
       } else {
         setMessage(`❌ ${data.error || "Failed to update question"}`);
@@ -774,7 +839,7 @@ export default function QuestionCraftsmanSuite() {
       if (data.success) {
         setMessage("✅ Question deleted successfully");
         setMessageType("success");
-        
+
         // Refresh ALL tabs dynamically (not just current tab)
         await Promise.all([
           fetchCounts(),
@@ -782,7 +847,7 @@ export default function QuestionCraftsmanSuite() {
           fetchQuestionsByType("generated"),
           fetchQuestionsByType("manual_review")
         ]);
-        
+
         setTimeout(() => setMessage(""), 3000);
       } else {
         setMessage(`❌ ${data.error || "Failed to delete question"}`);
@@ -836,7 +901,7 @@ export default function QuestionCraftsmanSuite() {
   const handleSelectAll = (type) => {
     let questions = [];
     if (type === 'input') {
-      questions = inputQuestions.filter(q => 
+      questions = inputQuestions.filter(q =>
         !inputSearch || q.question_text?.toLowerCase().includes(inputSearch.toLowerCase())
       );
       const allSelected = questions.every(q => selectedInputQuestions.has(q.id));
@@ -846,7 +911,7 @@ export default function QuestionCraftsmanSuite() {
         setSelectedInputQuestions(new Set(questions.map(q => q.id)));
       }
     } else if (type === 'generated') {
-      questions = generatedQuestions.filter(q => 
+      questions = generatedQuestions.filter(q =>
         !generatedSearch || q.question_text?.toLowerCase().includes(generatedSearch.toLowerCase())
       );
       const allSelected = questions.every(q => selectedGeneratedQuestions.has(q.id));
@@ -856,7 +921,7 @@ export default function QuestionCraftsmanSuite() {
         setSelectedGeneratedQuestions(new Set(questions.map(q => q.id)));
       }
     } else if (type === 'review') {
-      questions = manualReviewQuestions.filter(q => 
+      questions = manualReviewQuestions.filter(q =>
         !reviewSearch || q.question_text?.toLowerCase().includes(reviewSearch.toLowerCase())
       );
       const allSelected = questions.every(q => selectedReviewQuestions.has(q.id));
@@ -915,7 +980,7 @@ export default function QuestionCraftsmanSuite() {
       if (data.success) {
         setMessage(`✅ Successfully deleted ${data.deleted_count || 0} question(s)`);
         setMessageType("success");
-        
+
         // Clear selections
         if (bulkDeleteType === 'input') {
           setSelectedInputQuestions(new Set());
@@ -924,7 +989,7 @@ export default function QuestionCraftsmanSuite() {
         } else if (bulkDeleteType === 'review') {
           setSelectedReviewQuestions(new Set());
         }
-        
+
         // Refresh ALL tabs dynamically (not just current tab)
         await Promise.all([
           fetchCounts(),
@@ -932,7 +997,7 @@ export default function QuestionCraftsmanSuite() {
           fetchQuestionsByType("generated"),
           fetchQuestionsByType("manual_review")
         ]);
-        
+
         setTimeout(() => setMessage(""), 3000);
       } else {
         setMessage(`❌ ${data.error || "Failed to delete questions"}`);
@@ -974,11 +1039,11 @@ export default function QuestionCraftsmanSuite() {
       if (data.success) {
         setMessage("✅ Question approved successfully");
         setMessageType("success");
-        
+
         // Refresh questions
         await fetchCounts();
         await fetchQuestionsByType("manual_review");
-        
+
         setTimeout(() => setMessage(""), 3000);
       } else {
         setMessage(`❌ ${data.error || "Failed to approve question"}`);
@@ -997,7 +1062,7 @@ export default function QuestionCraftsmanSuite() {
     try {
       setLoading(true);
       setMessage("");
-      
+
       // Map frontend tab names to backend type names
       const typeMap = {
         'input-questions': 'input',
@@ -1006,8 +1071,13 @@ export default function QuestionCraftsmanSuite() {
       };
       // Use provided questionType or determine from activeTab
       const backendType = questionType || typeMap[activeTab] || 'generated';
-      
-      const url = `${API_BASE_URL}/api/questions/admin/download-csv/?type=${backendType}`;
+
+      // Build URL with session_id if available (except for manual_review which is global)
+      let url = `${API_BASE_URL}/api/questions/admin/download-csv/?type=${backendType}`;
+      if (currentSessionId && backendType !== 'manual_review') {
+        url += `&session_id=${currentSessionId}`;
+      }
+
       const res = await fetch(url, {
         method: "GET",
         headers: getAuthHeaders(),
@@ -1035,7 +1105,7 @@ export default function QuestionCraftsmanSuite() {
       a.click();
       window.URL.revokeObjectURL(url_blob);
       document.body.removeChild(a);
-      
+
       setMessage(`✅ CSV file downloaded successfully`);
       setMessageType("success");
       setTimeout(() => setMessage(""), 3000);
@@ -1066,7 +1136,8 @@ export default function QuestionCraftsmanSuite() {
           ...getAuthHeaders(),
         },
         body: JSON.stringify({
-          num_questions_per_source: 1  // Generate 1 new question per input question
+          num_questions_per_source: 1,  // Generate 1 new question per input question
+          session_id: currentSessionId  // Pass current session_id
         }),
       });
 
@@ -1083,30 +1154,36 @@ export default function QuestionCraftsmanSuite() {
         const successMsg = data.message || `✅ Successfully generated ${data.saved_count || 0} new question(s)`;
         setMessage(successMsg);
         setMessageType("success");
-        
+
+        // Store session_id from response if provided
+        if (data.session_id) {
+          setCurrentSessionId(data.session_id);
+          console.log("Stored session_id from generation:", data.session_id);
+        }
+
         if (data.errors && data.errors.length > 0) {
           console.warn("Some questions had errors:", data.errors);
         }
-        
+
         // Refresh counts first
         await fetchCounts();
-        
+
         // Switch to generated questions tab (this will trigger useEffect to fetch questions)
         setActiveTab("generated-questions");
-        
+
         // Wait a moment for React to process the state change, then refresh all questions
         await new Promise(resolve => setTimeout(resolve, 50));
-        
+
         // Refresh all questions (especially generated questions to show the new ones)
         await Promise.all([
           fetchQuestionsByType("input"),
           fetchQuestionsByType("generated"),
           fetchQuestionsByType("manual_review")
         ]);
-        
+
         // Ensure generated questions are displayed (fetch again to be sure)
         await fetchQuestionsByType("generated");
-        
+
         setTimeout(() => setMessage(""), data.errors && data.errors.length > 0 ? 10000 : 8000);
       } else {
         const errorMsg = data.error || data.message || "Failed to generate new questions";
@@ -1142,7 +1219,8 @@ export default function QuestionCraftsmanSuite() {
         },
         body: JSON.stringify({
           question_ids: [questionId], // Generate from this specific question
-          num_questions_per_source: 1 // Always generate 1 parallel question per click
+          num_questions_per_source: 1, // Always generate 1 parallel question per click
+          session_id: currentSessionId  // Pass current session_id
         }),
       });
 
@@ -1159,18 +1237,18 @@ export default function QuestionCraftsmanSuite() {
         const successMsg = data.message || `✅ Successfully generated 1 parallel question`;
         setMessage(successMsg);
         setMessageType("success");
-        
+
         if (data.errors && data.errors.length > 0) {
           console.warn("Some questions had errors:", data.errors);
         }
-        
+
         // Refresh counts and generated questions
         await Promise.all([
           fetchCounts(),
           fetchQuestionsByType("generated"),
           fetchQuestionsByType("manual_review")
         ]);
-        
+
         setTimeout(() => setMessage(""), data.errors && data.errors.length > 0 ? 10000 : 5000);
       } else {
         const errorMsg = data.error || data.message || "Failed to generate parallel question";
@@ -1212,11 +1290,11 @@ export default function QuestionCraftsmanSuite() {
       if (data.success) {
         setMessage("✅ Question rejected successfully");
         setMessageType("success");
-        
+
         // Refresh questions
         await fetchCounts();
         await fetchQuestionsByType("manual_review");
-        
+
         setTimeout(() => setMessage(""), 3000);
       } else {
         setMessage(`❌ ${data.error || "Failed to reject question"}`);
@@ -1238,11 +1316,10 @@ export default function QuestionCraftsmanSuite() {
         <div className="flex items-center gap-0 px-6">
           <button
             onClick={() => setActiveTab("admin-configuration")}
-            className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors relative ${
-              activeTab === "admin-configuration"
-                ? "text-gray-900"
-                : "text-gray-600 hover:text-gray-900"
-            }`}
+            className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors relative ${activeTab === "admin-configuration"
+              ? "text-gray-900"
+              : "text-gray-600 hover:text-gray-900"
+              }`}
           >
             <Settings className="h-4 w-4" />
             <span>Admin / Configuration</span>
@@ -1252,11 +1329,10 @@ export default function QuestionCraftsmanSuite() {
           </button>
           <button
             onClick={() => setActiveTab("input-questions")}
-            className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors relative ${
-              activeTab === "input-questions"
-                ? "text-gray-900"
-                : "text-gray-600 hover:text-gray-900"
-            }`}
+            className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors relative ${activeTab === "input-questions"
+              ? "text-gray-900"
+              : "text-gray-600 hover:text-gray-900"
+              }`}
           >
             <FileText className="h-4 w-4" />
             <span>Input Questions</span>
@@ -1269,11 +1345,10 @@ export default function QuestionCraftsmanSuite() {
           </button>
           <button
             onClick={() => setActiveTab("generated-questions")}
-            className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors relative ${
-              activeTab === "generated-questions"
-                ? "text-gray-900"
-                : "text-gray-600 hover:text-gray-900"
-            }`}
+            className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors relative ${activeTab === "generated-questions"
+              ? "text-gray-900"
+              : "text-gray-600 hover:text-gray-900"
+              }`}
           >
             <Sparkles className="h-4 w-4" />
             <span>Generated Questions</span>
@@ -1286,11 +1361,10 @@ export default function QuestionCraftsmanSuite() {
           </button>
           <button
             onClick={() => setActiveTab("manual-review")}
-            className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors relative ${
-              activeTab === "manual-review"
-                ? "text-gray-900"
-                : "text-gray-600 hover:text-gray-900"
-            }`}
+            className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors relative ${activeTab === "manual-review"
+              ? "text-gray-900"
+              : "text-gray-600 hover:text-gray-900"
+              }`}
           >
             <AlertCircle className="h-4 w-4" />
             <span>Manual Review Queue</span>
@@ -1307,100 +1381,99 @@ export default function QuestionCraftsmanSuite() {
       {/* Main Content */}
       <div className="p-6 flex-1 overflow-y-auto">
         {activeTab === "admin-configuration" && (
-            <div className="w-full max-w-7xl mx-auto">
-              {/* Configuration Panel - Full Width */}
-              <div className="space-y-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Configuration</CardTitle>
-                    <p className="text-sm text-gray-600 mt-1">
-                      Configure document ingestion, parsing behavior, prompt logic, and retry controls.
-                    </p>
-                  </CardHeader>
-                  <CardContent className="space-y-6">
-                    {/* Document Upload */}
-                    <div className="space-y-3">
-                      <div>
-                        <Label className="text-sm font-semibold">Upload Document</Label>
-                        <p className="text-xs text-gray-500 mt-1">Upload source document containing MCQs (questions + options only)</p>
-                      </div>
-                      <div
-                        className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
-                          isDragging ? "border-indigo-500 bg-indigo-50" : "border-gray-300 hover:border-gray-400"
+          <div className="w-full max-w-7xl mx-auto">
+            {/* Configuration Panel - Full Width */}
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Configuration</CardTitle>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Configure document ingestion, parsing behavior, prompt logic, and retry controls.
+                  </p>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* Document Upload */}
+                  <div className="space-y-3">
+                    <div>
+                      <Label className="text-sm font-semibold">Upload Document</Label>
+                      <p className="text-xs text-gray-500 mt-1">Upload source document containing MCQs (questions + options only)</p>
+                    </div>
+                    <div
+                      className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${isDragging ? "border-indigo-500 bg-indigo-50" : "border-gray-300 hover:border-gray-400"
                         }`}
-                        onDragOver={handleDragOver}
-                        onDragLeave={handleDragLeave}
-                        onDrop={handleDrop}
-                        onClick={() => fileInputRef.current?.click()}
-                      >
-                        {uploadedFile ? (
-                          <div className="space-y-2">
-                            <div className="p-4 bg-green-50 border-2 border-green-300 rounded-lg">
-                              <div className="flex items-center justify-center gap-2 mb-2">
-                                <FileText className="h-6 w-6 text-green-600" />
-                                <span className="text-lg font-semibold text-green-800">Document Uploaded</span>
-                              </div>
-                              <div className="text-sm text-green-700 font-medium">
-                                {uploadedFile.name}
-                              </div>
-                              <div className="text-xs text-green-600 mt-1">
-                                Size: {(uploadedFile.size / 1024).toFixed(2)} KB
-                              </div>
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                className="mt-3 text-xs"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setUploadedFile(null);
-                                  if (fileInputRef.current) {
-                                    fileInputRef.current.value = '';
-                                  }
-                                }}
-                              >
-                                Remove File
-                              </Button>
+                      onDragOver={handleDragOver}
+                      onDragLeave={handleDragLeave}
+                      onDrop={handleDrop}
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      {uploadedFile ? (
+                        <div className="space-y-2">
+                          <div className="p-4 bg-green-50 border-2 border-green-300 rounded-lg">
+                            <div className="flex items-center justify-center gap-2 mb-2">
+                              <FileText className="h-6 w-6 text-green-600" />
+                              <span className="text-lg font-semibold text-green-800">Document Uploaded</span>
                             </div>
+                            <div className="text-sm text-green-700 font-medium">
+                              {uploadedFile.name}
+                            </div>
+                            <div className="text-xs text-green-600 mt-1">
+                              Size: {(uploadedFile.size / 1024).toFixed(2)} KB
+                            </div>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="mt-3 text-xs"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setUploadedFile(null);
+                                if (fileInputRef.current) {
+                                  fileInputRef.current.value = '';
+                                }
+                              }}
+                            >
+                              Remove File
+                            </Button>
                           </div>
-                        ) : (
-                          <>
-                        <Upload className="h-8 w-8 mx-auto mb-3 text-gray-400" />
-                        <p className="text-sm text-gray-600 mb-1">Drop files here or click to upload</p>
-                        <p className="text-xs text-gray-500">Accepts: PDF, DOCX</p>
-                          </>
-                        )}
-                      </div>
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept=".pdf,.docx"
-                        onChange={handleFileInputChange}
-                        className="hidden"
-                      />
-                    </div>
-
-                    {/* Custom Parsing Instructions */}
-                    <div className="space-y-2">
-                      <Label className="text-sm font-semibold">Custom Parsing Instructions (Optional)</Label>
-                      <Textarea
-                        placeholder="Optional instructions for handling formatting, numbering, or anomalies..."
-                        value={configData.parsingInstructions}
-                        onChange={(e) => setConfigData({ ...configData, parsingInstructions: e.target.value })}
-                        rows={4}
-                        className="resize-none"
-                      />
-                    </div>
-
-                    {/* Prompt Configuration */}
-                    <div className="space-y-4">
-                      <Label className="text-sm font-semibold">Prompt Configuration</Label>
-                      {promptsLoading ? (
-                        <div className="flex items-center justify-center py-8">
-                          <Loader2 className="h-6 w-6 animate-spin text-indigo-600" />
-                          <span className="ml-2 text-gray-600">Loading prompts...</span>
                         </div>
                       ) : (
+                        <>
+                          <Upload className="h-8 w-8 mx-auto mb-3 text-gray-400" />
+                          <p className="text-sm text-gray-600 mb-1">Drop files here or click to upload</p>
+                          <p className="text-xs text-gray-500">Accepts: PDF, DOCX</p>
+                        </>
+                      )}
+                    </div>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".pdf,.docx"
+                      onChange={handleFileInputChange}
+                      className="hidden"
+                    />
+                  </div>
+
+                  {/* Custom Parsing Instructions */}
+                  <div className="space-y-2">
+                    <Label className="text-sm font-semibold">Custom Parsing Instructions (Optional)</Label>
+                    <Textarea
+                      placeholder="Optional instructions for handling formatting, numbering, or anomalies..."
+                      value={configData.parsingInstructions}
+                      onChange={(e) => setConfigData({ ...configData, parsingInstructions: e.target.value })}
+                      rows={4}
+                      className="resize-none"
+                    />
+                  </div>
+
+                  {/* Prompt Configuration */}
+                  <div className="space-y-4">
+                    <Label className="text-sm font-semibold">Prompt Configuration</Label>
+                    {promptsLoading ? (
+                      <div className="flex items-center justify-center py-8">
+                        <Loader2 className="h-6 w-6 animate-spin text-indigo-600" />
+                        <span className="ml-2 text-gray-600">Loading prompts...</span>
+                      </div>
+                    ) : (
                       <Accordion type="single" collapsible className="w-full">
                         <AccordionItem value="prompt1" className="border rounded-lg px-4 mb-2">
                           <AccordionTrigger className="hover:no-underline">
@@ -1578,38 +1651,38 @@ export default function QuestionCraftsmanSuite() {
                           </AccordionContent>
                         </AccordionItem>
                       </Accordion>
-                      )}
-                    </div>
+                    )}
+                  </div>
 
-                    {/* Determinism Controls */}
-                    <div className="space-y-4 border-t pt-4">
-                      <Label className="text-sm font-semibold">Determinism Controls</Label>
-                      <div className="grid grid-cols-3 gap-4">
-                        <div className="space-y-2">
-                          <Label className="text-xs">Max Retry Count</Label>
-                          <Input
-                            type="number"
-                            min="0"
-                            max="10"
-                            value={configData.maxRetryCount}
-                            onChange={(e) => {
-                              const value = parseInt(e.target.value) || 0;
-                              setConfigData({ ...configData, maxRetryCount: Math.max(0, Math.min(10, value)) });
-                            }}
-                          />
-                          <p className="text-xs text-gray-500">Number of retry attempts for failed parsing (0-10). Changes are saved when you click "Save Configuration".</p>
-                        </div>
-                        <div className="space-y-2">
-                          <Label className="text-xs">Temperature</Label>
-                          <Input
-                            type="number"
-                            value={configData.temperature}
-                            disabled
-                            className="bg-gray-50"
-                          />
-                          <p className="text-xs text-gray-500">Locked for deterministic output</p>
-                        </div>
-                        {/* <div className="space-y-2">
+                  {/* Determinism Controls */}
+                  <div className="space-y-4 border-t pt-4">
+                    <Label className="text-sm font-semibold">Determinism Controls</Label>
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="space-y-2">
+                        <Label className="text-xs">Max Retry Count</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          max="10"
+                          value={configData.maxRetryCount}
+                          onChange={(e) => {
+                            const value = parseInt(e.target.value) || 0;
+                            setConfigData({ ...configData, maxRetryCount: Math.max(0, Math.min(10, value)) });
+                          }}
+                        />
+                        <p className="text-xs text-gray-500">Number of retry attempts for failed parsing (0-10). Changes are saved when you click "Save Configuration".</p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-xs">Temperature</Label>
+                        <Input
+                          type="number"
+                          value={configData.temperature}
+                          disabled
+                          className="bg-gray-50"
+                        />
+                        <p className="text-xs text-gray-500">Locked for deterministic output</p>
+                      </div>
+                      {/* <div className="space-y-2">
                           <Label className="text-xs">Model Selector</Label>
                           <Select
                             value={configData.modelSelector}
@@ -1627,62 +1700,62 @@ export default function QuestionCraftsmanSuite() {
                             </SelectContent>
                           </Select>
                         </div> */}
-                      </div>
-                      <div className="flex gap-3">
-                        <Button
-                          onClick={handleTestParse}
-                          disabled={loading || !uploadedFile}
-                          variant="outline"
-                        >
-                          <Play className="h-4 w-4 mr-2" />
-                          Test Parse (First 5 Questions)
-                        </Button>
-                        <Button
-                          onClick={handleFullParse}
-                          disabled={loading || !uploadedFile}
-                          variant="outline"
-                          className="border-green-600 text-green-600 hover:bg-green-50"
-                        >
-                          {loading ? (
-                            <>
-                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                              Parsing...
-                            </>
-                          ) : (
-                            <>
-                          <Upload className="h-4 w-4 mr-2" />
-                          Parse & Save All
-                            </>
-                          )}
-                        </Button>
-                        <Button
-                          onClick={handleSaveConfiguration}
-                          disabled={loading}
-                          className="bg-indigo-600 hover:bg-indigo-700"
-                        >
-                          <Save className="h-4 w-4 mr-2" />
-                          Save Configuration
-                        </Button>
-                      </div>
                     </div>
-                  </CardContent>
-                </Card>
-              </div>
+                    <div className="flex gap-3">
+                      <Button
+                        onClick={handleTestParse}
+                        disabled={loading || !uploadedFile}
+                        variant="outline"
+                      >
+                        <Play className="h-4 w-4 mr-2" />
+                        Test Parse (First 5 Questions)
+                      </Button>
+                      <Button
+                        onClick={handleFullParse}
+                        disabled={loading || !uploadedFile}
+                        variant="outline"
+                        className="border-green-600 text-green-600 hover:bg-green-50"
+                      >
+                        {loading ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Parsing...
+                          </>
+                        ) : (
+                          <>
+                            <Upload className="h-4 w-4 mr-2" />
+                            Parse & Save All
+                          </>
+                        )}
+                      </Button>
+                      <Button
+                        onClick={handleSaveConfiguration}
+                        disabled={loading}
+                        className="bg-indigo-600 hover:bg-indigo-700"
+                      >
+                        <Save className="h-4 w-4 mr-2" />
+                        Save Configuration
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
+          </div>
         )}
 
         {activeTab === "input-questions" && (
           <div className="w-full max-w-7xl mx-auto">
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                    <div>
+                <div>
                   <h2 className="text-2xl font-bold text-gray-900">Input Questions (Parsed)</h2>
                   <p className="text-sm text-gray-600 mt-1">Review and clean questions parsed from the uploaded document before generation.</p>
-                    </div>
+                </div>
                 <div className="flex gap-2">
                   {selectedInputQuestions.size > 0 && (
-                    <Button 
-                      variant="destructive" 
+                    <Button
+                      variant="destructive"
                       className="gap-2"
                       onClick={() => handleBulkDelete('input')}
                       disabled={loading}
@@ -1691,8 +1764,8 @@ export default function QuestionCraftsmanSuite() {
                       Delete Selected ({selectedInputQuestions.size})
                     </Button>
                   )}
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     className="gap-2"
                     onClick={() => handleDownloadCSV('input')}
                     disabled={loading || inputQuestions.length === 0}
@@ -1700,9 +1773,9 @@ export default function QuestionCraftsmanSuite() {
                     <Download className="h-4 w-4" />
                     Download CSV
                   </Button>
-                    </div>
-                    </div>
-              
+                </div>
+              </div>
+
               <div className="flex items-center justify-between">
                 <div className="relative flex-1 max-w-md">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
@@ -1712,15 +1785,15 @@ export default function QuestionCraftsmanSuite() {
                     onChange={(e) => setInputSearch(e.target.value)}
                     className="pl-10"
                   />
-                    </div>
+                </div>
                 <div className="flex items-center gap-4">
                   <span className="text-sm text-gray-600">
-                    {inputQuestions.filter(q => 
+                    {inputQuestions.filter(q =>
                       !inputSearch || q.question_text?.toLowerCase().includes(inputSearch.toLowerCase())
                     ).length} items
                   </span>
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     className="gap-2"
                     onClick={handleGenerateNewQuestions}
                     disabled={loading || inputQuestions.length === 0}
@@ -1732,8 +1805,8 @@ export default function QuestionCraftsmanSuite() {
                     )}
                     Generate New Questions
                   </Button>
-                    </div>
-            </div>
+                </div>
+              </div>
 
               {questionsLoading ? (
                 <div className="flex items-center justify-center py-12">
@@ -1747,12 +1820,12 @@ export default function QuestionCraftsmanSuite() {
                     <thead className="bg-gray-50 border-b">
                       <tr>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-12">
-                          <input 
-                            type="checkbox" 
-                            className="rounded" 
-                            checked={inputQuestions.filter(q => 
+                          <input
+                            type="checkbox"
+                            className="rounded"
+                            checked={inputQuestions.filter(q =>
                               !inputSearch || q.question_text?.toLowerCase().includes(inputSearch.toLowerCase())
-                            ).length > 0 && inputQuestions.filter(q => 
+                            ).length > 0 && inputQuestions.filter(q =>
                               !inputSearch || q.question_text?.toLowerCase().includes(inputSearch.toLowerCase())
                             ).every(q => selectedInputQuestions.has(q.id))}
                             onChange={() => handleSelectAll('input')}
@@ -1760,7 +1833,15 @@ export default function QuestionCraftsmanSuite() {
                         </th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">QUESTION TEXT</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">OPTIONS</th>
+                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">OPTION A</th>
+                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">EXPLANATION A</th>
+                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">OPTION B</th>
+                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">EXPLANATION B</th>
+                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">OPTION C</th>
+                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">EXPLANATION C</th>
+                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">OPTION D</th>
+                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">EXPLANATION D</th>
+                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">CORRECT ANSWER</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">PARSING FLAG</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">STATUS</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ACTIONS</th>
@@ -1776,22 +1857,22 @@ export default function QuestionCraftsmanSuite() {
                             return optText && optText.trim();
                           }).length || 0;
                           const validCorrectAnswers = question.correct_answers?.filter(ans => ans && ans.trim()).length || 0;
-                          
+
                           // Support both old and new question type formats
                           const isSingle = question.question_type === 'single' || question.question_type === 'single-correct';
                           const isMultiple = question.question_type === 'multiple' || question.question_type === 'multi-correct';
-                          
+
                           // Only show issues if there are actual problems
-                          const hasIssues = validOptions < 2 || 
-                                           !question.question_text || 
-                                           question.question_text.trim().length < 10 ||
-                                           validCorrectAnswers === 0 ||
-                                           (isSingle && validCorrectAnswers !== 1) ||
-                                           (isMultiple && validCorrectAnswers < 2);
-                          
+                          const hasIssues = validOptions < 2 ||
+                            !question.question_text ||
+                            question.question_text.trim().length < 10 ||
+                            validCorrectAnswers === 0 ||
+                            (isSingle && validCorrectAnswers !== 1) ||
+                            (isMultiple && validCorrectAnswers < 2);
+
                           let parsingFlag = "OK";
                           let status = "Clean";
-                          
+
                           if (hasIssues) {
                             if (validOptions < 2) {
                               parsingFlag = "Insufficient Options";
@@ -1806,13 +1887,67 @@ export default function QuestionCraftsmanSuite() {
                             }
                             status = "Needs Fix";
                           }
-                          
-                                return (
+
+                          // Prepare option data with explanations
+                          const optionData = [];
+                          for (let i = 0; i < 6; i++) {
+                            if (question.options && i < question.options.length) {
+                              const opt = question.options[i];
+                              if (typeof opt === 'object' && opt !== null) {
+                                optionData.push({
+                                  text: opt.text || '',
+                                  explanation: opt.explanation || ''
+                                });
+                              } else {
+                                optionData.push({
+                                  text: String(opt || ''),
+                                  explanation: ''
+                                });
+                              }
+                            } else {
+                              optionData.push({ text: '', explanation: '' });
+                            }
+                          }
+
+                          // Format correct answers - map to option letters (A, B, C, D, etc.)
+                          const correctAnswersStr = (() => {
+                            if (!question.correct_answers || question.correct_answers.length === 0) {
+                              return '—';
+                            }
+
+                            // Map correct answers to option letters
+                            const answerLetters = [];
+                            for (const correctAnswer of question.correct_answers) {
+                              // Find which option index matches this correct answer
+                              let found = false;
+                              for (let i = 0; i < optionData.length; i++) {
+                                const optText = optionData[i].text?.trim();
+                                const correctText = String(correctAnswer || '').trim();
+
+                                // Match by exact text or case-insensitive comparison
+                                if (optText && correctText &&
+                                  (optText === correctText || optText.toLowerCase() === correctText.toLowerCase())) {
+                                  answerLetters.push(String.fromCharCode(65 + i)); // A=65, B=66, etc.
+                                  found = true;
+                                  break;
+                                }
+                              }
+
+                              // If not found in options, keep the original answer (fallback)
+                              if (!found && correctAnswer) {
+                                answerLetters.push(String(correctAnswer).trim());
+                              }
+                            }
+
+                            return answerLetters.length > 0 ? answerLetters.join(', ') : '—';
+                          })();
+
+                          return (
                             <tr key={question.id || index} className="hover:bg-gray-50">
                               <td className="px-4 py-4 whitespace-nowrap">
-                                <input 
-                                  type="checkbox" 
-                                  className="rounded" 
+                                <input
+                                  type="checkbox"
+                                  className="rounded"
                                   checked={selectedInputQuestions.has(question.id)}
                                   onChange={() => handleToggleSelect(question.id, 'input')}
                                 />
@@ -1825,8 +1960,50 @@ export default function QuestionCraftsmanSuite() {
                                   {question.question_text || "Question text appears to be malformed..."}
                                 </div>
                               </td>
-                              <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
-                                {optionsCount} options
+                              <td className="px-3 py-4 text-sm text-gray-900 min-w-[150px]">
+                                <div className="max-w-[150px]" title={optionData[0].text}>
+                                  {optionData[0].text || "—"}
+                                </div>
+                              </td>
+                              <td className="px-3 py-4 text-sm text-gray-600 min-w-[120px]">
+                                <div className="max-w-[120px]" title={optionData[0].explanation}>
+                                  {optionData[0].explanation || "—"}
+                                </div>
+                              </td>
+                              <td className="px-3 py-4 text-sm text-gray-900 min-w-[150px]">
+                                <div className="max-w-[150px]" title={optionData[1].text}>
+                                  {optionData[1].text || "—"}
+                                </div>
+                              </td>
+                              <td className="px-3 py-4 text-sm text-gray-600 min-w-[120px]">
+                                <div className="max-w-[120px]" title={optionData[1].explanation}>
+                                  {optionData[1].explanation || "—"}
+                                </div>
+                              </td>
+                              <td className="px-3 py-4 text-sm text-gray-900 min-w-[150px]">
+                                <div className="max-w-[150px]" title={optionData[2].text}>
+                                  {optionData[2].text || "—"}
+                                </div>
+                              </td>
+                              <td className="px-3 py-4 text-sm text-gray-600 min-w-[120px]">
+                                <div className="max-w-[120px]" title={optionData[2].explanation}>
+                                  {optionData[2].explanation || "—"}
+                                </div>
+                              </td>
+                              <td className="px-3 py-4 text-sm text-gray-900 min-w-[150px]">
+                                <div className="max-w-[150px]" title={optionData[3].text}>
+                                  {optionData[3].text || "—"}
+                                </div>
+                              </td>
+                              <td className="px-3 py-4 text-sm text-gray-600 min-w-[120px]">
+                                <div className="max-w-[120px]" title={optionData[3].explanation}>
+                                  {optionData[3].explanation || "—"}
+                                </div>
+                              </td>
+                              <td className="px-3 py-4 text-sm min-w-[150px] font-medium text-green-700">
+                                <div className="max-w-[150px]" title={correctAnswersStr}>
+                                  {correctAnswersStr}
+                                </div>
                               </td>
                               <td className="px-4 py-4 whitespace-nowrap">
                                 {parsingFlag === "OK" ? (
@@ -1856,32 +2033,32 @@ export default function QuestionCraftsmanSuite() {
                               </td>
                               <td className="px-4 py-4 whitespace-nowrap text-sm font-medium">
                                 <div className="flex items-center gap-2">
-                                  <button 
+                                  <button
                                     onClick={() => handleEditQuestion(question)}
                                     className="text-indigo-600 hover:text-indigo-900"
                                     title="Edit question"
                                   >
                                     <Edit className="h-4 w-4" />
                                   </button>
-                                  <button 
+                                  <button
                                     onClick={() => handleDeleteQuestion(question.id)}
                                     className="text-red-600 hover:text-red-900"
                                     title="Delete question"
                                   >
                                     <Trash2 className="h-4 w-4" />
                                   </button>
-                                  </div>
+                                </div>
                               </td>
                             </tr>
-                                );
-                              })}
+                          );
+                        })}
                     </tbody>
                   </table>
-                            </div>
+                </div>
               )}
-                          </div>
-                            </div>
-                          )}
+            </div>
+          </div>
+        )}
 
         {activeTab === "generated-questions" && (
           <div className="w-full max-w-7xl mx-auto">
@@ -1890,11 +2067,11 @@ export default function QuestionCraftsmanSuite() {
                 <div>
                   <h2 className="text-2xl font-bold text-gray-900">Generated Questions (Validated)</h2>
                   <p className="text-sm text-gray-600 mt-1">View AI-generated questions that passed through validation logic.</p>
-                          </div>
+                </div>
                 <div className="flex gap-2">
                   {selectedGeneratedQuestions.size > 0 && (
-                    <Button 
-                      variant="destructive" 
+                    <Button
+                      variant="destructive"
                       className="gap-2"
                       onClick={() => handleBulkDelete('generated')}
                       disabled={loading}
@@ -1903,8 +2080,8 @@ export default function QuestionCraftsmanSuite() {
                       Delete Selected ({selectedGeneratedQuestions.size})
                     </Button>
                   )}
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     className="gap-2"
                     onClick={() => handleDownloadCSV('generated')}
                     disabled={loading || generatedQuestions.length === 0}
@@ -1912,9 +2089,9 @@ export default function QuestionCraftsmanSuite() {
                     <Download className="h-4 w-4" />
                     Download CSV
                   </Button>
-                        </div>
                 </div>
-              
+              </div>
+
               <div className="flex items-center justify-between">
                 <div className="relative flex-1 max-w-md">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
@@ -1926,7 +2103,7 @@ export default function QuestionCraftsmanSuite() {
                   />
                 </div>
                 <span className="text-sm text-gray-600">
-                  {generatedQuestions.filter(q => 
+                  {generatedQuestions.filter(q =>
                     !generatedSearch || q.question_text?.toLowerCase().includes(generatedSearch.toLowerCase())
                   ).length} items
                 </span>
@@ -1944,12 +2121,12 @@ export default function QuestionCraftsmanSuite() {
                     <thead className="bg-gray-50 border-b">
                       <tr>
                         <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-12">
-                          <input 
-                            type="checkbox" 
-                            className="rounded" 
-                            checked={generatedQuestions.filter(q => 
+                          <input
+                            type="checkbox"
+                            className="rounded"
+                            checked={generatedQuestions.filter(q =>
                               !generatedSearch || q.question_text?.toLowerCase().includes(generatedSearch.toLowerCase())
-                            ).length > 0 && generatedQuestions.filter(q => 
+                            ).length > 0 && generatedQuestions.filter(q =>
                               !generatedSearch || q.question_text?.toLowerCase().includes(generatedSearch.toLowerCase())
                             ).every(q => selectedGeneratedQuestions.has(q.id))}
                             onChange={() => handleSelectAll('generated')}
@@ -1985,24 +2162,24 @@ export default function QuestionCraftsmanSuite() {
                           // These questions are generated using OpenAI (Prompt 2)
                           // All columns display OpenAI's analysis and generation
                           // ============================================
-                          
+
                           // Question Text: From OpenAI analysis
                           const questionText = question.question_text || '';
-                          
+
                           // Options with Explanations: From OpenAI analysis
                           // Each option includes both text and explanation generated by OpenAI
                           const options = question.options || [];
                           const optionData = [];
-                          
+
                           for (let i = 0; i < 6; i++) {
                             if (i < options.length) {
                               const opt = options[i];
-                              
+
                               // Extract option text and explanation from OpenAI response
                               if (typeof opt === 'object' && opt !== null && !Array.isArray(opt)) {
                                 const optText = (opt.text || opt.get?.('text') || '').trim();
                                 const optExplanation = (opt.explanation || opt.get?.('explanation') || '').trim();
-                                
+
                                 optionData.push({
                                   text: optText,           // OpenAI generated option text
                                   explanation: optExplanation  // OpenAI generated explanation for this option
@@ -2022,23 +2199,23 @@ export default function QuestionCraftsmanSuite() {
                               optionData.push({ text: '', explanation: '' });
                             }
                           }
-                          
+
                           // Question Type: Determined by OpenAI based on correct answers count
                           let questionType = question.question_type || 'single-correct';
                           if (questionType === 'single') questionType = 'single-correct';
                           if (questionType === 'multiple') questionType = 'multi-correct';
                           const displayQuestionType = questionType;
-                          
+
                           // Correct Answers: From OpenAI analysis
                           let correctAnswers = question.correct_answers || [];
                           if (typeof correctAnswers === 'string') {
                             correctAnswers = correctAnswers.split(',').map(a => a.trim()).filter(a => a);
                           }
-                          
+
                           // Map correct answers to option numbers for display
                           const correctOptionNumbers = [];
                           const optionTexts = optionData.map(opt => opt.text.trim());
-                          
+
                           correctAnswers.forEach(ans => {
                             const ansText = String(ans).trim();
                             const optionIndex = optionTexts.findIndex(opt => opt.toLowerCase() === ansText.toLowerCase());
@@ -2046,34 +2223,34 @@ export default function QuestionCraftsmanSuite() {
                               correctOptionNumbers.push(optionIndex + 1); // 1-based numbering
                             }
                           });
-                          
-                          const correctAnswersStr = correctOptionNumbers.length > 0 
-                            ? correctOptionNumbers.join(', ') 
+
+                          const correctAnswersStr = correctOptionNumbers.length > 0
+                            ? correctOptionNumbers.join(', ')
                             : (correctAnswers.length > 0 ? correctAnswers.join(', ') : '');
-                          
+
                           // Domain/Tags: From OpenAI analysis - ONLY show what AI provides, no static inference
                           // OpenAI dynamically determines which domain the question relates to
                           let tags = question.tags || [];
                           if (typeof tags === 'string') {
                             tags = tags.split(',').map(t => t.trim()).filter(t => t);
                           }
-                          
+
                           // Display ONLY the domain name from OpenAI analysis (dynamic, not static)
                           // If OpenAI didn't provide tags, show empty (don't infer static values)
-                          const domainStr = Array.isArray(tags) && tags.length > 0 
-                            ? tags.join(', ') 
+                          const domainStr = Array.isArray(tags) && tags.length > 0
+                            ? tags.join(', ')
                             : (tags && tags.length > 0 ? String(tags) : '—');
-                          
+
                           // Overall Explanation: From OpenAI analysis
                           // OpenAI provides an overall explanation for the entire question
                           const overallExplanation = question.explanation || '';
-                          
-                                return (
+
+                          return (
                             <tr key={question.id || index} className="hover:bg-gray-50">
                               <td className="px-3 py-4 whitespace-nowrap">
-                                <input 
-                                  type="checkbox" 
-                                  className="rounded" 
+                                <input
+                                  type="checkbox"
+                                  className="rounded"
                                   checked={selectedGeneratedQuestions.has(question.id)}
                                   onChange={() => handleToggleSelect(question.id, 'generated')}
                                 />
@@ -2168,32 +2345,32 @@ export default function QuestionCraftsmanSuite() {
                               </td>
                               <td className="px-3 py-4 whitespace-nowrap text-sm font-medium">
                                 <div className="flex items-center gap-2">
-                                  <button 
+                                  <button
                                     onClick={() => handleEditQuestion(question)}
                                     className="text-indigo-600 hover:text-indigo-900"
                                     title="Edit question"
                                   >
                                     <Edit className="h-4 w-4" />
                                   </button>
-                                  <button 
+                                  <button
                                     onClick={() => handleDeleteQuestion(question.id)}
                                     className="text-red-600 hover:text-red-900"
                                     title="Delete question"
                                   >
                                     <Trash2 className="h-4 w-4" />
                                   </button>
-                                  </div>
+                                </div>
                               </td>
                             </tr>
-                                );
-                              })}
+                          );
+                        })}
                     </tbody>
                   </table>
-                            </div>
+                </div>
               )}
-                          </div>
-                            </div>
-                          )}
+            </div>
+          </div>
+        )}
 
         {activeTab === "manual-review" && (
           <div className="w-full max-w-7xl mx-auto">
@@ -2202,11 +2379,11 @@ export default function QuestionCraftsmanSuite() {
                 <div>
                   <h2 className="text-2xl font-bold text-gray-900">Manual Review Queue</h2>
                   <p className="text-sm text-gray-600 mt-1">Handle edge cases requiring human intervention.</p>
-                          </div>
+                </div>
                 <div className="flex gap-2">
                   {selectedReviewQuestions.size > 0 && (
-                    <Button 
-                      variant="destructive" 
+                    <Button
+                      variant="destructive"
                       className="gap-2"
                       onClick={() => handleBulkDelete('review')}
                       disabled={loading}
@@ -2215,8 +2392,8 @@ export default function QuestionCraftsmanSuite() {
                       Delete Selected ({selectedReviewQuestions.size})
                     </Button>
                   )}
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     className="gap-2"
                     onClick={() => handleDownloadCSV('manual_review')}
                     disabled={loading || manualReviewQuestions.length === 0}
@@ -2224,9 +2401,9 @@ export default function QuestionCraftsmanSuite() {
                     <Download className="h-4 w-4" />
                     Download CSV
                   </Button>
-                        </div>
                 </div>
-              
+              </div>
+
               <div className="flex items-center justify-between">
                 <div className="relative flex-1 max-w-md">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
@@ -2238,7 +2415,7 @@ export default function QuestionCraftsmanSuite() {
                   />
                 </div>
                 <span className="text-sm text-gray-600">
-                  {manualReviewQuestions.filter(q => 
+                  {manualReviewQuestions.filter(q =>
                     !reviewSearch || q.question_text?.toLowerCase().includes(reviewSearch.toLowerCase())
                   ).length} items
                 </span>
@@ -2256,12 +2433,12 @@ export default function QuestionCraftsmanSuite() {
                     <thead className="bg-gray-50 border-b">
                       <tr>
                         <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-12">
-                          <input 
-                            type="checkbox" 
-                            className="rounded" 
-                            checked={manualReviewQuestions.filter(q => 
+                          <input
+                            type="checkbox"
+                            className="rounded"
+                            checked={manualReviewQuestions.filter(q =>
                               !reviewSearch || q.question_text?.toLowerCase().includes(reviewSearch.toLowerCase())
-                            ).length > 0 && manualReviewQuestions.filter(q => 
+                            ).length > 0 && manualReviewQuestions.filter(q =>
                               !reviewSearch || q.question_text?.toLowerCase().includes(reviewSearch.toLowerCase())
                             ).every(q => selectedReviewQuestions.has(q.id))}
                             onChange={() => handleSelectAll('review')}
@@ -2296,7 +2473,7 @@ export default function QuestionCraftsmanSuite() {
                           // Get options with explanations - same as Generated Questions
                           const options = question.options || [];
                           const optionData = [];
-                          
+
                           for (let i = 0; i < 6; i++) {
                             if (i < options.length) {
                               const opt = options[i];
@@ -2322,23 +2499,23 @@ export default function QuestionCraftsmanSuite() {
                               optionData.push({ text: '', explanation: '' });
                             }
                           }
-                          
+
                           // Get question type
                           let questionType = question.question_type || 'single-correct';
                           if (questionType === 'single') questionType = 'single-correct';
                           if (questionType === 'multiple') questionType = 'multi-correct';
                           const displayQuestionType = questionType;
-                          
+
                           // Get correct answers - convert to option numbers
                           let correctAnswers = question.correct_answers || [];
                           if (typeof correctAnswers === 'string') {
                             correctAnswers = correctAnswers.split(',').map(a => a.trim()).filter(a => a);
                           }
-                          
+
                           // Map correct answers to option numbers
                           const correctOptionNumbers = [];
                           const optionTexts = optionData.map(opt => opt.text.trim());
-                          
+
                           correctAnswers.forEach(ans => {
                             const ansText = String(ans).trim();
                             const optionIndex = optionTexts.findIndex(opt => opt.toLowerCase() === ansText.toLowerCase());
@@ -2346,30 +2523,30 @@ export default function QuestionCraftsmanSuite() {
                               correctOptionNumbers.push(optionIndex + 1); // 1-based numbering
                             }
                           });
-                          
-                          const correctAnswersStr = correctOptionNumbers.length > 0 
-                            ? correctOptionNumbers.join(', ') 
+
+                          const correctAnswersStr = correctOptionNumbers.length > 0
+                            ? correctOptionNumbers.join(', ')
                             : (correctAnswers.length > 0 ? correctAnswers.join(', ') : '—');
-                          
+
                           // Get domain (tags) from AI response (Gemini/OpenAI) - ONLY show what AI provides, no static inference
                           // AI dynamically determines which domain the question relates to
                           let tags = question.tags || [];
                           if (typeof tags === 'string') {
                             tags = tags.split(',').map(t => t.trim()).filter(t => t);
                           }
-                          
+
                           // Display ONLY the domain name from AI response (dynamic, not static)
                           // If AI didn't provide tags, show empty (don't infer static values)
-                          const domainStr = Array.isArray(tags) && tags.length > 0 
-                            ? tags.join(', ') 
+                          const domainStr = Array.isArray(tags) && tags.length > 0
+                            ? tags.join(', ')
                             : (tags && tags.length > 0 ? String(tags) : '—');
                           const overallExplanation = question.explanation || '';
-                          
+
                           // Validate question to determine if it needs review
                           // Only show "Low Confidence" if there are actual issues with the question data
                           let reviewReason = "";
                           let reasonSeverity = "";
-                          
+
                           // First, check for critical issues (invalid question text)
                           if (!question.question_text || question.question_text.trim().length < 10 || question.question_text.includes("Unable to")) {
                             reviewReason = question.question_text?.includes("Unable to") ? "Retry Exhausted" : "Invalid Question Text";
@@ -2405,7 +2582,7 @@ export default function QuestionCraftsmanSuite() {
                             // Additional validation: check if explanations are missing (might indicate low confidence)
                             const hasMissingExplanations = optionData.some(opt => opt.text && opt.text.trim() && !opt.explanation?.trim());
                             const hasMissingOverallExplanation = !overallExplanation || !overallExplanation.trim();
-                            
+
                             // If question has all required data (text, options, correct answers, explanations), it's likely correct
                             // Only show "Low Confidence" if there are missing explanations or other indicators
                             if (hasMissingExplanations || hasMissingOverallExplanation) {
@@ -2427,13 +2604,13 @@ export default function QuestionCraftsmanSuite() {
                             reviewReason = "Clean";
                             reasonSeverity = "green";
                           }
-                          
-                                return (
+
+                          return (
                             <tr key={question.id || index} className="hover:bg-gray-50">
                               <td className="px-3 py-4 whitespace-nowrap">
-                                <input 
-                                  type="checkbox" 
-                                  className="rounded" 
+                                <input
+                                  type="checkbox"
+                                  className="rounded"
                                   checked={selectedReviewQuestions.has(question.id)}
                                   onChange={() => handleToggleSelect(question.id, 'review')}
                                 />
@@ -2444,7 +2621,7 @@ export default function QuestionCraftsmanSuite() {
                               <td className="px-3 py-4 text-sm text-gray-900 min-w-[200px]">
                                 <div className="max-w-[200px]" title={question.question_text}>
                                   {question.question_text || "—"}
-                                  </div>
+                                </div>
                               </td>
                               <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
                                 <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
@@ -2454,32 +2631,32 @@ export default function QuestionCraftsmanSuite() {
                               <td className="px-3 py-4 text-sm text-gray-900 min-w-[150px]">
                                 <div className="max-w-[150px]" title={optionData[0].text}>
                                   {optionData[0].text || "—"}
-                            </div>
+                                </div>
                               </td>
                               <td className="px-3 py-4 text-sm text-gray-600 min-w-[120px]">
                                 <div className="max-w-[120px]" title={optionData[0].explanation}>
                                   {optionData[0].explanation || "—"}
-                          </div>
+                                </div>
                               </td>
                               <td className="px-3 py-4 text-sm text-gray-900 min-w-[150px]">
                                 <div className="max-w-[150px]" title={optionData[1].text}>
                                   {optionData[1].text || "—"}
-                            </div>
+                                </div>
                               </td>
                               <td className="px-3 py-4 text-sm text-gray-600 min-w-[120px]">
                                 <div className="max-w-[120px]" title={optionData[1].explanation}>
                                   {optionData[1].explanation || "—"}
-                          </div>
+                                </div>
                               </td>
                               <td className="px-3 py-4 text-sm text-gray-900 min-w-[150px]">
                                 <div className="max-w-[150px]" title={optionData[2].text}>
                                   {optionData[2].text || "—"}
-                        </div>
+                                </div>
                               </td>
                               <td className="px-3 py-4 text-sm text-gray-600 min-w-[120px]">
                                 <div className="max-w-[120px]" title={optionData[2].explanation}>
                                   {optionData[2].explanation || "—"}
-                </div>
+                                </div>
                               </td>
                               <td className="px-3 py-4 text-sm text-gray-900 min-w-[150px]">
                                 <div className="max-w-[150px]" title={optionData[3].text}>
@@ -2551,14 +2728,14 @@ export default function QuestionCraftsmanSuite() {
                               </td>
                               <td className="px-3 py-4 whitespace-nowrap text-sm font-medium">
                                 <div className="flex items-center gap-2">
-                                  <button 
+                                  <button
                                     onClick={() => handleEditQuestion(question)}
                                     className="text-indigo-600 hover:text-indigo-900"
                                     title="Edit question"
                                   >
                                     <Edit className="h-4 w-4" />
                                   </button>
-                                  <button 
+                                  <button
                                     onClick={() => handleDeleteQuestion(question.id)}
                                     className="text-red-600 hover:text-red-900"
                                     title="Delete question"
@@ -2573,17 +2750,16 @@ export default function QuestionCraftsmanSuite() {
                         })}
                     </tbody>
                   </table>
-                            </div>
-              )}
-                          </div>
                 </div>
+              )}
+            </div>
+          </div>
         )}
 
         {/* Message Alert */}
         {message && (
-          <div className={`fixed bottom-4 right-4 p-4 rounded-lg shadow-lg ${
-            messageType === "success" ? "bg-green-50 border border-green-200 text-green-800" : "bg-red-50 border border-red-200 text-red-800"
-          }`}>
+          <div className={`fixed bottom-4 right-4 p-4 rounded-lg shadow-lg ${messageType === "success" ? "bg-green-50 border border-green-200 text-green-800" : "bg-red-50 border border-red-200 text-red-800"
+            }`}>
             {message}
           </div>
         )}
@@ -2606,7 +2782,7 @@ export default function QuestionCraftsmanSuite() {
                   rows={3}
                   className="resize-none"
                 />
-      </div>
+              </div>
 
               <div className="space-y-2">
                 <Label>Question Type</Label>
@@ -2622,7 +2798,7 @@ export default function QuestionCraftsmanSuite() {
                     <SelectItem value="multi-correct">Multi Correct</SelectItem>
                   </SelectContent>
                 </Select>
-    </div>
+              </div>
 
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
@@ -2643,10 +2819,10 @@ export default function QuestionCraftsmanSuite() {
                     })
                     .filter(({ optionText }) => optionText.trim()) // Only show non-empty options
                     .map(({ option, idx, optionText, optionExplanation }, displayIdx) => {
-                      const isCorrect = editFormData.correct_answers.some(ans => 
+                      const isCorrect = editFormData.correct_answers.some(ans =>
                         ans === optionText || (typeof option === 'object' && ans === option.text)
                       );
-                      
+
                       return (
                         <div key={idx} className="border rounded-lg p-3 space-y-2">
                           <div className="flex items-center gap-2">
@@ -2660,7 +2836,7 @@ export default function QuestionCraftsmanSuite() {
                                 const newOptions = [...editFormData.options];
                                 const currentOpt = typeof option === 'object' ? option : { text: '', explanation: '' };
                                 newOptions[idx] = { text: newValue, explanation: currentOpt.explanation || '' };
-                                
+
                                 // Update correct_answers if this option was marked as correct
                                 let newCorrectAnswers = [...editFormData.correct_answers];
                                 if (isCorrect) {
@@ -2670,7 +2846,7 @@ export default function QuestionCraftsmanSuite() {
                                     newCorrectAnswers.push(newValue);
                                   }
                                 }
-                                
+
                                 setEditFormData({ ...editFormData, options: newOptions, correct_answers: newCorrectAnswers });
                               }}
                               placeholder={`Option ${String.fromCharCode(65 + displayIdx)}`}
@@ -2683,7 +2859,7 @@ export default function QuestionCraftsmanSuite() {
                                 let newCorrectAnswers = [...editFormData.correct_answers];
                                 const currentOptionText = typeof option === 'object' ? option.text : option;
                                 const isSingle = editFormData.question_type === "single" || editFormData.question_type === "single-correct";
-                                
+
                                 if (isSingle) {
                                   // For single choice, only one answer allowed
                                   newCorrectAnswers = [currentOptionText];
@@ -2697,17 +2873,17 @@ export default function QuestionCraftsmanSuite() {
                                     newCorrectAnswers = newCorrectAnswers.filter(ans => ans !== currentOptionText);
                                   }
                                 }
-                                
+
                                 // Auto-adjust question type based on correct answer count
                                 let newQuestionType = editFormData.question_type;
                                 const isMultiple = editFormData.question_type === "multiple" || editFormData.question_type === "multi-correct";
-                                
+
                                 if (newCorrectAnswers.length === 1 && isMultiple) {
                                   newQuestionType = "single-correct";
                                 } else if (newCorrectAnswers.length > 1 && isSingle) {
                                   newQuestionType = "multi-correct";
                                 }
-                                
+
                                 setEditFormData({ ...editFormData, correct_answers: newCorrectAnswers, question_type: newQuestionType });
                               }}
                               className="rounded"
@@ -2744,7 +2920,7 @@ export default function QuestionCraftsmanSuite() {
                   });
                   const validCorrectAnswers = editFormData.correct_answers.filter(ans => ans && ans.trim());
                   const issues = [];
-                  
+
                   if (validOptions.length < 2) {
                     issues.push("At least 2 options are required");
                   }
@@ -2756,14 +2932,14 @@ export default function QuestionCraftsmanSuite() {
                   }
                   const isSingle = editFormData.question_type === "single" || editFormData.question_type === "single-correct";
                   const isMultiple = editFormData.question_type === "multiple" || editFormData.question_type === "multi-correct";
-                  
+
                   if (isSingle && validCorrectAnswers.length !== 1) {
                     issues.push(`Single choice questions must have exactly 1 correct answer (currently ${validCorrectAnswers.length})`);
                   }
                   if (isMultiple && validCorrectAnswers.length < 2) {
                     issues.push(`Multiple choice questions must have at least 2 correct answers (currently ${validCorrectAnswers.length})`);
                   }
-                  
+
                   return issues.length > 0 ? (
                     <div className="mt-2 p-3 bg-yellow-50 border border-yellow-200 rounded text-sm">
                       <div className="font-medium text-yellow-800 mb-1">Issues:</div>
@@ -2882,8 +3058,8 @@ export default function QuestionCraftsmanSuite() {
               <AlertDialogDescription>
                 This action cannot be undone. This will permanently delete {
                   bulkDeleteType === 'input' ? selectedInputQuestions.size :
-                  bulkDeleteType === 'generated' ? selectedGeneratedQuestions.size :
-                  selectedReviewQuestions.size
+                    bulkDeleteType === 'generated' ? selectedGeneratedQuestions.size :
+                      selectedReviewQuestions.size
                 } selected question(s) from the database.
               </AlertDialogDescription>
             </AlertDialogHeader>
