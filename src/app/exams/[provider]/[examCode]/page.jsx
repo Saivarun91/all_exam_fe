@@ -99,6 +99,12 @@ export default function ExamDetailPage() {
         setExam(data);
         setLoading(false);
 
+        // Set dynamic page title
+        if (typeof window !== "undefined") {
+          const metaTitle = data.meta_title || `${data.title} (${data.code}) - Practice Exam | AllExamQuestions`;
+          document.title = metaTitle;
+        }
+
         // Set canonical URL
         if (typeof window !== "undefined") {
           const currentPath = window.location.pathname;

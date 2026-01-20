@@ -27,6 +27,13 @@ export default function Dashboard() {
 
 
 
+  // Set page title
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      document.title = "Dashboard - My Exams & Progress | AllExamQuestions";
+    }
+  }, []);
+
   // Fetch dashboard data
   const fetchDashboardData = useCallback(async (token, signal) => {
     try {

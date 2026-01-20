@@ -147,6 +147,12 @@ export default function PracticePage() {
         
         setExam(examData);
         setLoading(false);
+
+        // Set dynamic page title
+        if (typeof window !== "undefined") {
+          const metaTitle = examData.meta_title || `${examData.title} (${examData.code}) - Practice Tests | AllExamQuestions`;
+          document.title = metaTitle;
+        }
       } catch (err) {
         console.error("Error fetching exam:", err);
         setError(true);

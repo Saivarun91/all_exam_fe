@@ -13,6 +13,9 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  SelectGroup,
+  SelectLabel,
+  SelectSeparator,
 } from "@/components/ui/select";
 import {
   Accordion,
@@ -80,7 +83,12 @@ export default function QuestionCraftsmanSuite() {
     parsingInstructions: "",
     maxRetryCount: 3, // Default, will be replaced by backend value
     temperature: 0, // Locked at 0 for deterministic output
-    modelSelector: "gpt-4",
+    modelSelector: "gpt-4", // OpenAI/GPT model for generation
+    geminiModelSelector: "gemini-1.5-flash-latest", // Gemini model for parsing
+    topP: 1.0,
+    frequencyPenalty: 0.0,
+    presencePenalty: 0.0,
+    maxOutputTokens: 2000,
   });
 
   // Prompts - initialized as empty, will be loaded from backend
@@ -197,9 +205,14 @@ export default function QuestionCraftsmanSuite() {
       if (data.success && data.config) {
         setConfigData({
           parsingInstructions: data.config.parsing_instructions || "",
-          maxRetryCount: data.config.max_retry_count || 3,
-          temperature: data.config.temperature || 0,
+          maxRetryCount: data.config.max_retry_count !== undefined ? Number(data.config.max_retry_count) : 3,
+          temperature: data.config.temperature !== undefined ? Number(data.config.temperature) : 0,
           modelSelector: data.config.model_selector || "gpt-4",
+          geminiModelSelector: data.config.gemini_model_selector || "gemini-1.5-flash-latest",
+          topP: data.config.top_p !== undefined ? Number(data.config.top_p) : 1.0,
+          frequencyPenalty: data.config.frequency_penalty !== undefined ? Number(data.config.frequency_penalty) : 0.0,
+          presencePenalty: data.config.presence_penalty !== undefined ? Number(data.config.presence_penalty) : 0.0,
+          maxOutputTokens: data.config.max_output_tokens !== undefined ? Number(data.config.max_output_tokens) : 2000,
         });
 
         // Always set prompts from backend (backend always returns prompts, with defaults if none saved)
@@ -234,7 +247,7 @@ export default function QuestionCraftsmanSuite() {
       const data = await res.json();
 
       if (data.success && data.counts) {
-        setCounts({
+        setCounts({ 
           inputQuestions: data.counts.input_questions || 0,
           generatedQuestions: data.counts.generated_questions || 0,
           manualReviewQueue: data.counts.manual_review_queue || 0,
@@ -528,13 +541,23 @@ export default function QuestionCraftsmanSuite() {
 
     const requestBody = {
       parsing_instructions: configData.parsingInstructions,
-      max_retry_count: configData.maxRetryCount,
-      temperature: configData.temperature,
+      max_retry_count: Number(configData.maxRetryCount),
+      temperature: Number(configData.temperature),
       model_selector: configData.modelSelector,
+      gemini_model_selector: configData.geminiModelSelector,
+      top_p: Number(configData.topP),
+      frequency_penalty: Number(configData.frequencyPenalty),
+      presence_penalty: Number(configData.presencePenalty),
+      max_output_tokens: Number(configData.maxOutputTokens),
       prompts: prompts,
     };
 
+    console.log("[FRONTEND] handleSaveConfiguration - Current configData:", JSON.stringify(configData, null, 2));
     console.log("[FRONTEND] handleSaveConfiguration - Full request body:", JSON.stringify(requestBody, null, 2));
+    console.log("[FRONTEND] handleSaveConfiguration - top_p value:", configData.topP, "type:", typeof configData.topP);
+    console.log("[FRONTEND] handleSaveConfiguration - frequency_penalty value:", configData.frequencyPenalty, "type:", typeof configData.frequencyPenalty);
+    console.log("[FRONTEND] handleSaveConfiguration - presence_penalty value:", configData.presencePenalty, "type:", typeof configData.presencePenalty);
+    console.log("[FRONTEND] handleSaveConfiguration - max_output_tokens value:", configData.maxOutputTokens, "type:", typeof configData.maxOutputTokens);
 
     try {
       const res = await fetch(`${API_BASE_URL}/api/questions/admin/save-configuration/`, {
@@ -554,7 +577,7 @@ export default function QuestionCraftsmanSuite() {
       }
 
       const data = await res.json();
-
+      console.log("data", data);
       // DEBUG: Log response
       console.log("[FRONTEND] handleSaveConfiguration - Response status:", res.status);
       console.log("[FRONTEND] handleSaveConfiguration - Response data:", JSON.stringify(data, null, 2));
@@ -568,15 +591,47 @@ export default function QuestionCraftsmanSuite() {
         setMessageType("success");
         setTimeout(() => setMessage(""), 5000);
 
-        // Update prompts immediately from response if available, otherwise reload
+        // Update config values immediately from response if available
+        if (data.config && typeof data.config === 'object') {
+          console.log("[FRONTEND] handleSaveConfiguration - Response config:", JSON.stringify(data.config, null, 2));
+          console.log("[FRONTEND] handleSaveConfiguration - top_p in response:", data.config.top_p, "type:", typeof data.config.top_p);
+          console.log("[FRONTEND] handleSaveConfiguration - frequency_penalty in response:", data.config.frequency_penalty, "type:", typeof data.config.frequency_penalty);
+          console.log("[FRONTEND] handleSaveConfiguration - presence_penalty in response:", data.config.presence_penalty, "type:", typeof data.config.presence_penalty);
+          console.log("[FRONTEND] handleSaveConfiguration - max_output_tokens in response:", data.config.max_output_tokens, "type:", typeof data.config.max_output_tokens);
+          
+          const updatedConfig = {
+            parsingInstructions: data.config.parsing_instructions || "",
+            maxRetryCount: data.config.max_retry_count !== undefined ? Number(data.config.max_retry_count) : 3,
+            temperature: data.config.temperature !== undefined ? Number(data.config.temperature) : 0,
+            modelSelector: data.config.model_selector || "gpt-4",
+            geminiModelSelector: data.config.gemini_model_selector || "gemini-1.5-flash-latest",
+            topP: data.config.top_p !== undefined ? Number(data.config.top_p) : 1.0,
+            frequencyPenalty: data.config.frequency_penalty !== undefined ? Number(data.config.frequency_penalty) : 0.0,
+            presencePenalty: data.config.presence_penalty !== undefined ? Number(data.config.presence_penalty) : 0.0,
+            maxOutputTokens: data.config.max_output_tokens !== undefined ? Number(data.config.max_output_tokens) : 2000,
+          };
+          console.log("[FRONTEND] handleSaveConfiguration - Updated config before setState:", JSON.stringify(updatedConfig, null, 2));
+          console.log("[FRONTEND] handleSaveConfiguration - topP:", updatedConfig.topP, "frequencyPenalty:", updatedConfig.frequencyPenalty, "presencePenalty:", updatedConfig.presencePenalty, "maxOutputTokens:", updatedConfig.maxOutputTokens);
+          
+          // Force update all values
+          setConfigData(prev => {
+            const newConfig = {
+              ...prev,
+              ...updatedConfig
+            };
+            console.log("[FRONTEND] handleSaveConfiguration - Setting new config:", JSON.stringify(newConfig, null, 2));
+            return newConfig;
+          });
+        } else {
+          // Fallback: reload configuration if not in response
+          console.log("[FRONTEND] handleSaveConfiguration - No config in response, reloading configuration");
+          await fetchConfiguration();
+        }
+        
+        // Also update prompts from response if available (for immediate UI update)
         if (data.prompts && typeof data.prompts === 'object') {
           console.log("[FRONTEND] handleSaveConfiguration - Updating prompts from response");
           setPrompts(data.prompts);
-          console.log("[FRONTEND] handleSaveConfiguration - Prompts updated in state");
-        } else {
-          console.log("[FRONTEND] handleSaveConfiguration - No prompts in response, reloading configuration");
-          // Reload configuration to get updated data
-          await fetchConfiguration();
         }
       } else {
         console.error("[FRONTEND] handleSaveConfiguration - Save failed:", data.error);
@@ -1657,7 +1712,7 @@ export default function QuestionCraftsmanSuite() {
                   {/* Determinism Controls */}
                   <div className="space-y-4 border-t pt-4">
                     <Label className="text-sm font-semibold">Determinism Controls</Label>
-                    <div className="grid grid-cols-3 gap-4">
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                       <div className="space-y-2">
                         <Label className="text-xs">Max Retry Count</Label>
                         <Input
@@ -1676,14 +1731,73 @@ export default function QuestionCraftsmanSuite() {
                         <Label className="text-xs">Temperature</Label>
                         <Input
                           type="number"
+                          step="0.1"
+                          min="0"
+                          max="2"
                           value={configData.temperature}
-                          disabled
-                          className="bg-gray-50"
+                          onChange={(e) => {
+                            const value = parseFloat(e.target.value) || 0;
+                            setConfigData({ ...configData, temperature: Math.max(0, Math.min(2, value)) });
+                          }}
                         />
-                        <p className="text-xs text-gray-500">Locked for deterministic output</p>
+                        <p className="text-xs text-gray-500">Controls randomness in AI output (0.0-2.0). Lower values are more deterministic. Changes are saved when you click "Save Configuration".</p>
                       </div>
-                      {/* <div className="space-y-2">
-                          <Label className="text-xs">Model Selector</Label>
+                      <div className="space-y-2">
+                        <Label className="text-xs">Top P</Label>
+                        <Input
+                          type="number"
+                          step="0.1"
+                          min="0"
+                          max="1"
+                          value={configData.topP}
+                          onChange={(e) => {
+                            const value = parseFloat(e.target.value);
+                            // Update immediately if valid, otherwise keep current value
+                            if (!isNaN(value)) {
+                              setConfigData({ ...configData, topP: Math.max(0, Math.min(1, value)) });
+                            }
+                          }}
+                        />
+                        <p className="text-xs text-gray-500">Nucleus sampling parameter (0.0-1.0). Controls diversity of output. Changes are saved when you click "Save Configuration".</p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-xs">Frequency Penalty</Label>
+                        <Input
+                          type="number"
+                          step="0.1"
+                          min="-2"
+                          max="2"
+                          value={configData.frequencyPenalty}
+                          onChange={(e) => {
+                            const value = parseFloat(e.target.value);
+                            // Update immediately if valid, otherwise keep current value
+                            if (!isNaN(value)) {
+                              setConfigData({ ...configData, frequencyPenalty: Math.max(-2, Math.min(2, value)) });
+                            }
+                          }}
+                        />
+                        <p className="text-xs text-gray-500">Reduces repetition based on frequency (-2.0 to 2.0). Changes are saved when you click "Save Configuration".</p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-xs">Presence Penalty</Label>
+                        <Input
+                          type="number"
+                          step="0.1"
+                          min="-2"
+                          max="2"
+                          value={configData.presencePenalty}
+                          onChange={(e) => {
+                            const value = parseFloat(e.target.value);
+                            // Update immediately if valid, otherwise keep current value
+                            if (!isNaN(value)) {
+                              setConfigData({ ...configData, presencePenalty: Math.max(-2, Math.min(2, value)) });
+                            }
+                          }}
+                        />
+                        <p className="text-xs text-gray-500">Encourages new topics (-2.0 to 2.0). Changes are saved when you click "Save Configuration".</p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-xs">OpenAI Model (GPT)</Label>
                           <Select
                             value={configData.modelSelector}
                             onValueChange={(value) => setConfigData({ ...configData, modelSelector: value })}
@@ -1692,14 +1806,62 @@ export default function QuestionCraftsmanSuite() {
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="gpt-4">GPT-4</SelectItem>
-                              <SelectItem value="gpt-4-turbo">GPT-4 Turbo</SelectItem>
-                              <SelectItem value="gpt-3.5-turbo">GPT-3.5 Turbo</SelectItem>
+                              <SelectGroup>
+                                <SelectLabel>GPT-4 Models</SelectLabel>
+                                <SelectItem value="gpt-4">GPT-4</SelectItem>
+                                <SelectItem value="gpt-4-turbo">GPT-4 Turbo</SelectItem>
+                                <SelectItem value="gpt-4o">GPT-4o</SelectItem>
+                                <SelectItem value="gpt-4o-mini">GPT-4o Mini</SelectItem>
+                                <SelectItem value="gpt-4.1-mini">GPT-4.1 Mini</SelectItem>
+                              </SelectGroup>
+                              <SelectSeparator />
+                              <SelectGroup>
+                                <SelectLabel>GPT-3.5 Models</SelectLabel>
+                                <SelectItem value="gpt-3.5-turbo">GPT-3.5 Turbo</SelectItem>
+                              </SelectGroup>
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-gray-500">Select OpenAI model for question generation.</p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-xs">Gemini Model</Label>
+                        <Select
+                          value={configData.geminiModelSelector}
+                          onValueChange={(value) => setConfigData({ ...configData, geminiModelSelector: value })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectGroup>
+                              <SelectLabel>Gemini 1.5 Latest</SelectLabel>
+                              <SelectItem value="gemini-1.5-flash-latest">Gemini 1.5 Flash (Latest)</SelectItem>
+                              <SelectItem value="gemini-1.5-pro-latest">Gemini 1.5 Pro (Latest)</SelectItem>
+                            </SelectGroup>
+                            <SelectSeparator />
+                            <SelectGroup>
+                              <SelectLabel>Gemini 2.5 Models</SelectLabel>
+                              <SelectItem value="gemini-2.5-flash">Gemini 2.5 Flash</SelectItem>
+                              <SelectItem value="gemini-2.5-pro">Gemini 2.5 Pro</SelectItem>
+                            </SelectGroup>
+                            <SelectSeparator />
+                            <SelectGroup>
+                              <SelectLabel>Gemini 1.5 Models</SelectLabel>
+                              <SelectItem value="gemini-1.5-flash-001">Gemini 1.5 Flash 001</SelectItem>
+                              <SelectItem value="gemini-1.5-pro-001">Gemini 1.5 Pro 001</SelectItem>
+                              <SelectItem value="gemini-1.5-flash">Gemini 1.5 Flash</SelectItem>
+                              <SelectItem value="gemini-1.5-pro">Gemini 1.5 Pro</SelectItem>
+                            </SelectGroup>
+                            <SelectSeparator />
+                            <SelectGroup>
+                              <SelectLabel>Gemini Pro Models</SelectLabel>
                               <SelectItem value="gemini-pro">Gemini Pro</SelectItem>
                               <SelectItem value="gemini-pro-vision">Gemini Pro Vision</SelectItem>
+                            </SelectGroup>
                             </SelectContent>
                           </Select>
-                        </div> */}
+                        <p className="text-xs text-gray-500">Select Gemini model for document parsing.</p>
+                      </div>
                     </div>
                     <div className="flex gap-3">
                       <Button

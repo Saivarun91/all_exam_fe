@@ -41,9 +41,12 @@ function ExamsPageContentWrapper() {
     }
   }, [searchParams, router]);
 
-  // Set canonical URL for exams listing page
+  // Set page title and canonical URL for exams listing page
   useEffect(() => {
     if (typeof window !== "undefined") {
+      // Set dynamic page title
+      document.title = "All Certification Exams - Practice Tests | AllExamQuestions";
+      
       const currentPath = window.location.pathname;
       // Remove query parameters for canonical URL
       const pathWithoutQuery = currentPath.split('?')[0];

@@ -42,6 +42,12 @@ export default function CategoryPage() {
         const categoryData = await categoryRes.json();
         setCategory(categoryData);
 
+        // Set dynamic page title
+        if (typeof window !== "undefined") {
+          const metaTitle = `${categoryData.title || categoryData.name || 'Category'} - Certification Exams | AllExamQuestions`;
+          document.title = metaTitle;
+        }
+
         // Fetch courses for this category using the dedicated endpoint
         const coursesRes = await fetch(`${API_BASE_URL}/api/courses/category/${slug}/`);
         

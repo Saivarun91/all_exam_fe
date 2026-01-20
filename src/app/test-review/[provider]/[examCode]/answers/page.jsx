@@ -22,8 +22,38 @@ export default function ReviewAnswersPage() {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedQuestions, setSelectedQuestions] = useState(new Set());
   const [navigatorPage, setNavigatorPage] = useState(1);
+  const [exam, setExam] = useState(null);
   
   const QUESTIONS_PER_PAGE = 20;
+
+  // Fetch exam data for title
+  useEffect(() => {
+    const fetchExamData = async () => {
+      try {
+        const normalizedProvider = provider?.toLowerCase().replace(/_/g, '-');
+        const normalizedExamCode = examCode?.toLowerCase().replace(/_/g, '-');
+        const slug = `${normalizedProvider}-${normalizedExamCode}`;
+        
+        const res = await fetch(`${API_BASE_URL}/api/courses/exams/${slug}/`);
+        if (res.ok) {
+          const data = await res.json();
+          setExam(data);
+          
+          // Set dynamic page title
+          if (typeof window !== "undefined") {
+            const metaTitle = `Review Answers - ${data.title} (${data.code}) | AllExamQuestions`;
+            document.title = metaTitle;
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching exam data:", error);
+      }
+    };
+
+    if (provider && examCode) {
+      fetchExamData();
+    }
+  }, [provider, examCode]);
 
   useEffect(() => {
     loadReviewAnswers();

@@ -119,6 +119,17 @@ export default function TestPlayerPage() {
         const examData = await examRes.json();
         setExam(examData);
 
+        // Set dynamic page title
+        if (typeof window !== "undefined" && examData) {
+          const testName = examData.practice_tests_list?.find(t => 
+            t.slug === testId || 
+            String(t.id) === String(testId) ||
+            t.slug?.replace(/-[a-f0-9]{8}$/i, '') === testId?.replace(/-[a-f0-9]{8}$/i, '')
+          )?.name || `Practice Test ${testId}`;
+          const metaTitle = `${testName} - ${examData.title} (${examData.code}) | AllExamQuestions`;
+          document.title = metaTitle;
+        }
+
         if (examData.id && testId) {
           const questionsRes = await fetch(`${API_BASE_URL}/api/questions/test/${examData.id}/${testId}/`, {
             method: 'GET',

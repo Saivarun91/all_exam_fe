@@ -55,6 +55,12 @@ export default function TestReview() {
         if (res.ok) {
           const data = await res.json();
           setExam(data);
+          
+          // Set dynamic page title
+          if (typeof window !== "undefined") {
+            const metaTitle = `Test Review - ${data.title} (${data.code}) | AllExamQuestions`;
+            document.title = metaTitle;
+          }
         }
       } catch (error) {
         console.error("Error fetching exam data:", error);

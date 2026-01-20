@@ -45,9 +45,11 @@ export default function BlogPage() {
     fetchBlogs();
   }, []);
 
-  // Set canonical URL for blog listing page
+  // Set page title and canonical URL for blog listing page
   useEffect(() => {
     if (typeof window !== "undefined") {
+      // Set dynamic page title
+      document.title = "Blog - Certification Exam Tips & Guides | AllExamQuestions";
       const canonicalUrl = "https://allexamquestions.com/blog";
       let canonicalLink = document.querySelector('link[rel="canonical"]');
       if (!canonicalLink) {
