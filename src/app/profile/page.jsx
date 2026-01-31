@@ -27,6 +27,9 @@ export default function ProfilePage() {
   const [previewImage, setPreviewImage] = useState(null);
 
   useEffect(() => {
+    // Set page title
+    document.title = "My Profile | AllExamQuestions";
+    
     fetchProfile();
   }, []);
 

@@ -20,6 +20,9 @@ export default function PaymentSuccessPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Set page title
+    document.title = "Payment Successful - Enrollment Confirmed | AllExamQuestions";
+    
     if (provider && examCode) {
       fetchExamData();
     }

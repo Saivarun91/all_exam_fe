@@ -316,48 +316,108 @@ export default function AdminCategoriesPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredCategories.map((cat, idx) => {
-            const IconComp = ICON_MAP[cat.icon] || Cloud;
-            return (
-              <motion.div key={cat.slug || idx} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.03 }}>
-                <Card className="rounded-2xl border hover:shadow-2xl transition overflow-hidden">
-                  <div className="p-4">
-                    <div className="flex justify-between items-start mb-3">
-                      <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-lg bg-indigo-50 flex items-center justify-center">
-                          <IconComp className="w-6 h-6 text-indigo-600" />
-                        </div>
-                        <div>
-                          <h3 className="text-xl font-semibold text-indigo-700">{cat.title}</h3>
-                          <p className="text-sm text-gray-600">{cat.description || "No description."}</p>
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className={`text-xs font-semibold px-2 py-1 rounded-full ${
-                              cat.courseCount > 0 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
-                            }`}>
-                              {cat.courseCount > 0 ? `${cat.courseCount} Exam${cat.courseCount !== 1 ? 's' : ''}` : 'No Exams'}
-                            </span>
+        <div className="bg-white rounded-2xl border border-indigo-200 shadow-lg overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
+                <tr>
+                  <th className="px-6 py-4 text-left">
+                    <input
+                      type="checkbox"
+                      checked={filteredCategories.length > 0 && selectedSlugs.length === filteredCategories.length}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedSlugs(filteredCategories.map(cat => cat.slug));
+                        } else {
+                          setSelectedSlugs([]);
+                        }
+                      }}
+                      className="w-4 h-4 rounded border-gray-300"
+                    />
+                  </th>
+                  <th className="px-6 py-4 text-left font-semibold">Icon</th>
+                  <th className="px-6 py-4 text-left font-semibold">Title</th>
+                  <th className="px-6 py-4 text-left font-semibold">Description</th>
+                  <th className="px-6 py-4 text-left font-semibold">Exams</th>
+                  <th className="px-6 py-4 text-center font-semibold">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {filteredCategories.length === 0 ? (
+                  <tr>
+                    <td colSpan="6" className="px-6 py-12 text-center text-gray-500">
+                      No categories found. {searchTerm ? "Try a different search term." : "Add a category to get started."}
+                    </td>
+                  </tr>
+                ) : (
+                  filteredCategories.map((cat, idx) => {
+                    const IconComp = ICON_MAP[cat.icon] || Cloud;
+                    return (
+                      <motion.tr
+                        key={cat.slug || idx}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: idx * 0.03 }}
+                        className="hover:bg-indigo-50 transition-colors"
+                      >
+                        <td className="px-6 py-4">
+                          <input
+                            type="checkbox"
+                            checked={selectedSlugs.includes(cat.slug)}
+                            onChange={() => handleSelect(cat.slug)}
+                            className="w-4 h-4 rounded border-gray-300"
+                          />
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="w-10 h-10 rounded-lg bg-indigo-50 flex items-center justify-center">
+                            <IconComp className="w-5 h-5 text-indigo-600" />
                           </div>
-                        </div>
-                      </div>
-
-                      <div>
-                        <input type="checkbox" checked={selectedSlugs.includes(cat.slug)} onChange={() => handleSelect(cat.slug)} />
-                      </div>
-                    </div>
-
-                    <div className="flex gap-2 mt-4">
-                      <Button onClick={() => router.push(`/admin/categories/${cat.slug}/courses`)} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white">
-                        <Eye className="w-4 h-4 mr-1" /> View Courses
-                      </Button>
-                      <Button onClick={() => handleEditCategory(cat)} className="flex-1 bg-blue-500 hover:bg-blue-600 text-white"><FiEdit /> Edit</Button>
-                      <Button onClick={() => handleDeleteCategory(cat.slug)} className="flex-1 bg-red-500 hover:bg-red-600 text-white">Delete</Button>
-                    </div>
-                  </div>
-                </Card>
-              </motion.div>
-            );
-          })}
+                        </td>
+                        <td className="px-6 py-4">
+                          <h3 className="text-lg font-semibold text-indigo-700">{cat.title}</h3>
+                        </td>
+                        <td className="px-6 py-4">
+                          <p className="text-sm text-gray-600 max-w-md line-clamp-2">{cat.description || "No description."}</p>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className={`text-xs font-semibold px-3 py-1 rounded-full inline-block ${
+                            cat.courseCount > 0 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
+                          }`}>
+                            {cat.courseCount > 0 ? `${cat.courseCount} Exam${cat.courseCount !== 1 ? 's' : ''}` : 'No Exams'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center justify-center gap-2">
+                            <Button
+                              onClick={() => router.push(`/admin/categories/${cat.slug}/courses`)}
+                              className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 text-sm"
+                              size="sm"
+                            >
+                              <Eye className="w-4 h-4 mr-1" /> View courses
+                            </Button>
+                            <Button
+                              onClick={() => handleEditCategory(cat)}
+                              className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 text-sm"
+                              size="sm"
+                            >
+                              <FiEdit className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              onClick={() => handleDeleteCategory(cat.slug)}
+                              className="bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 text-sm"
+                              size="sm"
+                            >
+                              <FiTrash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </td>
+                      </motion.tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 

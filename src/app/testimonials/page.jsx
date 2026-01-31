@@ -12,6 +12,9 @@ export default function TestimonialsPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Set page title
+    document.title = "Testimonials - Success Stories | AllExamQuestions";
+    
     const fetchTestimonials = async () => {
       try {
         // Request all testimonials (not just featured ones)

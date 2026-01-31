@@ -8,6 +8,11 @@ function AuthPageContent() {
   const searchParams = useSearchParams();
 
   useEffect(() => {
+    // Set page title
+    document.title = "Authentication - Login or Sign Up | AllExamQuestions";
+  }, []);
+
+  useEffect(() => {
     // Redirect based on tab parameter for backward compatibility
     const tab = searchParams.get('tab');
     const redirectUrl = searchParams.get('redirect');

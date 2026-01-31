@@ -56,6 +56,11 @@ function SignupPageContent() {
     }
   }, [signupName, signupEmail, signupPassword, signupConfirmPassword, signupPhone, acceptedTerms, acceptedPrivacy]);
 
+  // Set page title
+  useEffect(() => {
+    document.title = "Sign Up - Create Your Account | AllExamQuestions";
+  }, []);
+
   // Restore form data from sessionStorage
   useEffect(() => {
     if (typeof window !== "undefined") {

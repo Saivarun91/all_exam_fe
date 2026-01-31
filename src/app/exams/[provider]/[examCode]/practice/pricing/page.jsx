@@ -62,6 +62,12 @@ export default function PricingPage() {
         if (courseRes.ok) {
           courseData = await courseRes.json();
           console.log("Course data received:", courseData);
+          
+          // Set dynamic page title
+          if (typeof window !== "undefined" && courseData) {
+            const metaTitle = `Pricing - ${courseData.title} (${courseData.code}) | AllExamQuestions`;
+            document.title = metaTitle;
+          }
         } else {
           throw new Error("Exam not found. Please check the provider and exam code.");
         }

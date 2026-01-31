@@ -88,7 +88,6 @@ export default function QuestionCraftsmanSuite() {
     topP: 1.0,
     frequencyPenalty: 0.0,
     presencePenalty: 0.0,
-    maxOutputTokens: 2000,
   });
 
   // Prompts - initialized as empty, will be loaded from backend
@@ -162,7 +161,7 @@ export default function QuestionCraftsmanSuite() {
 
   useEffect(() => {
     // Always fetch fresh data when switching tabs
-    // Only fetch questions if there's a session_id (except for manual_review which is global)
+    // Only fetch questions if there's a session_id (all types are session-specific)
     if (activeTab === "input-questions") {
       if (currentSessionId) {
         fetchQuestionsByType("input");
@@ -182,9 +181,15 @@ export default function QuestionCraftsmanSuite() {
         setCounts(prev => ({ ...prev, generatedQuestions: 0 }));
       }
     } else if (activeTab === "manual-review") {
-      // Manual review is global, always fetch
-      fetchQuestionsByType("manual_review");
-      fetchCounts();
+      // Manual review is session-specific - only fetch if there's a session_id
+      if (currentSessionId) {
+        fetchQuestionsByType("manual_review");
+        fetchCounts();
+      } else {
+        // No session - clear questions and set counts to 0
+        setManualReviewQuestions([]);
+        setCounts(prev => ({ ...prev, manualReviewQueue: 0 }));
+      }
     }
   }, [activeTab, currentSessionId]);
 
@@ -212,7 +217,6 @@ export default function QuestionCraftsmanSuite() {
           topP: data.config.top_p !== undefined ? Number(data.config.top_p) : 1.0,
           frequencyPenalty: data.config.frequency_penalty !== undefined ? Number(data.config.frequency_penalty) : 0.0,
           presencePenalty: data.config.presence_penalty !== undefined ? Number(data.config.presence_penalty) : 0.0,
-          maxOutputTokens: data.config.max_output_tokens !== undefined ? Number(data.config.max_output_tokens) : 2000,
         });
 
         // Always set prompts from backend (backend always returns prompts, with defaults if none saved)
@@ -261,21 +265,23 @@ export default function QuestionCraftsmanSuite() {
   const fetchQuestionsByType = async (type) => {
     setQuestionsLoading(true);
     try {
-      // For input and generated, require session_id. Manual review is global.
-      if ((type === "input" || type === "generated") && !currentSessionId) {
+      // All types require session_id (session-specific)
+      if (!currentSessionId) {
         // No session - return empty arrays
         if (type === "input") {
           setInputQuestions([]);
         } else if (type === "generated") {
           setGeneratedQuestions([]);
+        } else if (type === "manual_review") {
+          setManualReviewQuestions([]);
         }
         setQuestionsLoading(false);
         return;
       }
 
-      // Build URL with session_id if available (except for manual_review which is global)
+      // Build URL with session_id if available (all types are session-specific)
       let url = `${API_BASE_URL}/api/questions/admin/questions-by-type/${type}/`;
-      if (currentSessionId && type !== 'manual_review') {
+      if (currentSessionId) {
         url += `?session_id=${currentSessionId}`;
       }
 
@@ -548,7 +554,6 @@ export default function QuestionCraftsmanSuite() {
       top_p: Number(configData.topP),
       frequency_penalty: Number(configData.frequencyPenalty),
       presence_penalty: Number(configData.presencePenalty),
-      max_output_tokens: Number(configData.maxOutputTokens),
       prompts: prompts,
     };
 
@@ -557,7 +562,6 @@ export default function QuestionCraftsmanSuite() {
     console.log("[FRONTEND] handleSaveConfiguration - top_p value:", configData.topP, "type:", typeof configData.topP);
     console.log("[FRONTEND] handleSaveConfiguration - frequency_penalty value:", configData.frequencyPenalty, "type:", typeof configData.frequencyPenalty);
     console.log("[FRONTEND] handleSaveConfiguration - presence_penalty value:", configData.presencePenalty, "type:", typeof configData.presencePenalty);
-    console.log("[FRONTEND] handleSaveConfiguration - max_output_tokens value:", configData.maxOutputTokens, "type:", typeof configData.maxOutputTokens);
 
     try {
       const res = await fetch(`${API_BASE_URL}/api/questions/admin/save-configuration/`, {
@@ -597,7 +601,6 @@ export default function QuestionCraftsmanSuite() {
           console.log("[FRONTEND] handleSaveConfiguration - top_p in response:", data.config.top_p, "type:", typeof data.config.top_p);
           console.log("[FRONTEND] handleSaveConfiguration - frequency_penalty in response:", data.config.frequency_penalty, "type:", typeof data.config.frequency_penalty);
           console.log("[FRONTEND] handleSaveConfiguration - presence_penalty in response:", data.config.presence_penalty, "type:", typeof data.config.presence_penalty);
-          console.log("[FRONTEND] handleSaveConfiguration - max_output_tokens in response:", data.config.max_output_tokens, "type:", typeof data.config.max_output_tokens);
           
           const updatedConfig = {
             parsingInstructions: data.config.parsing_instructions || "",
@@ -608,10 +611,9 @@ export default function QuestionCraftsmanSuite() {
             topP: data.config.top_p !== undefined ? Number(data.config.top_p) : 1.0,
             frequencyPenalty: data.config.frequency_penalty !== undefined ? Number(data.config.frequency_penalty) : 0.0,
             presencePenalty: data.config.presence_penalty !== undefined ? Number(data.config.presence_penalty) : 0.0,
-            maxOutputTokens: data.config.max_output_tokens !== undefined ? Number(data.config.max_output_tokens) : 2000,
           };
           console.log("[FRONTEND] handleSaveConfiguration - Updated config before setState:", JSON.stringify(updatedConfig, null, 2));
-          console.log("[FRONTEND] handleSaveConfiguration - topP:", updatedConfig.topP, "frequencyPenalty:", updatedConfig.frequencyPenalty, "presencePenalty:", updatedConfig.presencePenalty, "maxOutputTokens:", updatedConfig.maxOutputTokens);
+          console.log("[FRONTEND] handleSaveConfiguration - topP:", updatedConfig.topP, "frequencyPenalty:", updatedConfig.frequencyPenalty, "presencePenalty:", updatedConfig.presencePenalty);
           
           // Force update all values
           setConfigData(prev => {
@@ -677,14 +679,44 @@ export default function QuestionCraftsmanSuite() {
       })
       .filter(opt => opt.text && opt.text.trim()); // Remove empty options
 
-    // Ensure at least 2 options (add empty ones if needed for editing)
+    // Ensure at least 2 options, and pad to 6 slots for generated/manual_review (matches table display)
     while (normalizedOptions.length < 2) {
       normalizedOptions.push({ text: "", explanation: "" });
     }
+    if ((question.status === 'manual_review' || question.status === 'generated') && normalizedOptions.length < 6) {
+      while (normalizedOptions.length < 6) {
+        normalizedOptions.push({ text: "", explanation: "" });
+      }
+    }
 
     // Normalize correct_answers format
+    // Convert option_a, option_b format to option text for editing
     const normalizedCorrectAnswers = (question.correct_answers || []).map(ans => {
-      return typeof ans === 'string' ? ans.trim() : String(ans).trim();
+      const ansText = typeof ans === 'string' ? ans.trim() : String(ans).trim();
+      
+      // Check if answer is in "option_a", "option_b" format
+      const optionLetterMatch = ansText.match(/^option[_\s]*([a-h])$/i);
+      if (optionLetterMatch) {
+        const letter = optionLetterMatch[1].toLowerCase();
+        const letterIndex = 'abcdefgh'.indexOf(letter);
+        if (letterIndex !== -1 && letterIndex < normalizedOptions.length) {
+          // Convert to option text
+          return normalizedOptions[letterIndex].text;
+        }
+      }
+      
+      // Check if answer is a number (1, 2, 3, etc.)
+      const numMatch = ansText.match(/^(\d+)$/);
+      if (numMatch) {
+        const num = parseInt(numMatch[1]);
+        if (num >= 1 && num <= normalizedOptions.length) {
+          // Convert to option text (1-based to 0-based index)
+          return normalizedOptions[num - 1].text;
+        }
+      }
+      
+      // Return as-is if it's already option text
+      return ansText;
     }).filter(ans => ans); // Remove empty answers
 
     // Auto-determine question type based on correct answer count
@@ -809,15 +841,26 @@ export default function QuestionCraftsmanSuite() {
         tags = tags.split(',').map(t => t.trim()).filter(t => t);
       }
 
+      // If editing a question from manual review queue (generated question),
+      // keep it in its original status to ensure it remains visible
+      // Manual review queue shows all generated questions (both validated and not validated)
+      let finalStatus = editFormData.status;
+      // if (editingQuestion.status === 'manual_review' || editingQuestion.status === 'generated') {
+      //   // Keep original status (either 'generated' or 'manual_review') so it remains visible
+      //   // This ensures manually corrected questions stay in the manual review queue
+      //   finalStatus = editingQuestion.status;
+      // }
+
       const updateData = {
         question_text: editFormData.question_text.trim(),
         options: normalizedOptions,
         correct_answers: normalizedCorrectAnswers,
         explanation: editFormData.explanation.trim(),
         question_type: finalQuestionType,
-        status: editFormData.status,
+        status: finalStatus,
         tags: tags
       };
+      console.log("updateData : ",updateData)
 
       const res = await fetch(`${API_BASE_URL}/api/questions/admin/parsed-question/${editingQuestion.id}/update/`, {
         method: "PUT",
@@ -827,6 +870,7 @@ export default function QuestionCraftsmanSuite() {
         },
         body: JSON.stringify(updateData),
       });
+      // console.log("res : ",res.json())
 
       if (res.status === 401) {
         setMessage("❌ Authentication failed");
@@ -836,6 +880,7 @@ export default function QuestionCraftsmanSuite() {
       }
 
       const data = await res.json();
+      console.log(data)
 
       if (data.success) {
         setMessage("✅ Question updated successfully");
@@ -843,21 +888,28 @@ export default function QuestionCraftsmanSuite() {
         setEditingQuestion(null);
 
         // Refresh ALL tabs dynamically (not just current tab)
-        await Promise.all([
-          fetchCounts(),
-          fetchQuestionsByType("input"),
-          fetchQuestionsByType("generated"),
-          fetchQuestionsByType("manual_review")
-        ]);
+        try {
+          await Promise.all([
+            fetchCounts(),
+            fetchQuestionsByType("input"),
+            fetchQuestionsByType("generated"),
+            fetchQuestionsByType("manual_review")
+          ]);
+        } catch (refreshError) {
+          console.error("Error refreshing questions after update:", refreshError);
+          // Don't fail the update if refresh fails
+        }
 
         setTimeout(() => setMessage(""), 3000);
       } else {
-        setMessage(`❌ ${data.error || "Failed to update question"}`);
+        const errorMsg = data.error || data.message || "Failed to update question";
+        setMessage(`❌ ${errorMsg}`);
         setMessageType("error");
+        console.error("Update failed:", data);
       }
     } catch (error) {
       console.error("Error updating question:", error);
-      setMessage(`❌ Error: ${error.message || "Failed to update question"}`);
+      setMessage(`❌ Error: ${error.message || "Failed to update question. Please try again."}`);
       setMessageType("error");
     } finally {
       setLoading(false);
@@ -1127,9 +1179,9 @@ export default function QuestionCraftsmanSuite() {
       // Use provided questionType or determine from activeTab
       const backendType = questionType || typeMap[activeTab] || 'generated';
 
-      // Build URL with session_id if available (except for manual_review which is global)
+      // Build URL with session_id if available (all types are session-specific)
       let url = `${API_BASE_URL}/api/questions/admin/download-csv/?type=${backendType}`;
-      if (currentSessionId && backendType !== 'manual_review') {
+      if (currentSessionId) {
         url += `&session_id=${currentSessionId}`;
       }
 
@@ -1214,6 +1266,8 @@ export default function QuestionCraftsmanSuite() {
         if (data.session_id) {
           setCurrentSessionId(data.session_id);
           console.log("Stored session_id from generation:", data.session_id);
+          console.log("Generated questions count:", data.saved_count);
+          console.log("Total input questions:", data.total_input_questions);
         }
 
         if (data.errors && data.errors.length > 0) {
@@ -1523,6 +1577,11 @@ export default function QuestionCraftsmanSuite() {
                   {/* Prompt Configuration */}
                   <div className="space-y-4">
                     <Label className="text-sm font-semibold">Prompt Configuration</Label>
+                    {!promptsLoading && (!(prompts.prompt1?.prompt || '').trim() || !(prompts.prompt2?.prompt || '').trim()) && (
+                      <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+                        Please provide the prompt. Without Prompt 1 or Prompt 2, parse and generate will not run and no questions will show in those tabs.
+                      </p>
+                    )}
                     {promptsLoading ? (
                       <div className="flex items-center justify-center py-8">
                         <Loader2 className="h-6 w-6 animate-spin text-indigo-600" />
@@ -1654,50 +1713,6 @@ export default function QuestionCraftsmanSuite() {
                                 <Label>Last Updated</Label>
                                 <Input
                                   value={prompts.prompt3?.lastUpdated || ''}
-                                  disabled
-                                  className="bg-gray-50"
-                                />
-                              </div>
-                            </div>
-                          </AccordionContent>
-                        </AccordionItem>
-
-                        <AccordionItem value="prompt4" className="border rounded-lg px-4 mb-2">
-                          <AccordionTrigger className="hover:no-underline">
-                            <div className="flex items-center justify-between w-full pr-4">
-                              <div className="flex items-center gap-3">
-                                <div>
-                                  <div className="flex items-center gap-2">
-                                    <span className="font-semibold">Prompt 4: Populate CSV Output</span>
-                                    <Badge variant="outline" className="text-xs">{prompts.prompt4?.version || ''}</Badge>
-                                  </div>
-                                  <p className="text-xs text-gray-500 text-left mt-1">{prompts.prompt4?.description || ''}</p>
-                                </div>
-                              </div>
-                            </div>
-                          </AccordionTrigger>
-                          <AccordionContent className="space-y-4">
-                            <div className="space-y-2">
-                              <Label>Parsing Prompt</Label>
-                              <Textarea
-                                value={prompts.prompt4?.prompt || ''}
-                                onChange={(e) => updatePrompt('prompt4', 'prompt', e.target.value)}
-                                rows={6}
-                                className="resize-none font-mono text-sm"
-                              />
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                              <div className="space-y-2">
-                                <Label>Prompt Version Name</Label>
-                                <Input
-                                  value={prompts.prompt4?.version || ''}
-                                  onChange={(e) => updatePrompt('prompt4', 'version', e.target.value)}
-                                />
-                              </div>
-                              <div className="space-y-2">
-                                <Label>Last Updated</Label>
-                                <Input
-                                  value={prompts.prompt4?.lastUpdated || ''}
                                   disabled
                                   className="bg-gray-50"
                                 />
@@ -1996,14 +2011,9 @@ export default function QuestionCraftsmanSuite() {
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">QUESTION TEXT</th>
                         <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">OPTION A</th>
-                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">EXPLANATION A</th>
                         <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">OPTION B</th>
-                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">EXPLANATION B</th>
                         <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">OPTION C</th>
-                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">EXPLANATION C</th>
                         <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">OPTION D</th>
-                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">EXPLANATION D</th>
-                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">CORRECT ANSWER</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">PARSING FLAG</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">STATUS</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ACTIONS</th>
@@ -2127,19 +2137,9 @@ export default function QuestionCraftsmanSuite() {
                                   {optionData[0].text || "—"}
                                 </div>
                               </td>
-                              <td className="px-3 py-4 text-sm text-gray-600 min-w-[120px]">
-                                <div className="max-w-[120px]" title={optionData[0].explanation}>
-                                  {optionData[0].explanation || "—"}
-                                </div>
-                              </td>
                               <td className="px-3 py-4 text-sm text-gray-900 min-w-[150px]">
                                 <div className="max-w-[150px]" title={optionData[1].text}>
                                   {optionData[1].text || "—"}
-                                </div>
-                              </td>
-                              <td className="px-3 py-4 text-sm text-gray-600 min-w-[120px]">
-                                <div className="max-w-[120px]" title={optionData[1].explanation}>
-                                  {optionData[1].explanation || "—"}
                                 </div>
                               </td>
                               <td className="px-3 py-4 text-sm text-gray-900 min-w-[150px]">
@@ -2147,24 +2147,9 @@ export default function QuestionCraftsmanSuite() {
                                   {optionData[2].text || "—"}
                                 </div>
                               </td>
-                              <td className="px-3 py-4 text-sm text-gray-600 min-w-[120px]">
-                                <div className="max-w-[120px]" title={optionData[2].explanation}>
-                                  {optionData[2].explanation || "—"}
-                                </div>
-                              </td>
                               <td className="px-3 py-4 text-sm text-gray-900 min-w-[150px]">
                                 <div className="max-w-[150px]" title={optionData[3].text}>
                                   {optionData[3].text || "—"}
-                                </div>
-                              </td>
-                              <td className="px-3 py-4 text-sm text-gray-600 min-w-[120px]">
-                                <div className="max-w-[120px]" title={optionData[3].explanation}>
-                                  {optionData[3].explanation || "—"}
-                                </div>
-                              </td>
-                              <td className="px-3 py-4 text-sm min-w-[150px] font-medium text-green-700">
-                                <div className="max-w-[150px]" title={correctAnswersStr}>
-                                  {correctAnswersStr}
                                 </div>
                               </td>
                               <td className="px-4 py-4 whitespace-nowrap">
@@ -2227,8 +2212,8 @@ export default function QuestionCraftsmanSuite() {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-2xl font-bold text-gray-900">Generated Questions (Validated)</h2>
-                  <p className="text-sm text-gray-600 mt-1">View AI-generated questions that passed through validation logic.</p>
+                  <h2 className="text-2xl font-bold text-gray-900">Generated Questions</h2>
+                  <p className="text-sm text-gray-600 mt-1">View all AI-generated questions (both validated and not validated by Gemini AI).</p>
                 </div>
                 <div className="flex gap-2">
                   {selectedGeneratedQuestions.size > 0 && (
@@ -2311,7 +2296,6 @@ export default function QuestionCraftsmanSuite() {
                         <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">Explanation 6</th>
                         <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[150px]">Correct Answers</th>
                         <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[200px]">Overall Explanation</th>
-                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Domain</th>
                         <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                       </tr>
                     </thead>
@@ -2379,16 +2363,39 @@ export default function QuestionCraftsmanSuite() {
                           const optionTexts = optionData.map(opt => opt.text.trim());
 
                           correctAnswers.forEach(ans => {
-                            const ansText = String(ans).trim();
-                            const optionIndex = optionTexts.findIndex(opt => opt.toLowerCase() === ansText.toLowerCase());
+                            const ansText = String(ans).trim().toLowerCase();
+                            
+                            // Check if answer is in "option_a", "option_b" format
+                            const optionLetterMatch = ansText.match(/^option[_\s]*([a-h])$/i);
+                            if (optionLetterMatch) {
+                              const letter = optionLetterMatch[1].toLowerCase();
+                              const letterIndex = 'abcdefgh'.indexOf(letter);
+                              if (letterIndex !== -1 && letterIndex < optionTexts.length) {
+                                correctOptionNumbers.push(letterIndex + 1); // 1-based numbering (a=1, b=2, etc.)
+                                return;
+                              }
+                            }
+                            
+                            // Check if answer is already a number
+                            const numMatch = ansText.match(/^(\d+)$/);
+                            if (numMatch) {
+                              const num = parseInt(numMatch[1]);
+                              if (num >= 1 && num <= optionTexts.length) {
+                                correctOptionNumbers.push(num);
+                                return;
+                              }
+                            }
+                            
+                            // Try to match by option text (case-insensitive)
+                            const optionIndex = optionTexts.findIndex(opt => opt.toLowerCase() === ansText);
                             if (optionIndex !== -1) {
                               correctOptionNumbers.push(optionIndex + 1); // 1-based numbering
                             }
                           });
 
                           const correctAnswersStr = correctOptionNumbers.length > 0
-                            ? correctOptionNumbers.join(', ')
-                            : (correctAnswers.length > 0 ? correctAnswers.join(', ') : '');
+                            ? correctOptionNumbers.sort((a, b) => a - b).join(', ')
+                            : '';
 
                           // Domain/Tags: From OpenAI analysis - ONLY show what AI provides, no static inference
                           // OpenAI dynamically determines which domain the question relates to
@@ -2405,7 +2412,7 @@ export default function QuestionCraftsmanSuite() {
 
                           // Overall Explanation: From OpenAI analysis
                           // OpenAI provides an overall explanation for the entire question
-                          const overallExplanation = question.explanation || '';
+                          const overallExplanation = (question.explanation || '').trim();
 
                           return (
                             <tr key={question.id || index} className="hover:bg-gray-50">
@@ -2496,13 +2503,8 @@ export default function QuestionCraftsmanSuite() {
                                 </div>
                               </td>
                               <td className="px-3 py-4 text-sm text-gray-700 min-w-[200px]">
-                                <div className="max-w-[200px]" title={overallExplanation}>
+                                <div className="max-w-[200px] break-words" title={overallExplanation}>
                                   {overallExplanation || "—"}
-                                </div>
-                              </td>
-                              <td className="px-3 py-4 text-sm text-gray-600">
-                                <div className="max-w-[100px]" title={domainStr}>
-                                  {domainStr || "—"}
                                 </div>
                               </td>
                               <td className="px-3 py-4 whitespace-nowrap text-sm font-medium">
@@ -2540,7 +2542,7 @@ export default function QuestionCraftsmanSuite() {
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-2xl font-bold text-gray-900">Manual Review Queue</h2>
-                  <p className="text-sm text-gray-600 mt-1">Handle edge cases requiring human intervention.</p>
+                  <p className="text-sm text-gray-600 mt-1">Questions from the current document that were validated by Gemini AI (both passed and failed validation). Review and manually correct any questions that need fixing here.</p>
                 </div>
                 <div className="flex gap-2">
                   {selectedReviewQuestions.size > 0 && (
@@ -2623,8 +2625,8 @@ export default function QuestionCraftsmanSuite() {
                         <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">Explanation 6</th>
                         <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[150px]">Correct Answers</th>
                         <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[200px]">Overall Explanation</th>
-                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Domain</th>
                         <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[150px]">Review Reason</th>
+                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[160px]">Validation status</th>
                         <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                       </tr>
                     </thead>
@@ -2679,16 +2681,39 @@ export default function QuestionCraftsmanSuite() {
                           const optionTexts = optionData.map(opt => opt.text.trim());
 
                           correctAnswers.forEach(ans => {
-                            const ansText = String(ans).trim();
-                            const optionIndex = optionTexts.findIndex(opt => opt.toLowerCase() === ansText.toLowerCase());
+                            const ansText = String(ans).trim().toLowerCase();
+                            
+                            // Check if answer is in "option_a", "option_b" format
+                            const optionLetterMatch = ansText.match(/^option[_\s]*([a-h])$/i);
+                            if (optionLetterMatch) {
+                              const letter = optionLetterMatch[1].toLowerCase();
+                              const letterIndex = 'abcdefgh'.indexOf(letter);
+                              if (letterIndex !== -1 && letterIndex < optionTexts.length) {
+                                correctOptionNumbers.push(letterIndex + 1); // 1-based numbering (a=1, b=2, etc.)
+                                return;
+                              }
+                            }
+                            
+                            // Check if answer is already a number
+                            const numMatch = ansText.match(/^(\d+)$/);
+                            if (numMatch) {
+                              const num = parseInt(numMatch[1]);
+                              if (num >= 1 && num <= optionTexts.length) {
+                                correctOptionNumbers.push(num);
+                                return;
+                              }
+                            }
+                            
+                            // Try to match by option text (case-insensitive)
+                            const optionIndex = optionTexts.findIndex(opt => opt.toLowerCase() === ansText);
                             if (optionIndex !== -1) {
                               correctOptionNumbers.push(optionIndex + 1); // 1-based numbering
                             }
                           });
 
                           const correctAnswersStr = correctOptionNumbers.length > 0
-                            ? correctOptionNumbers.join(', ')
-                            : (correctAnswers.length > 0 ? correctAnswers.join(', ') : '—');
+                            ? correctOptionNumbers.sort((a, b) => a - b).join(', ')
+                            : '';
 
                           // Get domain (tags) from AI response (Gemini/OpenAI) - ONLY show what AI provides, no static inference
                           // AI dynamically determines which domain the question relates to
@@ -2702,15 +2727,25 @@ export default function QuestionCraftsmanSuite() {
                           const domainStr = Array.isArray(tags) && tags.length > 0
                             ? tags.join(', ')
                             : (tags && tags.length > 0 ? String(tags) : '—');
-                          const overallExplanation = question.explanation || '';
+                          const overallExplanation = (question.explanation || '').trim();
 
-                          // Validate question to determine if it needs review
-                          // Only show "Low Confidence" if there are actual issues with the question data
+                          // Determine review reason based on Gemini AI validation status
+                          // Manual Review Queue shows questions validated by Gemini AI (both passed and failed)
                           let reviewReason = "";
                           let reasonSeverity = "";
 
-                          // First, check for critical issues (invalid question text)
-                          if (!question.question_text || question.question_text.trim().length < 10 || question.question_text.includes("Unable to")) {
+                          // Priority 1: Check Gemini AI validation status (most important for Manual Review Queue)
+                          // status='generated' = validated correctly by Gemini AI → show "Clean"
+                          // status='manual_review' = not validated correctly by Gemini AI → show "manual_review"
+                          if (question.status === "generated") {
+                            reviewReason = "Clean";
+                            reasonSeverity = "green";
+                          } else if (question.status === "manual_review") {
+                            reviewReason = "manual_review";
+                            reasonSeverity = "yellow";
+                          }
+                          // Priority 2: Check for critical issues (override status if critical)
+                          else if (!question.question_text || question.question_text.trim().length < 10 || question.question_text.includes("Unable to")) {
                             reviewReason = question.question_text?.includes("Unable to") ? "Retry Exhausted" : "Invalid Question Text";
                             reasonSeverity = "red";
                           }
@@ -2738,8 +2773,7 @@ export default function QuestionCraftsmanSuite() {
                             reviewReason = "Validation Failed";
                             reasonSeverity = "red";
                           }
-                          // If question data is correct, check status
-                          // Only show "Low Confidence" if status is needs_review AND we can't verify the question is correct
+                          // Check other statuses
                           else if (question.status === "needs_review") {
                             // Additional validation: check if explanations are missing (might indicate low confidence)
                             const hasMissingExplanations = optionData.some(opt => opt.text && opt.text.trim() && !opt.explanation?.trim());
@@ -2761,7 +2795,7 @@ export default function QuestionCraftsmanSuite() {
                             reviewReason = "Approved";
                             reasonSeverity = "green";
                           }
-                          // If no issues found and question data is correct, show as clean
+                          // Default: show as clean if no issues found
                           else {
                             reviewReason = "Clean";
                             reasonSeverity = "green";
@@ -2856,13 +2890,8 @@ export default function QuestionCraftsmanSuite() {
                                 </div>
                               </td>
                               <td className="px-3 py-4 text-sm text-gray-700 min-w-[200px]">
-                                <div className="max-w-[200px]" title={overallExplanation}>
+                                <div className="max-w-[200px] break-words" title={overallExplanation}>
                                   {overallExplanation || "—"}
-                                </div>
-                              </td>
-                              <td className="px-3 py-4 text-sm text-gray-600">
-                                <div className="max-w-[100px]" title={domainStr}>
-                                  {domainStr || "General"}
                                 </div>
                               </td>
                               <td className="px-3 py-4 whitespace-nowrap min-w-[150px]">
@@ -2886,6 +2915,15 @@ export default function QuestionCraftsmanSuite() {
                                     <Info className="h-3 w-3 mr-1" />
                                     {reviewReason}
                                   </Badge>
+                                )}
+                              </td>
+                              <td className="px-3 py-4 whitespace-nowrap min-w-[160px]">
+                                {question.status === "generated" ? (
+                                  <span className="text-green-700 font-medium" title="Question passed Gemini validation">Validated by Gemini</span>
+                                ) : question.status === "manual_review" ? (
+                                  <span className="text-amber-700 font-medium" title="Question needs manual review">Needs manual review</span>
+                                ) : (
+                                  <span className="text-gray-600">—</span>
                                 )}
                               </td>
                               <td className="px-3 py-4 whitespace-nowrap text-sm font-medium">
@@ -3151,15 +3189,24 @@ export default function QuestionCraftsmanSuite() {
                   onValueChange={(value) => setEditFormData({ ...editFormData, status: value })}
                 >
                   <SelectTrigger>
-                    <SelectValue />
+                    <SelectValue placeholder="Select status" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="pending">Pending</SelectItem>
                     <SelectItem value="approved">Approved</SelectItem>
                     <SelectItem value="rejected">Rejected</SelectItem>
                     <SelectItem value="needs_review">Needs Review</SelectItem>
+                    {editingQuestion && (editingQuestion.status === 'manual_review' || editingQuestion.status === 'generated') && (
+                      <>
+                        <SelectItem value="generated">Validated (Gemini)</SelectItem>
+                        <SelectItem value="manual_review">Not Validated / Needs Review</SelectItem>
+                      </>
+                    )}
                   </SelectContent>
                 </Select>
+                {editingQuestion && (editingQuestion.status === 'manual_review' || editingQuestion.status === 'generated') && (
+                  <p className="text-xs text-gray-500">Status is preserved so the question stays in Manual Review Queue after save.</p>
+                )}
               </div>
             </div>
             <DialogFooter>

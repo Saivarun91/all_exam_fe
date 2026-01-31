@@ -50,6 +50,11 @@ function LoginPageContent() {
   // Google Sign-In
   const [showGoogleDialog, setShowGoogleDialog] = useState(false);
 
+  // Set page title
+  useEffect(() => {
+    document.title = "Login - Sign In to Your Account | AllExamQuestions";
+  }, []);
+
   // Load Google Identity Services script (non-blocking)
   useEffect(() => {
     if (typeof window !== 'undefined' && !window.google) {

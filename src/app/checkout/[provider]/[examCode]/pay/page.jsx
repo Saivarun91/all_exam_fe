@@ -338,7 +338,11 @@ console.log(displayAmount)
       if (selectedCoupon.max_discount && couponDiscountAmount > selectedCoupon.max_discount) {
         couponDiscountAmount = selectedCoupon.max_discount;
       }
-      finalAmount = priceNum - couponDiscountAmount;
+      // Cap discount at price so total never goes negative (handles >100% invalid coupons)
+      if (discountValue > 100) {
+        couponDiscountAmount = 0;
+      }
+      finalAmount = Math.max(0, priceNum - couponDiscountAmount);
     } else {
       couponDiscountAmount = discountValue;
       finalAmount = Math.max(0, priceNum - discountValue);
@@ -348,8 +352,7 @@ console.log(displayAmount)
   }
   
   // Calculate the amount to display on button (always show final amount after all discounts)
-  const displayAmount = finalAmount > 0 ? finalAmount : priceNum;
-  console.log("final : ",finalAmount)
+  const displayAmount = finalAmount;
 
   return (
     <>

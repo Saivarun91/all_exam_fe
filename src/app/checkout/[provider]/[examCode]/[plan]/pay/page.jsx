@@ -34,6 +34,15 @@ export default function CheckoutPage() {
   const [couponError, setCouponError] = useState(null);
 
   useEffect(() => {
+    // Set page title
+    if (provider && examCode) {
+      const providerName = provider.charAt(0).toUpperCase() + provider.slice(1).replace(/-/g, ' ');
+      const examCodeFormatted = examCode.toUpperCase().replace(/-/g, ' ');
+      document.title = `Checkout - ${providerName} ${examCodeFormatted} | AllExamQuestions`;
+    } else {
+      document.title = "Checkout - Complete Your Purchase | AllExamQuestions";
+    }
+    
     console.log("Checkout page loaded:", { provider, examCode, planSlug });
     if (provider && examCode && planSlug) {
       fetchData();
@@ -456,7 +465,11 @@ export default function CheckoutPage() {
       if (selectedCoupon.max_discount && couponDiscountAmount > selectedCoupon.max_discount) {
         couponDiscountAmount = selectedCoupon.max_discount;
       }
-      finalAmount = priceNum - couponDiscountAmount;
+      // Cap discount at price so total never goes negative (handles >100% invalid coupons)
+      if (discountValue > 100) {
+        couponDiscountAmount = 0;
+      }
+      finalAmount = Math.max(0, priceNum - couponDiscountAmount);
     } else {
       couponDiscountAmount = discountValue;
       finalAmount = Math.max(0, priceNum - discountValue);
@@ -466,7 +479,7 @@ export default function CheckoutPage() {
   }
   
   // Calculate the amount to display on button (always show final amount after all discounts)
-  const displayAmount = finalAmount > 0 ? finalAmount : priceNum;
+  const displayAmount = finalAmount;
 
   return (
     <>
@@ -554,10 +567,11 @@ export default function CheckoutPage() {
                       type="text"
                       value={couponCode}
                       onChange={(e) => {
-                        setCouponCode(e.target.value);
+                        setCouponCode(e.target.value.toUpperCase());
                         setCouponError(null);
                       }}
                       placeholder="Enter coupon code"
+                      style={{ textTransform: 'uppercase' }}
                       className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1A73E8] focus:border-transparent"
                       disabled={applyingCoupon}
                       onKeyPress={(e) => {

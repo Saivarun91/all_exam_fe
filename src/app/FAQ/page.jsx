@@ -1,68 +1,3 @@
-// "use client";
-
-// import Header from "@/components/Header";
-// import Footer from "@/components/Footer";
-// import {
-//   Accordion,
-//   AccordionContent,
-//   AccordionItem,
-//   AccordionTrigger,
-// } from "@/components/ui/accordion";
-
-// export default function FAQ() {
-//   const faqSections = [
-//     {
-//       title: "A. About the Platform",
-//       faqs: [
-//         {
-//           question: "What is AllExamQuestions?",
-//           answer: "AllExamQuestions is a certification exam preparation platform offering accurate, exam-style practice questions across multiple providers."
-//         },
-//         // ... rest of FAQs
-//       ]
-//     },
-//     // ... rest of sections
-//   ];
-
-//   return (
-//     <div className="min-h-screen">
-//       <Header />
-//       <main className="py-16 bg-background">
-//         <div className="container mx-auto px-4 max-w-5xl">
-//           <div className="text-center mb-12">
-//             <h1 className="text-5xl font-bold mb-4 text-foreground">Frequently Asked Questions</h1>
-//             <p className="text-muted-foreground text-lg">Everything you need to know about AllExamQuestions</p>
-//           </div>
-
-//           <div className="space-y-12">
-//             {faqSections.map((section, sectionIndex) => (
-//               <div key={sectionIndex}>
-//                 <h2 className="text-2xl font-bold mb-6 text-foreground">{section.title}</h2>
-//                 <Accordion type="single" collapsible className="w-full space-y-4">
-//                   {section.faqs.map((faq, faqIndex) => (
-//                     <AccordionItem 
-//                       key={faqIndex} 
-//                       value={`section-${sectionIndex}-item-${faqIndex}`}
-//                       className="border border-border rounded-lg px-6 bg-card"
-//                     >
-//                       <AccordionTrigger className="text-left font-semibold text-foreground hover:no-underline">
-//                         {faq.question}
-//                       </AccordionTrigger>
-//                       <AccordionContent className="text-muted-foreground">
-//                         {faq.answer}
-//                       </AccordionContent>
-//                     </AccordionItem>
-//                   ))}
-//                 </Accordion>
-//               </div>
-//             ))}
-//           </div>
-//         </div>
-//       </main>
-//       <Footer />
-//     </div>
-//   );
-// }
 
 
 "use client";
@@ -84,6 +19,9 @@ export default function FAQ() {
   const [error, setError] = useState(false);
 
   useEffect(() => {
+    // Set page title
+    document.title = "FAQ - Frequently Asked Questions | AllExamQuestions";
+    
     const fetchFAQs = async () => {
       try {
         const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
