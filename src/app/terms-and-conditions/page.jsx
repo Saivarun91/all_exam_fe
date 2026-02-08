@@ -165,9 +165,16 @@ function TermsAndConditionsContent() {
 
         <div className="prose prose-lg max-w-none">
           <div className="bg-card border border-border rounded-lg p-8 shadow-sm">
-            <div className="text-foreground whitespace-pre-wrap leading-relaxed text-base">
-              {content}
-            </div>
+            {content && content.trim().startsWith("<") ? (
+              <div
+                className="text-foreground leading-relaxed text-base tiptap-editor-content prose prose-p:my-2 prose-ul:my-2 prose-ol:my-2 prose-li:my-0"
+                dangerouslySetInnerHTML={{ __html: content }}
+              />
+            ) : (
+              <div className="text-foreground whitespace-pre-wrap leading-relaxed text-base">
+                {content}
+              </div>
+            )}
           </div>
         </div>
       </div>

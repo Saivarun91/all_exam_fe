@@ -72,6 +72,7 @@ const Footer = () => {
     { name: "Terms & Conditions", href: "/terms-and-conditions", exists: true },
     { name: "Refund & Cancellation Policy", href: "/refund-and-cancellation-policy", exists: true },
     { name: "Disclaimer", href: "/disclaimer", exists: true },
+    { name: "Editor Policy", href: "/editor-policy", exists: true },
     { name: "Contact Us", href: "/contact-us", exists: true },
   ];
 

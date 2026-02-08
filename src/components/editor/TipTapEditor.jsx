@@ -60,6 +60,11 @@ import {
 } from "@/components/ui/popover";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
+import toast from "react-hot-toast";
+
+// Cloudinary configuration (same as other admin pages)
+const CLOUD_NAME = "dhy0krkef";
+const UPLOAD_PRESET = "preptara";
 
 // Custom Bullet List Extension with Style Support
 const CustomBulletList = BulletList.extend({
@@ -197,6 +202,46 @@ const TipTapEditor = ({
   const [highlightGradientColor3, setHighlightGradientColor3] = useState("");
   const [useHighlightThirdColor, setUseHighlightThirdColor] = useState(false);
   const [highlightGradientDirection, setHighlightGradientDirection] = useState("right");
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const imageInputRef = useRef(null);
+
+  const uploadImageToCloudinary = async (file) => {
+    const imageData = new FormData();
+    imageData.append("file", file);
+    imageData.append("upload_preset", UPLOAD_PRESET);
+    const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
+      method: "POST",
+      body: imageData,
+    });
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData.error?.message || "Image upload failed");
+    }
+    const data = await res.json();
+    return data.secure_url;
+  };
+
+  const handleImageFileSelect = async (e) => {
+    const file = e.target?.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please select an image file (e.g. JPG, PNG, GIF)");
+      e.target.value = "";
+      return;
+    }
+    setUploadingImage(true);
+    try {
+      const imageUrl = await uploadImageToCloudinary(file);
+      editor?.chain().focus().setImage({ src: imageUrl }).run();
+      toast.success("Image uploaded and inserted.");
+    } catch (err) {
+      console.error("Image upload error:", err);
+      toast.error(err?.message || "Failed to upload image");
+    } finally {
+      setUploadingImage(false);
+      e.target.value = "";
+    }
+  };
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -1799,19 +1844,29 @@ const TipTapEditor = ({
         >
           <LinkIcon className="h-4 w-4" />
         </Button>
+        <input
+          ref={imageInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={handleImageFileSelect}
+          aria-hidden="true"
+          tabIndex={-1}
+        />
         <Button
           type="button"
           variant="ghost"
           size="sm"
-          onClick={() => {
-            const url = window.prompt("Enter image URL:");
-            if (url) {
-              editor.chain().focus().setImage({ src: url }).run();
-            }
-          }}
+          disabled={uploadingImage}
+          onClick={() => imageInputRef.current?.click()}
           className="h-8 w-8 p-0"
+          title={uploadingImage ? "Uploading..." : "Upload image (file)"}
         >
-          <ImageIcon className="h-4 w-4" />
+          {uploadingImage ? (
+            <span className="text-xs">…</span>
+          ) : (
+            <ImageIcon className="h-4 w-4" />
+          )}
         </Button>
         <Button
           type="button"

@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { motion } from "framer-motion";
 import axios from "axios";
 import toast from "react-hot-toast";
+import TipTapEditor from "@/components/editor/TipTapEditor";
 
 export default function LegalPagesPage() {
   return (
@@ -28,6 +29,17 @@ export default function LegalPagesPage() {
       </Card>
     </div>
   );
+}
+
+// Normalize plain text from API to HTML for TipTap (backward compatibility)
+function normalizeContentForEditor(str) {
+  if (!str || !String(str).trim()) return "";
+  const s = String(str).trim();
+  if (s.startsWith("<")) return str;
+  return s
+    .split(/\n/)
+    .map((line) => "<p>" + line.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;") + "</p>")
+    .join("");
 }
 
 // Privacy & Terms Management Component
@@ -60,11 +72,17 @@ function PrivacyTermsManager() {
   const [contactMetaKeywords, setContactMetaKeywords] = useState("");
   const [contactMetaDescription, setContactMetaDescription] = useState("");
   
+  const [editorContent, setEditorContent] = useState("");
+  const [editorMetaTitle, setEditorMetaTitle] = useState("");
+  const [editorMetaKeywords, setEditorMetaKeywords] = useState("");
+  const [editorMetaDescription, setEditorMetaDescription] = useState("");
+  
   const [loadingPrivacy, setLoadingPrivacy] = useState(false);
   const [loadingTerms, setLoadingTerms] = useState(false);
   const [loadingRefund, setLoadingRefund] = useState(false);
   const [loadingDisclaimer, setLoadingDisclaimer] = useState(false);
   const [loadingContact, setLoadingContact] = useState(false);
+  const [loadingEditor, setLoadingEditor] = useState(false);
   const [activeTab, setActiveTab] = useState("privacy");
 
   useEffect(() => {
@@ -73,7 +91,7 @@ function PrivacyTermsManager() {
         const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
         const token = localStorage.getItem("token");
 
-        const [privacyRes, termsRes, refundRes, disclaimerRes, contactRes] = await Promise.all([
+        const [privacyRes, termsRes, refundRes, disclaimerRes, contactRes, editorRes] = await Promise.all([
           fetch(`${API_BASE_URL}/api/settings/privacy-policy/`, {
             headers: { Authorization: `Bearer ${token}` },
           }),
@@ -89,32 +107,35 @@ function PrivacyTermsManager() {
           fetch(`${API_BASE_URL}/api/settings/contact-us/`, {
             headers: { Authorization: `Bearer ${token}` },
           }),
+          fetch(`${API_BASE_URL}/api/settings/editor-policy/`, {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
         ]);
 
         if (privacyRes.ok) {
           const data = await privacyRes.json();
-          setPrivacyContent(data.content || "");
+          setPrivacyContent(normalizeContentForEditor(data.content || ""));
           setPrivacyMetaTitle(data.meta_title || "");
           setPrivacyMetaKeywords(data.meta_keywords || "");
           setPrivacyMetaDescription(data.meta_description || "");
         }
         if (termsRes.ok) {
           const data = await termsRes.json();
-          setTermsContent(data.content || "");
+          setTermsContent(normalizeContentForEditor(data.content || ""));
           setTermsMetaTitle(data.meta_title || "");
           setTermsMetaKeywords(data.meta_keywords || "");
           setTermsMetaDescription(data.meta_description || "");
         }
         if (refundRes.ok) {
           const data = await refundRes.json();
-          setRefundContent(data.content || "");
+          setRefundContent(normalizeContentForEditor(data.content || ""));
           setRefundMetaTitle(data.meta_title || "");
           setRefundMetaKeywords(data.meta_keywords || "");
           setRefundMetaDescription(data.meta_description || "");
         }
         if (disclaimerRes.ok) {
           const data = await disclaimerRes.json();
-          setDisclaimerContent(data.content || "");
+          setDisclaimerContent(normalizeContentForEditor(data.content || ""));
           setDisclaimerMetaTitle(data.meta_title || "");
           setDisclaimerMetaKeywords(data.meta_keywords || "");
           setDisclaimerMetaDescription(data.meta_description || "");
@@ -128,6 +149,13 @@ function PrivacyTermsManager() {
           setContactMetaTitle(data.meta_title || "");
           setContactMetaKeywords(data.meta_keywords || "");
           setContactMetaDescription(data.meta_description || "");
+        }
+        if (editorRes.ok) {
+          const data = await editorRes.json();
+          setEditorContent(normalizeContentForEditor(data.content || ""));
+          setEditorMetaTitle(data.meta_title || "");
+          setEditorMetaKeywords(data.meta_keywords || "");
+          setEditorMetaDescription(data.meta_description || "");
         }
       } catch (err) {
         console.error("Error fetching content:", err);
@@ -310,6 +338,40 @@ function PrivacyTermsManager() {
     }
   };
 
+  const handleSaveEditor = async () => {
+    setLoadingEditor(true);
+    try {
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
+      const token = localStorage.getItem("token");
+      const res = await axios.post(
+        `${API_BASE_URL}/api/settings/editor-policy/update/`,
+        { 
+          content: editorContent,
+          meta_title: editorMetaTitle,
+          meta_keywords: editorMetaKeywords,
+          meta_description: editorMetaDescription
+        },
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (res.data.success) {
+        toast.success("✅ Editor Policy updated successfully!");
+      } else {
+        toast.error(res.data.error || "Failed to update editor policy");
+      }
+    } catch (err) {
+      console.error("Error updating editor policy:", err);
+      toast.error("❌ Failed to update editor policy");
+    } finally {
+      setLoadingEditor(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex gap-2 border-b overflow-x-auto">
@@ -363,6 +425,16 @@ function PrivacyTermsManager() {
         >
           Contact Us
         </button>
+        <button
+          onClick={() => setActiveTab("editor")}
+          className={`px-4 py-2 font-semibold whitespace-nowrap ${
+            activeTab === "editor"
+              ? "border-b-2 border-blue-600 text-blue-600"
+              : "text-gray-500"
+          }`}
+        >
+          Editor Policy
+        </button>
       </div>
 
       {activeTab === "privacy" && (
@@ -371,12 +443,12 @@ function PrivacyTermsManager() {
             <label className="block font-medium text-gray-700 mb-2">
               Privacy Policy Content
             </label>
-            <textarea
-              value={privacyContent}
-              onChange={(e) => setPrivacyContent(e.target.value)}
-              rows={15}
-              className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+            <TipTapEditor
+              key="privacy"
+              content={privacyContent}
+              onChange={(html) => setPrivacyContent(html)}
               placeholder="Enter privacy policy content..."
+              className="w-full"
             />
             <p className="text-xs text-gray-500 mt-1">
               This content will be displayed on the Privacy Policy page
@@ -443,12 +515,12 @@ function PrivacyTermsManager() {
             <label className="block font-medium text-gray-700 mb-2">
               Terms & Conditions Content
             </label>
-            <textarea
-              value={termsContent}
-              onChange={(e) => setTermsContent(e.target.value)}
-              rows={15}
-              className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+            <TipTapEditor
+              key="terms"
+              content={termsContent}
+              onChange={(html) => setTermsContent(html)}
               placeholder="Enter terms & conditions content..."
+              className="w-full"
             />
             <p className="text-xs text-gray-500 mt-1">
               This content will be displayed on the Terms & Conditions page
@@ -515,12 +587,12 @@ function PrivacyTermsManager() {
             <label className="block font-medium text-gray-700 mb-2">
               Refund & Cancellation Policy Content
             </label>
-            <textarea
-              value={refundContent}
-              onChange={(e) => setRefundContent(e.target.value)}
-              rows={15}
-              className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+            <TipTapEditor
+              key="refund"
+              content={refundContent}
+              onChange={(html) => setRefundContent(html)}
               placeholder="Enter refund & cancellation policy content..."
+              className="w-full"
             />
             <p className="text-xs text-gray-500 mt-1">
               This content will be displayed on the Refund & Cancellation Policy page
@@ -587,12 +659,12 @@ function PrivacyTermsManager() {
             <label className="block font-medium text-gray-700 mb-2">
               Disclaimer Content
             </label>
-            <textarea
-              value={disclaimerContent}
-              onChange={(e) => setDisclaimerContent(e.target.value)}
-              rows={15}
-              className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+            <TipTapEditor
+              key="disclaimer"
+              content={disclaimerContent}
+              onChange={(html) => setDisclaimerContent(html)}
               placeholder="Enter disclaimer content..."
+              className="w-full"
             />
             <p className="text-xs text-gray-500 mt-1">
               This content will be displayed on the Disclaimer page
@@ -761,6 +833,78 @@ function PrivacyTermsManager() {
             className="bg-blue-700 hover:bg-blue-800"
           >
             {loadingContact ? "Saving..." : "Save Contact Us"}
+          </Button>
+        </div>
+      )}
+
+      {activeTab === "editor" && (
+        <div className="space-y-4">
+          <div>
+            <label className="block font-medium text-gray-700 mb-2">
+              Editor Policy Content
+            </label>
+            <TipTapEditor
+              key="editor"
+              content={editorContent}
+              onChange={(html) => setEditorContent(html)}
+              placeholder="Enter editor policy content..."
+              className="w-full"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              This content will be displayed on the Editor Policy page and linked from the footer
+            </p>
+          </div>
+          
+          <div className="space-y-4 border-t pt-4">
+            <h3 className="font-semibold text-gray-700">SEO Settings</h3>
+            <div>
+              <Label htmlFor="editor-meta-title" className="block font-medium text-gray-700 mb-2">
+                Meta Title
+              </Label>
+              <Input
+                id="editor-meta-title"
+                value={editorMetaTitle}
+                onChange={(e) => setEditorMetaTitle(e.target.value)}
+                placeholder="Enter meta title for SEO..."
+                className="w-full"
+              />
+              <p className="text-xs text-gray-500 mt-1">Recommended: 50-60 characters</p>
+            </div>
+            <div>
+              <Label htmlFor="editor-meta-keywords" className="block font-medium text-gray-700 mb-2">
+                Meta Keywords
+              </Label>
+              <Input
+                id="editor-meta-keywords"
+                value={editorMetaKeywords}
+                onChange={(e) => setEditorMetaKeywords(e.target.value)}
+                placeholder="Enter meta keywords (comma-separated)..."
+                className="w-full"
+              />
+              <p className="text-xs text-gray-500 mt-1">Separate keywords with commas</p>
+            </div>
+            <div>
+              <Label htmlFor="editor-meta-description" className="block font-medium text-gray-700 mb-2">
+                Meta Description
+              </Label>
+              <Textarea
+                id="editor-meta-description"
+                value={editorMetaDescription}
+                onChange={(e) => setEditorMetaDescription(e.target.value)}
+                rows={3}
+                placeholder="Enter meta description for SEO..."
+                className="w-full"
+              />
+              <p className="text-xs text-gray-500 mt-1">Recommended: 150-160 characters</p>
+            </div>
+          </div>
+          
+          <Button
+            onClick={handleSaveEditor}
+            disabled={loadingEditor}
+            className="bg-blue-700 hover:bg-blue-800"
+          >
+            {loadingEditor ? "Saving..." : "Save Editor Policy"}
           </Button>
         </div>
       )}
