@@ -107,7 +107,6 @@ export default function ParsingSuitePage() {
     is_valid: false,
   });
 
-  console.log("currentSessionId : ",currentSessionId)
   useEffect(() => {
     if (!checkAuth()) {
       router.push("/admin/auth");
@@ -116,8 +115,44 @@ export default function ParsingSuitePage() {
     fetchConfig();
   }, [router]);
 
+  // Input questions: load only when we have a session and user is on the tab
+  useEffect(() => {
+    if (activeTab !== "input-questions") return;
+    if (currentSessionId) {
+      fetchInputQuestions(currentSessionId);
+    } else {
+      setInputQuestions([]);
+      setCurrentInputBatchId("");
+    }
+  }, [activeTab, currentSessionId]);
+
+  // Generated questions: load only when we have a session and user is on the tab
+  useEffect(() => {
+    if (activeTab !== "generated-questions") return;
+    if (currentSessionId) {
+      fetchGeneratedQuestions();
+    } else {
+      setGeneratedQuestions([]);
+    }
+  }, [activeTab, currentSessionId]);
+
+  // Validated questions: load only when we have a session and user is on the tab
+  useEffect(() => {
+    if (activeTab !== "validated-questions") return;
+    if (currentSessionId) {
+      fetchValidatedQuestions();
+    } else {
+      setValidatedQuestions([]);
+    }
+  }, [activeTab, currentSessionId]);
+
   function handleDownloadValidatedQuestionsCSV() {
-    fetch(`${VALIDATION_BASE}/download-validated-questions-csv/`, {
+    if (!currentSessionId) {
+      setMessage("No active session. Parse and save a document first.");
+      setMessageType("error");
+      return;
+    }
+    fetch(`${VALIDATION_BASE}/download-validated-questions-csv/?session_id=${encodeURIComponent(currentSessionId)}`, {
       method: "GET",
       headers: {
         ...getAuthHeaders(),   // 🔥 REQUIRED
@@ -140,15 +175,8 @@ export default function ParsingSuitePage() {
       })
       .catch(() => alert("CSV download failed"));
   }
-  
-  
 
-  // When switching to Generated tab: load for current document only, or clear if no current document
-  useEffect(() => {
-    if (activeTab !== "generated-questions") return;
-    if (currentInputBatchId) fetchGeneratedQuestions();
-    else setGeneratedQuestions([]);
-  }, [activeTab, currentInputBatchId]);
+
 
   function fetchConfig() {
     fetch(`${PARSING_BASE}/get-config/`, { headers: getAuthHeaders() })
@@ -211,9 +239,16 @@ export default function ParsingSuitePage() {
       .finally(() => setLoading(false));
   }
 
-  function fetchInputQuestions() {
+  /** @param {string} [sessionIdOverride] - If provided, fetch for this session (e.g. right after parse-save-all). */
+  function fetchInputQuestions(sessionIdOverride) {
+    const sid = sessionIdOverride ?? currentSessionId;
+    if (!sid) {
+      setInputQuestions([]);
+      setCurrentInputBatchId("");
+      return;
+    }
     setQuestionsLoading(true);
-    fetch(`${PARSING_BASE}/input-questions/`, { headers: getAuthHeaders() })
+    fetch(`${PARSING_BASE}/input-questions/?session_id=${encodeURIComponent(sid)}`, { headers: getAuthHeaders() })
       .then((res) => res.json())
       .then((data) => {
         if (data.success && data.questions) {
@@ -231,11 +266,13 @@ export default function ParsingSuitePage() {
       .finally(() => setQuestionsLoading(false));
   }
 
-  /** @param {string} [overrideBatchId] - If provided, fetch for this batch and set as current (so count matches). */
   function fetchGeneratedQuestions() {
+    if (!currentSessionId) {
+      setGeneratedQuestions([]);
+      return;
+    }
     setGeneratedLoading(true);
-    const url = `${GENERATOR_BASE}/generated-questions/?session_id=${currentSessionId}`;
-    // console.log("Session_url  : ",sessionId)
+    const url = `${GENERATOR_BASE}/generated-questions/?session_id=${encodeURIComponent(currentSessionId)}`;
     fetch(url, { headers: getAuthHeaders() })
       .then((res) => res.json())
       .then((data) => {
@@ -247,8 +284,12 @@ export default function ParsingSuitePage() {
   }
 
   function fetchValidatedQuestions() {
+    if (!currentSessionId) {
+      setValidatedQuestions([]);
+      return;
+    }
     setValidatedLoading(true);
-    fetch(`${VALIDATION_BASE}/validated-questions/?session_id=${currentSessionId}`, { headers: getAuthHeaders() })
+    fetch(`${VALIDATION_BASE}/validated-questions/?session_id=${encodeURIComponent(currentSessionId)}`, { headers: getAuthHeaders() })
       .then((res) => res.json())
       .then((data) => {
         if (data.success && data.questions) setValidatedQuestions(data.questions);
@@ -259,13 +300,17 @@ export default function ParsingSuitePage() {
   }
 
   function handleGenerateNewQuestions() {
+    if (!currentSessionId) {
+      setMessage("Parse and save a document first to create a session.");
+      setMessageType("error");
+      return;
+    }
     setLoading(true);
     setMessage("");
-    const body = currentSessionId ? { session_id: currentSessionId } : {};
     fetch(`${GENERATOR_BASE}/generate-from-input/`, {
-      method: "POST", 
+      method: "POST",
       headers: getAuthHeaders(),
-      body: JSON.stringify(body),
+      body: JSON.stringify({ session_id: currentSessionId }),
     })
       .then((res) => res.json())
       .then((data) => {
@@ -338,19 +383,17 @@ export default function ParsingSuitePage() {
       headers: getAuthHeadersForUpload(),
       body: form,
     })
-      .then((res) => 
-        {
-          // console.log("res for parsing : ",res)
-          return res.json()
-        })
+      .then((res) => {
+        // console.log("res for parsing : ",res)
+        return res.json()
+      })
       .then((data) => {
-        console.log("data for parsed : ",data)
         if (data.success) {
           setMessage(data.message || `Saved ${data.saved_count || 0} question(s) to Input Questions.`);
           setMessageType("success");
           setActiveTab("input-questions");
           setCurrentSessionId(data.session_id);
-          fetchInputQuestions();
+          fetchInputQuestions(data.session_id);
         } else {
           setMessage(data.error || "Parse & Save failed.");
           setMessageType("error");
@@ -616,6 +659,11 @@ export default function ParsingSuitePage() {
   }
 
   function handleValidateWithGemini() {
+    if (!currentSessionId) {
+      setMessage("Parse and save a document first to create a session.");
+      setMessageType("error");
+      return;
+    }
     setLoading(true);
     setMessage("");
     const body = selectedGeneratedIds.size > 0 ? { ids: Array.from(selectedGeneratedIds) } : {};
@@ -690,20 +738,20 @@ export default function ParsingSuitePage() {
       setMessageType("error");
       return;
     }
-  
+
     const generatedIds = validatedQuestions
       .filter((q) => ids.includes(q.id) && q.generated_question_id)
       .map((q) => q.generated_question_id);
-  
+
     if (!generatedIds.length) {
       setMessage("No generated question IDs found.");
       setMessageType("error");
       return;
     }
-  
+
     setLoading(true);
     setMessage("");
-  
+
     fetch(`${GENERATOR_BASE}/regenerate-questions/`, {
       method: "POST",
       headers: getAuthHeaders(),
@@ -714,10 +762,10 @@ export default function ParsingSuitePage() {
         if (data.success) {
           setMessage(data.message || "Regenerated.");
           setMessageType("success");
-  
+
           // ✅ Switch tab + reload regenerated questions
           setActiveTab("generated-questions");
-          fetchGeneratedQuestions(currentInputBatchId);
+          fetchGeneratedQuestions();
         } else {
           setMessage(data.error || "Regenerate failed.");
           setMessageType("error");
@@ -729,15 +777,20 @@ export default function ParsingSuitePage() {
       })
       .finally(() => setLoading(false));
   }
-  
+
   function handleRevalidateSelected() {
+    if (!currentSessionId) {
+      setMessage("No active session. Parse and save a document first.");
+      setMessageType("error");
+      return;
+    }
     const ids = Array.from(selectedValidatedIds);
     const generatedIds = ids.length
       ? validatedQuestions.filter((q) => ids.includes(q.id) && q.generated_question_id).map((q) => q.generated_question_id)
       : null;
     setLoading(true);
     setMessage("");
-    const body = generatedIds && generatedIds.length > 0 ? { ids: generatedIds } : {};
+    const body = generatedIds && generatedIds.length > 0 ? { ids: generatedIds, session_id: currentSessionId } : { session_id: currentSessionId };
     fetch(`${VALIDATION_BASE}/run-validation/`, {
       method: "POST",
       headers: getAuthHeaders(),
@@ -900,7 +953,7 @@ export default function ParsingSuitePage() {
       })
       .finally(() => setLoading(false));
   }
- 
+
 
   function handleFileSelect(file) {
     if (
@@ -936,9 +989,8 @@ export default function ParsingSuitePage() {
           <button
             key={t.id}
             onClick={() => setActiveTab(t.id)}
-            className={`px-4 py-2 rounded-t font-medium ${
-              activeTab === t.id ? "bg-gray-100 border border-b-0" : "text-gray-600"
-            }`}
+            className={`px-4 py-2 rounded-t font-medium ${activeTab === t.id ? "bg-gray-100 border border-b-0" : "text-gray-600"
+              }`}
           >
             {t.label}
           </button>
@@ -973,7 +1025,7 @@ export default function ParsingSuitePage() {
           setPrompt2Open={setPrompt2Open}
           prompt3Open={prompt3Open}
           setPrompt3Open={setPrompt3Open}
-          // handleDownloadValidatedQuestionsCSV={handleDownloadValidatedQuestionsCSV} // ✅ Add this prop
+        // handleDownloadValidatedQuestionsCSV={handleDownloadValidatedQuestionsCSV} // ✅ Add this prop
         />
       )}
 
