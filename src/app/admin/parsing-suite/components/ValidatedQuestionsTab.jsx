@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Edit, Trash2, Search, RefreshCw, CheckCircle, Download } from "lucide-react";
-
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 function matchesSearch(q, search) {
   const s = (search || "").toLowerCase();
   if (!s) return true;
@@ -56,9 +56,10 @@ export default function ValidatedQuestionsTab({
     console.log("Downloading validated questions CSV (session-based)");
   
     const token = localStorage.getItem("token");
-    console.log("token : ",token)
+    // console.log("token : ",token)
+    console.log("API_BASE_URL : ",API_BASE_URL)
     fetch(
-      `http://localhost:8000/api/question-validation/validated-questions/download-csv/?session_id=${currentSessionId}`,
+      `${API_BASE_URL}/api/question-validation/validated-questions/download-csv/?session_id=${currentSessionId}`,
       {
         method: "GET",
         headers: {
