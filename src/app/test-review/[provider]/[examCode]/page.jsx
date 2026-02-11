@@ -78,7 +78,9 @@ export default function TestReview() {
       const storedResults = sessionStorage.getItem('testResults');
       const storedQuestions = sessionStorage.getItem('testQuestions');
       const storedAnswers = sessionStorage.getItem('userAnswers');
-      
+      console.log('storedResults', storedResults);
+      console.log('storedQuestions', storedQuestions);
+      console.log('storedAnswers', storedAnswers);
       if (storedResults) {
         const results = JSON.parse(storedResults);
         setTestResults(results);
@@ -264,9 +266,9 @@ export default function TestReview() {
   
   // Recalculate to ensure accuracy
   const actualCorrectAnswers = correctAnswers || 0;
-  const actualIncorrectAnswers = incorrectAnswers || 0;
+  const actualIncorrectAnswers = incorrectAnswers  || 0;
   const actualUnanswered = unanswered || 0;
-  const actualCompleted = questionsCompleted || 0;
+  const actualCompleted = questionsCompleted - unanswered || 0;
   
   // Verify calculations match
   const verifiedCorrectAnswers = actualCorrectAnswers;

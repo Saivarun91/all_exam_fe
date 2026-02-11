@@ -334,9 +334,25 @@ export default function TestPlayerPage() {
         
         if (!questionId) continue;
         
-        const selectedAnswers = Array.isArray(userAnswer) 
-          ? userAnswer.map(ans => String(ans))
-          : (userAnswer && userAnswer !== "") ? [String(userAnswer)] : [];
+        let selectedAnswers = [];
+
+if (userAnswer && question.options) {
+  if (Array.isArray(userAnswer)) {
+    selectedAnswers = userAnswer.map(ans => {
+      const index = question.options.findIndex(
+        opt => (opt.text || opt) === ans
+      );
+      return index !== -1 ? String(index) : null;
+    }).filter(val => val !== null);
+  } else {
+    const index = question.options.findIndex(
+      opt => (opt.text || opt) === userAnswer
+    );
+    if (index !== -1) {
+      selectedAnswers = [String(index)];
+    }
+  }
+}
 
         userAnswers.push({
           question_id: String(questionId),
@@ -392,13 +408,14 @@ export default function TestPlayerPage() {
         }
       }
       
-      const initialTime = Math.round((timeRemaining || 0) / 60);
-      const testDuration = parseDuration(exam?.duration);
-      const timeSpent = testDuration - initialTime;
-      const minutes = Math.floor(timeSpent);
-      const seconds = Math.floor((timeSpent % 1) * 60);
-      const timeTaken = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-      
+      const totalDurationSeconds = parseDuration(exam?.duration) * 60;
+const elapsedSeconds = totalDurationSeconds - (timeRemaining || 0);
+
+const minutes = Math.floor(elapsedSeconds / 60);
+const seconds = elapsedSeconds % 60;
+
+const timeTaken = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+
       const testResults = {
         questionsCompleted: totalAccessible,
         totalQuestions: questions.length,
