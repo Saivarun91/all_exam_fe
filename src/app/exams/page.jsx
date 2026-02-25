@@ -1,81 +1,159 @@
-"use client";
+// "use client";
 
-import { Suspense, useEffect, useRef } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+// import { Suspense, useEffect, useRef } from "react";
+// import { useRouter, useSearchParams } from "next/navigation";
+// import ExamsPageContent from "@/components/exams/ExamsPageContent";
+// import { createSlug } from "@/lib/utils";
+
+// function ExamsPageContentWrapper() {
+//   const router = useRouter();
+//   const searchParams = useSearchParams();
+//   const hasRedirected = useRef(false);
+
+//   // Redirect from query params to SEO-friendly paths (one-time redirect)
+//   useEffect(() => {
+//     if (hasRedirected.current) return;
+    
+//     const q = searchParams?.get("q");
+//     const providerParam = searchParams?.get("provider");
+    
+//     if (q || providerParam) {
+//       hasRedirected.current = true;
+      
+//       // Build SEO-friendly URL
+//       let targetUrl = "/exams";
+      
+//       if (providerParam && q) {
+//         // Provider + keyword: /exams/provider/search/keyword
+//         const keywordSlug = createSlug(q.trim());
+//         targetUrl = `/exams/${providerParam}/search/${encodeURIComponent(keywordSlug)}`;
+//       } else if (providerParam) {
+//         // Provider only: /exams/provider
+//         targetUrl = `/exams/${providerParam}`;
+//       } else if (q) {
+//         // Keyword only: /exams/search/keyword
+//         const keywordSlug = createSlug(q.trim());
+//         targetUrl = `/exams/search/${encodeURIComponent(keywordSlug)}`;
+//       }
+      
+//       // Redirect to SEO-friendly URL
+//       router.replace(targetUrl);
+//     }
+//   }, [searchParams, router]);
+
+//   // Set page title and canonical URL for exams listing page
+//   useEffect(() => {
+//     if (typeof window !== "undefined") {
+//       // Set dynamic page title
+//       document.title = "All Certification Exams - Practice Tests | AllExamQuestions";
+      
+//       const currentPath = window.location.pathname;
+//       // Remove query parameters for canonical URL
+//       const pathWithoutQuery = currentPath.split('?')[0];
+//       const canonicalUrl = `https://allexamquestions.com${pathWithoutQuery}`;
+//       let canonicalLink = document.querySelector('link[rel="canonical"]');
+//       if (!canonicalLink) {
+//         canonicalLink = document.createElement("link");
+//         canonicalLink.setAttribute("rel", "canonical");
+//         document.head.appendChild(canonicalLink);
+//       }
+//       canonicalLink.setAttribute("href", canonicalUrl);
+//     }
+//   }, []);
+
+//   // Always use path-based routing (no query parameters)
+//   return <ExamsPageContent usePathBasedRouting={true} />;
+// }
+
+// export default function ExamsPage() {
+//   return (
+//     <Suspense fallback={
+//       <div className="min-h-screen bg-white flex items-center justify-center">
+//         <div className="text-center">
+//           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#1A73E8] mx-auto mb-4"></div>
+//           <p className="text-[#0C1A35]/70">Loading exams...</p>
+//         </div>
+//       </div>
+//     }>
+//       <ExamsPageContentWrapper />
+//     </Suspense>
+//   );
+// }
+
+
+
+
+// ❌ REMOVE "use client"
+
+import { Suspense } from "react";
 import ExamsPageContent from "@/components/exams/ExamsPageContent";
-import { createSlug } from "@/lib/utils";
 
-function ExamsPageContentWrapper() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const hasRedirected = useRef(false);
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
-  // Redirect from query params to SEO-friendly paths (one-time redirect)
-  useEffect(() => {
-    if (hasRedirected.current) return;
-    
-    const q = searchParams?.get("q");
-    const providerParam = searchParams?.get("provider");
-    
-    if (q || providerParam) {
-      hasRedirected.current = true;
-      
-      // Build SEO-friendly URL
-      let targetUrl = "/exams";
-      
-      if (providerParam && q) {
-        // Provider + keyword: /exams/provider/search/keyword
-        const keywordSlug = createSlug(q.trim());
-        targetUrl = `/exams/${providerParam}/search/${encodeURIComponent(keywordSlug)}`;
-      } else if (providerParam) {
-        // Provider only: /exams/provider
-        targetUrl = `/exams/${providerParam}`;
-      } else if (q) {
-        // Keyword only: /exams/search/keyword
-        const keywordSlug = createSlug(q.trim());
-        targetUrl = `/exams/search/${encodeURIComponent(keywordSlug)}`;
-      }
-      
-      // Redirect to SEO-friendly URL
-      router.replace(targetUrl);
-    }
-  }, [searchParams, router]);
+async function fetchData() {
+  try {
+    const [
+      providersRes,
+      categoriesRes,
+      coursesRes,
+      trustBarRes,
+      aboutRes,
+    ] = await Promise.all([
+      fetch(`${API_BASE_URL}/api/providers/`, { cache: "no-store" }),
+      fetch(`${API_BASE_URL}/api/categories/`, { cache: "no-store" }),
+      fetch(`${API_BASE_URL}/api/courses/`, { cache: "no-store" }),
+      fetch(`${API_BASE_URL}/api/home/exams-trust-bar/`, { cache: "no-store" }),
+      fetch(`${API_BASE_URL}/api/home/exams-about/`, { cache: "no-store" }),
+    ]);
 
-  // Set page title and canonical URL for exams listing page
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      // Set dynamic page title
-      document.title = "All Certification Exams - Practice Tests | AllExamQuestions";
-      
-      const currentPath = window.location.pathname;
-      // Remove query parameters for canonical URL
-      const pathWithoutQuery = currentPath.split('?')[0];
-      const canonicalUrl = `https://allexamquestions.com${pathWithoutQuery}`;
-      let canonicalLink = document.querySelector('link[rel="canonical"]');
-      if (!canonicalLink) {
-        canonicalLink = document.createElement("link");
-        canonicalLink.setAttribute("rel", "canonical");
-        document.head.appendChild(canonicalLink);
-      }
-      canonicalLink.setAttribute("href", canonicalUrl);
-    }
-  }, []);
+    const providersData = await providersRes.json();
+    const categoriesData = await categoriesRes.json();
+    const coursesData = await coursesRes.json();
+    const trustBarData = await trustBarRes.json();
+    const aboutData = await aboutRes.json();
 
-  // Always use path-based routing (no query parameters)
-  return <ExamsPageContent usePathBasedRouting={true} />;
+    return {
+      providers:
+        Array.isArray(providersData)
+          ? providersData.filter((p) => p.is_active)
+          : [],
+      categories:
+        Array.isArray(categoriesData)
+          ? categoriesData.filter((c) => c.is_active !== false)
+          : [],
+      exams:
+        Array.isArray(coursesData)
+          ? coursesData.filter((c) => c.is_active !== false)
+          : [],
+      trustBarItems: trustBarData?.success ? trustBarData.data : [],
+      aboutSection: aboutData?.success ? aboutData.data : {},
+    };
+  } catch (error) {
+    console.error("Server fetch error:", error);
+    return {
+      providers: [],
+      categories: [],
+      exams: [],
+      trustBarItems: [],
+      aboutSection: {},
+    };
+  }
 }
 
-export default function ExamsPage() {
+export default async function ExamsPage() {
+  const data = await fetchData();
+
   return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#1A73E8] mx-auto mb-4"></div>
-          <p className="text-[#0C1A35]/70">Loading exams...</p>
-        </div>
-      </div>
-    }>
-      <ExamsPageContentWrapper />
+    <Suspense fallback={null}>
+      <ExamsPageContent
+        initialProvidersData={data.providers}
+        initialCategoriesData={data.categories}
+        initialExamsData={data.exams}
+        initialTrustBarData={data.trustBarItems}
+        initialAboutData={data.aboutSection}
+        usePathBasedRouting={true}
+      />
     </Suspense>
   );
 }
