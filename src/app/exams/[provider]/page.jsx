@@ -36,6 +36,7 @@ import ExamsPageContent from "@/components/exams/ExamsPageContent";
 
 export default function ProviderExamsPage({ params }) {
   const provider = params?.provider;
+  
 
   // Initialize with provider from URL
   const initialProvider = provider ? [provider] : [];

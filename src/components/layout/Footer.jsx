@@ -22,6 +22,7 @@ import { getOptimizedImageUrl } from "@/utils/imageUtils";
 const Footer = () => {
   const pathname = usePathname();
   const siteName = useSiteName();
+  console.log(siteName);
   const contactDetails = useContactDetails();
   const logoUrl = useLogoUrl();
   const socialUrls = useSocialMediaUrls();

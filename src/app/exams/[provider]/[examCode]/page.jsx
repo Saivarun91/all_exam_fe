@@ -705,9 +705,321 @@
 
 
 
+// import { notFound } from "next/navigation";
+// import ExamDetailClient from "./ExamDetailClient";
+
+
+
+// export async function generateMetadata({ params }) {
+//   const { provider, examCode } = await params;
+
+//   return {
+//     // title: `${examCode} - ${provider} Certification Exam | AllExamQuestions`,
+//     // description: `Practice ${examCode} certification exam questions with real exam-style tests and detailed explanations.`,
+//     alternates: {
+//       canonical: `https://allexamquestions.com/exams/${provider}/${examCode}`,
+//     },
+//   };
+// } 
+
+// export default async function ExamDetailPage({ params }) {
+
+//   params = await params;
+//   const { provider, examCode } = params;
+
+//   const API_BASE =
+//     process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
+
+//   let exam;
+
+//   try {
+
+//     const res = await fetch(
+//       `${API_BASE}/api/courses/exams/${provider}-${examCode}/`,
+//       { cache: "no-store" }
+//     );
+
+//     if (!res.ok) throw new Error();
+
+//     exam = await res.json();
+
+//     console.log("FULL API =", exam);
+
+//   } catch {
+//     notFound();
+//   }
+
+
+//   /* ---------------- SUPER SAFE PICK ---------------- */
+
+//   const pick = (...keys) => {
+//     for (const k of keys) {
+
+//       const val = exam?.[k];
+
+//       if (
+//         val !== undefined &&
+//         val !== null &&
+//         val !== "" &&
+//         val !== "null"
+//       ) return val;
+//     }
+//     return null;
+//   };
+
+//   const pickArray = (...keys) => {
+//     for (const k of keys) {
+//       if (Array.isArray(exam?.[k]) && exam[k].length) return exam[k];
+//     }
+//     return [];
+//   };
+
+
+
+    
+
+
+//   /* ---------------- PRACTICE TESTS ---------------- */
+
+//   const practiceTestsList =
+//     pickArray(
+//       "practice_tests_list",
+//       "practice_tests",
+//       "tests",
+//       "exam_tests"
+//     );
+
+//   const totalQuestions =
+//     practiceTestsList.length
+//       ? practiceTestsList.reduce(
+//           (sum, t) =>
+//             sum + Number(t.questions || t.total_questions || 0),
+//           0
+//         )
+//       : Number(
+//           pick(
+//             "total_questions",
+//             "questions",
+//             "question_count"
+//           ) || 0
+//         );
+
+
+
+//   /* ---------------- PRACTICE TESTS TOTAL DURATION ---------------- */
+//   function getTotalDuration(obj) {
+//     if (!obj || typeof obj !== "object") return 0;
+
+//     let total = 0;
+
+//     for (const key in obj) {
+//       const value = obj[key];
+
+//       // If the key contains "duration", extract its number
+//       if (key.toLowerCase().includes("duration")) {
+//         if (typeof value === "number") {
+//           total += value;
+//         } else if (typeof value === "string") {
+//           // Extract all numbers in the string and sum them
+//           const match = value.match(/\d+/g);
+//           if (match) total += match.reduce((sum, n) => sum + Number(n), 0);
+//         }
+//       }
+
+//       // If value is object, search recursively
+//       if (typeof value === "object" && value !== null) {
+//         total += getTotalDuration(value);
+//       }
+//     }
+
+//     return total;
+//   }
+
+//   // Calculate total duration of practice tests only
+//   let totalPracticeMinutes = 0;
+//   if (practiceTestsList.length) {
+//     for (const test of practiceTestsList) {
+//       totalPracticeMinutes += getTotalDuration(test);
+//     }
+//   }
+
+//   const duration = totalPracticeMinutes ? `${totalPracticeMinutes} ` : null;
+//   console.log("DURATION:", duration);
+
+
+  
+//   /* ---------------- TOPICS PREPROCESSING ---------------- */
+//   const rawTopics = exam.topics || [];
+
+//   const topics = rawTopics.map((t) => {
+//     const name = t.name || t.title || t.topic || "";
+
+//     // Pick numeric value from various possible fields
+//     let rawPercentage = t.weight ?? t.percentage ?? t.percent ?? t.value ?? "0";
+
+//     rawPercentage = rawPercentage.toString().trim(); // keep as string
+
+//     // Parse ranges like "10-20%", "10 - 20%", or single numbers like "15%"
+//     let startPercentage = 0;
+//     let endPercentage = 0;
+
+//     // Extract numbers from string
+//     const numbers = rawPercentage.match(/\d+/g); // will get all numbers in string
+
+//     if (numbers && numbers.length > 0) {
+//       startPercentage = Number(numbers[0]);
+//       endPercentage = numbers.length > 1 ? Number(numbers[1]) : startPercentage;
+//     }
+
+//     // Clamp between 0-100
+//     startPercentage = Math.min(Math.max(startPercentage, 0), 100);
+//     endPercentage = Math.min(Math.max(endPercentage, 0), 100);
+
+//     return {
+//       name,
+//       rawPercentage: rawPercentage + (rawPercentage.includes("%") ? "" : "%"), // display string
+//       startPercentage,
+//       endPercentage,
+//     };
+//   });
+
+//   /* ---------------- FINAL DATA ---------------- */
+
+//   const examData = {
+
+//     ...exam,
+
+//     provider: pick("provider") || provider,
+//     code: pick("code", "exam_code") || examCode,
+//     title: pick("title", "name") || "",
+
+//     duration: duration ? `${duration} minutes` : null,
+
+//     passingScore:
+//       pick(
+//         "passing_score",
+//         "pass_score",
+//         "cutoff",
+//         "pass_mark"
+//       ) || "Not specified",
+
+//     difficulty:
+//       pick(
+//         "difficulty",
+//         "level",
+//         "exam_level"
+//       ) || "Beginner",
+
+//     practiceTests: practiceTestsList.length,
+
+//     totalQuestions,
+
+//     passRate:
+//       Number(pick("pass_rate", "passRate")) || null,
+
+//     rating:
+//       Number(pick("rating")) || null,
+
+//     about:
+//       pick("about", "description", "details") || "",
+
+//     whyMatters:
+//       pick("why_matters", "whyMatters") || "",
+
+//     practiceTestsList,
+
+//     category:
+//       pickArray("category", "categories"),
+
+//     topics,
+
+//     whatsIncluded:
+//       pickArray("whats_included"),
+
+//     testimonials:
+//       pickArray("testimonials"),
+
+//     faqs:
+//       pickArray("faqs"),
+//   };
+
+//   console.log("SERVER HTML DATA:", examData.title);
+//   return (
+//     <>
+//       {/* SERVER HTML FOR SEO / SOURCE VIEW */}
+//       <div style={{display:"none"}}>
+//         <h1>{examData.title}</h1>
+//         <p>{examData.duration}</p>
+//         <p>{examData.totalQuestions}</p>
+//         <p>{examData.about}</p>
+//         <p>{examData.whyMatters}</p>
+//       </div>
+  
+//       {/* REAL UI */}
+//       <ExamDetailClient
+//         examData={examData}
+//         provider={provider}
+//         examCode={examCode}
+//       />
+//     </>
+//   );
+// }
+
+
+
+
+
 import { notFound } from "next/navigation";
 import ExamDetailClient from "./ExamDetailClient";
 
+
+
+export const dynamic = "force-dynamic";
+
+export async function generateMetadata({ params }) {
+  const { provider, examCode } = await params;
+
+  const API_BASE =
+    process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
+
+  try {
+    const res = await fetch(
+      `${API_BASE}/api/courses/exams/${provider}-${examCode}/`,
+      { cache: "no-store" }
+    );
+
+    if (!res.ok) {
+      return {
+        title: "Exam | AllExamQuestions",
+      };
+    }
+
+    const exam = await res.json();
+
+    return {
+      title:
+        exam.meta_title ||
+        exam.title ||
+        `${examCode} Certification Exam`,
+
+      description:
+        exam.meta_description ||
+        exam.description ||
+        "",
+
+      keywords:
+        exam.meta_keywords || "",
+
+      alternates: {
+        canonical: `https://allexamquestions.com/exams/${provider}/${examCode}`,
+      },
+    };
+  } catch (error) {
+    return {
+      title: "Exam | AllExamQuestions",
+    };
+  }
+}
 export default async function ExamDetailPage({ params }) {
 
   params = await params;

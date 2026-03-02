@@ -18,6 +18,8 @@ import {
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
+
+
 export default function TestReview() {
   const params = useParams();
   const router = useRouter();
@@ -55,11 +57,26 @@ export default function TestReview() {
         if (res.ok) {
           const data = await res.json();
           setExam(data);
-          
-          // Set dynamic page title
+        
           if (typeof window !== "undefined") {
-            const metaTitle = `Test Review - ${data.title} (${data.code}) | AllExamQuestions`;
-            document.title = metaTitle;
+            const finalTitle =
+              data.meta_title
+                ? `${data.meta_title} - Test Review`
+                : `${data.title} (${data.code}) - Test Review | AllExamQuestions`;
+        
+            document.title = finalTitle;
+        
+            // Optional: Also update meta description dynamically
+            let metaDescriptionTag = document.querySelector("meta[name='description']");
+            if (!metaDescriptionTag) {
+              metaDescriptionTag = document.createElement("meta");
+              metaDescriptionTag.name = "description";
+              document.head.appendChild(metaDescriptionTag);
+            }
+        
+            metaDescriptionTag.content =
+              data.meta_description ||
+              `Review your ${data.title} practice test results on AllExamQuestions.`;
           }
         }
       } catch (error) {

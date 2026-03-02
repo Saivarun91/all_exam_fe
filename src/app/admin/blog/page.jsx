@@ -407,6 +407,10 @@ async function fetchCourses() {
   return [];
 }
 
+
+
+
+
 export default async function AdminBlogPage() {
   const blogs = await fetchBlogs();
   const courses = await fetchCourses();

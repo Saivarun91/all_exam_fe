@@ -201,29 +201,26 @@
 
 
 
-import { ArrowLeft } from "lucide-react";
-import { Button } from "@/components/ui/button";
+// privacy-policy/page.jsx
 import BackButton from "./BackButton";
 
-// Helper function to fetch privacy policy from API
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
+
+// Fetch privacy policy
 async function fetchPrivacyPolicy() {
   try {
-    const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
     const res = await fetch(`${API_BASE_URL}/api/settings/privacy-policy/`, {
-      // Next.js caching options for SSR
-      next: { revalidate: 60 },
+      cache: "no-store", // always fetch fresh
     });
 
-    if (!res.ok) {
-      throw new Error("Failed to fetch privacy policy");
-    }
+    if (!res.ok) throw new Error("Failed to fetch privacy policy");
 
     const result = await res.json();
 
     if (result.success) {
       return {
         content: result.content || "Privacy policy content will be updated by admin.",
-        metaTitle: result.meta_title || "",
+        metaTitle: result.meta_title || "Privacy Policy - AllExamQuestions",
         metaKeywords: result.meta_keywords || "",
         metaDescription: result.meta_description || "",
       };
@@ -233,8 +230,8 @@ async function fetchPrivacyPolicy() {
   } catch (err) {
     console.error("Error fetching privacy policy:", err);
     return {
-      content: null,
-      metaTitle: "",
+      content: "Unable to load privacy policy at this time.",
+      metaTitle: "Privacy Policy - AllExamQuestions",
       metaKeywords: "",
       metaDescription: "",
       error: true,
@@ -242,32 +239,33 @@ async function fetchPrivacyPolicy() {
   }
 }
 
-export const metadata = {
-  title: "Privacy Policy - AllExamQuestions | Data Protection & Privacy",
-  description:
-    "Read our comprehensive Privacy Policy to understand how AllExamQuestions collects, uses, and protects your personal information. Learn about data security, user rights, and our commitment to privacy.",
-  keywords:
-    "privacy policy, data protection, user privacy, personal information, data security, GDPR, privacy rights, AllExamQuestions privacy, exam preparation privacy",
-  alternates: {
-    canonical: "https://allexamquestions.com/privacy-policy",
-  },
-};
+// Dynamic metadata for App Router
+export const dynamic = "force-dynamic"; // ensures dynamic SSR
+export async function generateMetadata() {
+  const { metaTitle, metaDescription, metaKeywords } = await fetchPrivacyPolicy();
 
+  return {
+    title: metaTitle,
+    description: metaDescription,
+    keywords: metaKeywords,
+    alternates: {
+      canonical: "https://allexamquestions.com/privacy-policy",
+    },
+  };
+}
+
+// Default export must be a React component
 export default async function PrivacyPolicyPage() {
   const { content, error } = await fetchPrivacyPolicy();
 
-  // Override metadata if admin provides
   return (
     <div className="py-16 bg-background">
       <div className="container mx-auto px-4 max-w-5xl">
-        {/* Back Button - This will work client-side via plain JS */}
         <BackButton />
 
         <div className="text-center mb-12">
           <h1 className="text-5xl font-bold mb-4 text-foreground">Privacy Policy</h1>
-          <p className="text-muted-foreground text-lg">
-            Your privacy is important to us
-          </p>
+          <p className="text-muted-foreground text-lg">Your privacy is important to us</p>
         </div>
 
         {error ? (

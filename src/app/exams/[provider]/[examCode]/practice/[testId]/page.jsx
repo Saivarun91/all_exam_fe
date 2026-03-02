@@ -1046,6 +1046,53 @@ import { notFound } from "next/navigation";
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
+
+  export async function generateMetadata(props) {
+    const { provider, examCode, testId } = await props.params;
+  
+    const API_BASE =
+      process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
+  
+    try {
+      const normalizedProvider = provider.toLowerCase().replace(/_/g, "-");
+      const normalizedExamCode = examCode.toLowerCase().replace(/_/g, "-");
+      const slug = `${normalizedProvider}-${normalizedExamCode}`;
+  
+      const res = await fetch(
+        `${API_BASE}/api/courses/exams/${slug}/`,
+        { cache: "no-store" }
+      );
+  
+      if (!res.ok) {
+        return {
+          title: `${examCode} Practice Test`,
+        };
+      }
+  
+      const exam = await res.json();
+  
+      return {
+        title: exam.meta_title
+          ? `${exam.meta_title} - ${testId}`
+          : `${exam.title} - ${testId} Practice Test`,
+  
+        description:
+          exam.meta_description ||
+          `Take ${testId} for ${exam.title} with real exam-style questions.`,
+  
+        keywords: exam.meta_keywords || "",
+  
+        alternates: {
+          canonical: `https://allexamquestions.com/exams/${provider}/${examCode}`,
+        },
+      };
+    } catch (error) {
+      return {
+        title: `${examCode} Practice Test`,
+      };
+    }
+  }
+
 async function getExamData(provider, examCode, testId) {
   try {
     const normalizedProvider = provider.toLowerCase().replace(/_/g, "-");

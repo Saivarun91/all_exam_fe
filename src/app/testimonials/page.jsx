@@ -149,6 +149,7 @@ import ReviewsJsonLd from "@/components/ReviewsJsonLd";
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
 
+
 // ✅ server-side fetch
 async function getTestimonials() {
   try {
@@ -169,9 +170,16 @@ async function getTestimonials() {
   return [];
 }
 
-export const metadata = {
-  title: "Testimonials - Success Stories | AllExamQuestions",
-};
+
+export async function generateMetadata() {
+  return {
+    title: "Testimonials - Success Stories | AllExamQuestions",
+    description: "Real experiences from professionals who passed using our platform",
+    alternates: {
+      canonical: "https://allexamquestions.com/testimonials",
+    },
+  };
+}
 
 export default async function TestimonialsPage() {
   const testimonials = await getTestimonials();

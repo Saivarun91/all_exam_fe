@@ -214,66 +214,101 @@
 
 
 
+export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
+export const revalidate = 0;
 
-import dynamic from "next/dynamic";
+import dynamicImport from "next/dynamic";
 
-// Critical above-the-fold component - SSR with loading fallback
-const HeroSection = dynamic(() => import("@/components/home/HeroSection"), {
+// ================= DYNAMIC COMPONENTS =================
+
+const HeroSection = dynamicImport(() => import("@/components/home/HeroSection"), {
   ssr: true,
   loading: () => <div className="min-h-[450px] md:min-h-[550px]" />,
 });
 
-// Non-critical components - lazy load dynamically
-const TopCategories = dynamic(() => import("@/components/home/TopCategories"), {
-  loading: () => <div className="py-20" />,
+const TopCategories = dynamicImport(() => import("@/components/home/TopCategories"), {
   ssr: true,
+  loading: () => <div className="py-20" />,
 });
 
-const FeaturedExams = dynamic(() => import("@/components/home/FeaturedExams"), {
-  loading: () => <div className="py-20" />,
+const FeaturedExams = dynamicImport(() => import("@/components/home/FeaturedExams"), {
   ssr: true,
+  loading: () => <div className="py-20" />,
 });
 
-const ValuePrepositions = dynamic(() => import("@/components/home/ValuePropositions"), {
-  loading: () => <div className="py-20" />,
+const ValuePrepositions = dynamicImport(() => import("@/components/home/ValuePropositions"), {
   ssr: true,
+  loading: () => <div className="py-20" />,
 });
 
-const PopularProviders = dynamic(() => import("@/components/home/PopularProviders"), {
-  loading: () => <div className="py-20" />,
+const PopularProviders = dynamicImport(() => import("@/components/home/PopularProviders"), {
   ssr: true,
+  loading: () => <div className="py-20" />,
 });
 
-const RecentlyUpdated = dynamic(() => import("@/components/home/RecentlyUpdated"), {
-  loading: () => <div className="py-20" />,
+const RecentlyUpdated = dynamicImport(() => import("@/components/home/RecentlyUpdated"), {
   ssr: true,
+  loading: () => <div className="py-20" />,
 });
 
-const Testimonials = dynamic(() => import("@/components/home/Testimonials"), {
-  loading: () => <div className="py-20" />,
+const Testimonials = dynamicImport(() => import("@/components/home/Testimonials"), {
   ssr: true,
+  loading: () => <div className="py-20" />,
 });
 
-// BlogSection is a server component - render directly
+const EmailSubscribe = dynamicImport(() => import("@/components/home/EmailSubscribe"), {
+  ssr: true,
+  loading: () => <div className="py-20" />,
+});
+
+const HomeFAQ = dynamicImport(() => import("@/components/home/HomeFAQ"), {
+  ssr: true,
+  loading: () => <div className="py-20" />,
+});
+
+// Server component
 import BlogSection from "@/components/home/BlogSection";
-
-const EmailSubscribe = dynamic(() => import("@/components/home/EmailSubscribe"), {
-  loading: () => <div className="py-20" />,
-  ssr: true,
-});
-
-const HomeFAQ = dynamic(() => import("@/components/home/HomeFAQ"), {
-  loading: () => <div className="py-20" />,
-  ssr: true,
-});
-
-// Optional: client-only scroll behavior
 import ScrollHandler from "@/components/home/ScrollHandler";
+
+// ================= METADATA =================
+
+export async function generateMetadata() {
+  try {
+    const API_BASE =
+      process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
+
+    const res = await fetch(
+      `${API_BASE}/api/home/home-page-seo/`,
+      { cache: "no-store" }
+    );
+
+    if (!res.ok) {
+      return { title: "All Exam Questions" };
+    }
+
+    const result = await res.json();
+    const seo = result?.data || {};
+
+    return {
+      title: seo.meta_title || "",
+      description: seo.meta_description || "",
+      keywords: seo.meta_keywords || "",
+      metadataBase: new URL("https://allexamquestions.com"),
+      alternates: {
+        canonical: "/", // ✅ relative path
+      },
+    };
+  } catch (error) {
+    return { title: "All Exam Questions" };
+  }
+}
+
+// ================= PAGE =================
 
 export default function Page() {
   return (
     <div className="min-h-screen">
-      {/* Client-only scroll handling */}
       <ScrollHandler />
 
       <main>
@@ -284,10 +319,7 @@ export default function Page() {
         <PopularProviders />
         <RecentlyUpdated />
         <Testimonials />
-        
-        {/* ✅ BlogSection renders correctly server-side */}
         <BlogSection />
-
         <EmailSubscribe />
         <HomeFAQ />
       </main>

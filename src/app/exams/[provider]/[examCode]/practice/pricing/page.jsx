@@ -663,6 +663,17 @@ import PricingPageClient from "./PricingPageClient";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
 
+export async function generateMetadata({ params }) {
+  const { provider, examCode } = await params;
+
+  return {
+    title: `${examCode} - ${provider} Certification Exam | AllExamQuestions`,
+    description: `Choose the best access plan for ${examCode} certification exam. AllExamQuestions provides unlimited practice tests, detailed explanations, and expert support.`,
+    alternates: {
+      canonical: `https://allexamquestions.com/exams/${provider}/${examCode}/practice/pricing`,
+    },
+  };
+}
 export default async function PricingPage({ params }) {
   // Safely destructure provider & examCode
   const provider = (await params)?.provider;

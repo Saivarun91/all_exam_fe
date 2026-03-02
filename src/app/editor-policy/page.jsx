@@ -159,83 +159,49 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 
 // ✅ Force static HTML output
-export const dynamic = "force-static";
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata() {
-  const API_BASE_URL =
-    process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
-
   try {
-    const res = await fetch(
-      `${API_BASE_URL}/api/settings/editor-policy/`,
-      { cache: "force-cache" }
-    );
-
-    if (!res.ok) {
-      throw new Error("Failed to fetch editor policy");
-    }
-
+    const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
+    const res = await fetch(`${API_BASE_URL}/api/settings/editor-policy/`, {
+      cache: "no-store", 
+    });
     const result = await res.json();
-
-    if (result.success) {
-      return {
-        title:
-          result.meta_title ||
-          "Editor Policy - AllExamQuestions | Editorial Guidelines",
-        description:
-          result.meta_description ||
-          "Read the AllExamQuestions Editor Policy. Guidelines for content editors, editorial standards, and quality assurance.",
-        keywords:
-          result.meta_keywords ||
-          "editor policy, editorial policy, AllExamQuestions, content guidelines, editorial standards",
-        alternates: {
-          canonical: "https://allexamquestions.com/editor-policy",
-        },
-      };
-    }
-  } catch (error) {
-    console.error("Metadata fetch error:", error);
+    return {
+      title: result.meta_title || "Editor Policy",
+      description: result.meta_description || "",
+      keywords: result.meta_keywords || "",
+      alternates: {
+        canonical: "https://allexamquestions.com/editor-policy",
+      },
+    };
+  } catch (err) {
+    console.error("Error fetching metadata:", err);
+    return {
+      title: "Editor Policy",
+      description: "",
+      keywords: "",
+      alternates: {
+        canonical: "https://allexamquestions.com/editor-policy",
+      },
+    };
   }
-
-  return {
-    title:
-      "Editor Policy - AllExamQuestions | Editorial Guidelines",
-    description:
-      "Read the AllExamQuestions Editor Policy. Guidelines for content editors, editorial standards, and quality assurance.",
-    keywords:
-      "editor policy, editorial policy, AllExamQuestions, content guidelines, editorial standards",
-    alternates: {
-      canonical: "https://allexamquestions.com/editor-policy",
-    },
-  };
 }
-
+async function fetchEditorPolicy() {
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
+  const res = await fetch(`${API_BASE_URL}/api/settings/editor-policy/`, {
+    cache: "no-store",
+  });
+  return res.json();
+}
 export default async function EditorPolicy() {
-  const API_BASE_URL =
-    process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
-
   let content = "";
   let error = false;
 
   try {
-    const res = await fetch(
-      `${API_BASE_URL}/api/settings/editor-policy/`,
-      { cache: "force-cache" }
-    );
-
-    if (!res.ok) {
-      throw new Error("Failed to fetch editor policy");
-    }
-
-    const result = await res.json();
-
-    if (result.success) {
-      content =
-        result.content ||
-        "Editor policy content will be updated by admin.";
-    } else {
-      throw new Error(result.error || "Failed to load editor policy");
-    }
+    const data = await fetchEditorPolicy();
+    content = data.content || "";
   } catch (err) {
     console.error("Error fetching editor policy:", err);
     error = true;

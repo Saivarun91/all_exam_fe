@@ -301,6 +301,15 @@ import { getOptimizedImageUrl } from "@/utils/imageUtils";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
+export async function generateMetadata() {
+  return {
+    title: "Blog - Certification Exam Tips & Guides | AllExamQuestions",
+    description: "Expert advice and strategies to maximize your exam success",
+    alternates: {
+      canonical: "https://allexamquestions.com/blog",
+    },
+  };
+}
 // Fetch blog posts from API
 async function fetchBlogs() {
   try {

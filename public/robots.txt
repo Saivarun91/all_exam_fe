@@ -6,5 +6,6 @@ Disallow: /login/
 Disallow: /signup/
 Disallow: /auth/
 Disallow: /api/
+Disallow: /test-review/
 
 Sitemap: https://allexamquestions.com/sitemap.xml

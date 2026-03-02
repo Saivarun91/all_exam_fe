@@ -235,17 +235,33 @@ import BackButton from "./BackButton"; // small client component for interactive
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
 
-// SEO metadata
-export const metadata = {
-  title: "Contact Us - AllExamQuestions | Get in Touch | Support & Help",
-  description:
-    "Contact AllExamQuestions for support, inquiries, or assistance. Find our email, phone number, address, and website. Get help with exam preparation, practice tests, and course enrollment.",
-  keywords:
-    "contact AllExamQuestions, support, customer service, help, inquiry, exam preparation support, practice test help, contact information",
-  alternates: {
-    canonical: "https://allexamquestions.com/contact-us",
-  },
-};
+export const dynamic = "force-dynamic";
+export async function generateMetadata() {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/settings/contact-us/`, {
+      cache: "no-store",
+    });
+    const result = await res.json();
+    return {
+      title: result.meta_title || "Contact Us",
+      description: result.meta_description || "",
+      keywords: result.meta_keywords || "",
+      alternates: {
+        canonical: "https://allexamquestions.com/contact-us",
+      },
+    };
+  } catch (err) {
+    console.error("Error fetching metadata:", err);
+    return {
+      title: "Contact Us",
+      description: "",
+      keywords: "",
+      alternates: {
+        canonical: "https://allexamquestions.com/contact-us",
+      },
+    };
+  }
+}
 
 async function fetchContactData() {
   try {

@@ -1180,4 +1180,97 @@ export default function PracticePageClient({
 
 
 
+// "use client";
 
+// import { useState, useEffect } from "react";
+// import { useRouter } from "next/navigation";
+// import { CheckCircle2, Clock, BookOpen, Target, Award, Star, TrendingUp } from "lucide-react";   
+
+// // UI Components
+// import { Button } from "@/components/ui/button";
+// import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+
+// export default function PracticePageClient({
+//   exam = {},
+//   practiceTests = [],
+//   provider = "",
+//   examCode = "",
+// }) {
+//   const router = useRouter();
+//   const [showLoginModal, setShowLoginModal] = useState(false);
+//   const [pendingTestUrl, setPendingTestUrl] = useState(null);
+
+//   // Check if user is logged in
+//   const checkLogin = () => typeof window !== "undefined" && !!localStorage.getItem("token");
+
+//   // Handle starting a test
+//   const handleStartTest = (test) => {
+//     const testIdentifier = test?.slug || test?.id || test;
+//     const cleanSlug =
+//       typeof testIdentifier === "string" ? testIdentifier.replace(/-[a-f0-9]{8}$/i, "") : testIdentifier;
+//     const url = `/exams/${provider}/${examCode}/practice/${cleanSlug}`;
+
+//     if (!checkLogin()) {
+//       setPendingTestUrl(url);
+//       setShowLoginModal(true);
+//     } else {
+//       router.push(url);
+//     }
+//   };
+
+//   // Redirect after login
+//   useEffect(() => {
+//     const handleLogin = () => {
+//       if (pendingTestUrl) {
+//         setShowLoginModal(false);
+//         router.push(pendingTestUrl);
+//         setPendingTestUrl(null);
+//       }
+//     };
+
+//     window.addEventListener("userLoggedIn", handleLogin);
+//     return () => window.removeEventListener("userLoggedIn", handleLogin);
+//   }, [pendingTestUrl, router]);
+
+//   return (
+//     <>
+//       {/* Only interactive "Start Test" buttons */}
+//       {practiceTests.map((test, idx) => (
+//         <Button
+//           key={idx}
+//           onClick={() => handleStartTest(test)}
+//           className="w-full bg-[#1A73E8] hover:bg-[#1557B0] text-white mb-2"
+//         >
+//           Start {test?.title || `Practice Test ${idx + 1}`}
+//         </Button>
+//       ))}
+
+//       {/* Login Modal */}
+//       <Dialog open={showLoginModal} onOpenChange={setShowLoginModal}>
+//         <DialogContent>
+//           <DialogHeader>
+//             <DialogTitle>Login Required</DialogTitle>
+//             <DialogDescription>You need to login to start taking tests.</DialogDescription>
+//           </DialogHeader>
+//           <div className="flex gap-3 mt-4">
+//             <Button variant="outline" onClick={() => setShowLoginModal(false)} className="flex-1">
+//               Cancel
+//             </Button>
+//             <Button
+//               onClick={() =>
+//                 router.push(
+//                   `/auth/login?redirect=${encodeURIComponent(
+//                     pendingTestUrl || `/exams/${provider}/${examCode}/practice`
+//                   )}`
+//                 )
+//               }
+//               className="flex-1 bg-[#1A73E8] hover:bg-[#1557B0] text-white"
+//             >
+//               Login / Sign Up
+//             </Button>
+//           </div>
+//         </DialogContent>
+//       </Dialog>
+//     </>
+//   );
+// }

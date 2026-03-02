@@ -400,9 +400,49 @@ async function fetchBlog(slug) {
   }
 }
 
+// ✅ Corrected generateMetadata with `await params`
+export async function generateMetadata({ params }) {
+  const resolvedParams = await params; // unwrap the Promise
+  const slug = resolvedParams?.slug;
+
+  if (!slug) {
+    return {
+      title: "Blog Not Found",
+      description: "The requested blog post does not exist.",
+      keywords: "blog",
+      alternates: {
+        canonical: "https://allexamquestions.com/blog",
+      },
+    };
+  }
+
+  const { blog } = await fetchBlog(slug);
+  const baseUrl = "https://allexamquestions.com";
+
+  if (!blog) {
+    return {
+      title: "Blog Not Found",
+      description: "The requested blog post does not exist.",
+      keywords: "blog",
+      alternates: {
+        canonical: `${baseUrl}/blog`,
+      },
+    };
+  }
+
+  return {
+    title: blog.meta_title || blog.title,
+    description: blog.meta_description || blog.excerpt || "Read this blog post.",
+    keywords: blog.meta_keywords || "blog, article, education",
+    alternates: {
+      canonical: `${baseUrl}/blog/${slug}`,
+    },
+  };
+}
+
+// Blog Detail Page Component
 export default async function BlogDetailPage({ params }) {
-  // ✅ unwrap params for App Router
-  const resolvedParams = await params;
+  const resolvedParams = await params; // unwrap the Promise
   const slug = resolvedParams?.slug;
 
   const { blog, error } = await fetchBlog(slug);
@@ -487,16 +527,11 @@ export default async function BlogDetailPage({ params }) {
           {blog.image_url && (
             <div className="relative w-full aspect-[16/9] mb-8 rounded-lg overflow-hidden bg-gray-100">
               <img
-                src={
-                  blog.image_url
-                    ? getOptimizedImageUrl(blog.image_url, 1200, 675)
-                    : "https://via.placeholder.com/800x400/1A73E8/ffffff?text=Blog+Post"
-                }
+                src={getOptimizedImageUrl(blog.image_url, 1200, 675)}
                 alt={blog.title || "Blog Image"}
                 width={1200}
                 height={675}
                 className="w-full h-full object-contain"
-                style={{ objectFit: "contain" }}
                 loading="lazy"
                 sizes="(max-width: 768px) 100vw, (max-width: 1024px) 90vw, 1200px"
                 decoding="async"

@@ -85,12 +85,103 @@
 
 // ❌ REMOVE "use client"
 
+// import { Suspense } from "react";
+// import ExamsPageContent from "@/components/exams/ExamsPageContent";
+
+// const API_BASE_URL =
+//   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
+
+// export async function generateMetadata() {
+//   const siteUrl =
+//     process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+    
+//   return {
+//     title: "Certification Exams | AllExamQuestions",
+//     description:
+//       "Explore certification exams by top providers and categories. AllExamQuestions is a platform for practicing for certification exams.",
+//     alternates: {
+//       canonical: "https://allexamquestions.com/exams",
+//     },
+//   };
+// }
+// async function fetchData() {
+//   try {
+//     const [
+//       providersRes,
+//       categoriesRes,
+//       coursesRes,
+//       trustBarRes,
+//       aboutRes,
+//     ] = await Promise.all([
+//       fetch(`${API_BASE_URL}/api/providers/`, { cache: "no-store" }),
+//       fetch(`${API_BASE_URL}/api/categories/`, { cache: "no-store" }),
+//       fetch(`${API_BASE_URL}/api/courses/`, { cache: "no-store" }),
+//       fetch(`${API_BASE_URL}/api/home/exams-trust-bar/`, { cache: "no-store" }),
+//       fetch(`${API_BASE_URL}/api/home/exams-about/`, { cache: "no-store" }),
+//     ]);
+
+//     const providersData = await providersRes.json();
+//     const categoriesData = await categoriesRes.json();
+//     const coursesData = await coursesRes.json();
+//     const trustBarData = await trustBarRes.json();
+//     const aboutData = await aboutRes.json();
+
+//     return {
+//       providers:
+//         Array.isArray(providersData)
+//           ? providersData.filter((p) => p.is_active)
+//           : [],
+//       categories:
+//         Array.isArray(categoriesData)
+//           ? categoriesData.filter((c) => c.is_active !== false)
+//           : [],
+//       exams:
+//         Array.isArray(coursesData)
+//           ? coursesData.filter((c) => c.is_active !== false)
+//           : [],
+//       trustBarItems: trustBarData?.success ? trustBarData.data : [],
+//       aboutSection: aboutData?.success ? aboutData.data : {},
+//     };
+//   } catch (error) {
+//     console.error("Server fetch error:", error);
+//     return {
+//       providers: [],
+//       categories: [],
+//       exams: [],
+//       trustBarItems: [],
+//       aboutSection: {},
+//     };
+//   }
+// }
+
+// export default async function ExamsPage() {
+//   const data = await fetchData();
+
+//   return (
+//     <Suspense fallback={null}>
+//       <ExamsPageContent
+//         initialProvidersData={data.providers}
+//         initialCategoriesData={data.categories}
+//         initialExamsData={data.exams}
+//         initialTrustBarData={data.trustBarItems}
+//         initialAboutData={data.aboutSection}
+//         usePathBasedRouting={true}
+//       />
+//     </Suspense>
+//   );
+// }
+
+
+
+  
+
 import { Suspense } from "react";
 import ExamsPageContent from "@/components/exams/ExamsPageContent";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
+// Fetch exams page data
 async function fetchData() {
   try {
     const [
@@ -114,18 +205,15 @@ async function fetchData() {
     const aboutData = await aboutRes.json();
 
     return {
-      providers:
-        Array.isArray(providersData)
-          ? providersData.filter((p) => p.is_active)
-          : [],
-      categories:
-        Array.isArray(categoriesData)
-          ? categoriesData.filter((c) => c.is_active !== false)
-          : [],
-      exams:
-        Array.isArray(coursesData)
-          ? coursesData.filter((c) => c.is_active !== false)
-          : [],
+      providers: Array.isArray(providersData)
+        ? providersData.filter((p) => p.is_active)
+        : [],
+      categories: Array.isArray(categoriesData)
+        ? categoriesData.filter((c) => c.is_active !== false)
+        : [],
+      exams: Array.isArray(coursesData)
+        ? coursesData.filter((c) => c.is_active !== false)
+        : [],
       trustBarItems: trustBarData?.success ? trustBarData.data : [],
       aboutSection: aboutData?.success ? aboutData.data : {},
     };
@@ -141,8 +229,41 @@ async function fetchData() {
   }
 }
 
+export async function generateMetadata() {
+  try {
+    const res = await fetch(
+      `${API_BASE_URL}/api/home/exams-page-seo/`,
+      { cache: "no-store" }
+    );
+
+    if (!res.ok) {
+      return { title: "Exams" };
+    }
+
+    const seoData = await res.json();
+    console.log("SEO DATA", seoData);
+
+    return {
+      title: seoData.meta_title || "",
+      description: seoData.meta_description || "",
+      keywords: seoData.meta_keywords || "",
+      metadataBase: new URL("https://allexamquestions.com"),
+      alternates: {
+        canonical: "/exams/", // ✅ relative path
+      },
+    };
+  } catch {
+    return { title: "Exams" };
+  }
+}
+
+
+
+
+// Main exams page
 export default async function ExamsPage() {
   const data = await fetchData();
+  
 
   return (
     <Suspense fallback={null}>

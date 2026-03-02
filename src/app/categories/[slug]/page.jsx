@@ -159,6 +159,7 @@ export default function CategoryPage() {
                   window.location.href = getExamUrl(course);
                 }}
               >
+              
                 <CardContent className="p-6 space-y-4">
                   {/* Icon + Badge */}
                   <div className="flex items-center justify-between">

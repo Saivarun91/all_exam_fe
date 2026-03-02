@@ -163,21 +163,37 @@
 
 
 
-import BackButton from "./BackButton"; // client-side interactive button
+import BackButton from "./BackButton";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
 
-// Metadata for SEO
-export const metadata = {
-  title: "Refund & Cancellation Policy - AllExamQuestions | Money Back Guarantee",
-  description:
-    "Learn about AllExamQuestions refund and cancellation policy. Understand our money-back guarantee, cancellation procedures, and refund eligibility for exam preparation courses and practice tests.",
-  keywords:
-    "refund policy, cancellation policy, money back guarantee, refund terms, cancellation terms, AllExamQuestions refund, exam course refund",
-  alternates: {
-    canonical: "https://allexamquestions.com/refund-and-cancellation-policy",
-  },
-};
+export const dynamic = "force-dynamic";
+export async function generateMetadata() {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/settings/refund-cancellation-policy/`, {
+      cache: "no-store",
+    });
+    const result = await res.json();
+    return {
+      title: result.meta_title || "Refund & Cancellation Policy",
+      description: result.meta_description || "",
+      keywords: result.meta_keywords || "",
+      alternates: {
+        canonical: "https://allexamquestions.com/refund-and-cancellation-policy",
+      },
+    };
+  } catch (err) {
+    console.error("Error fetching metadata:", err);
+    return {
+      title: "Refund & Cancellation Policy",
+      description: "",
+      keywords: "",
+      alternates: {
+        canonical: "https://allexamquestions.com/refund-and-cancellation-policy",
+      },
+    };
+  }
+}
 
 // Main server-side page component
 export default async function RefundCancellationPolicyPage() {

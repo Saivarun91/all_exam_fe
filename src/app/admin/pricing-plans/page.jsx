@@ -863,7 +863,13 @@ export default function PricingPlansAdmin() {
                           )}
                         </div>
                         <p className="text-sm text-gray-600">{plan.duration || `${plan.duration_months} month(s) (${plan.duration_days} days)`}</p>
-                        <p className="text-sm font-medium">₹{plan.price} {plan.original_price && <span className="line-through text-gray-500">₹{plan.original_price}</span>}</p>
+                        {/* <p className="text-sm font-medium">₹{plan.price} {plan.original_price && <span className="line-through text-gray-500">₹{plan.original_price}</span>}</p> */}
+                        <p className="text-sm font-medium">
+                          ₹{plan.price ?? '-'}
+                          {plan.original_price > 0 && (
+                            <span className="line-through text-gray-500 ml-2">₹{plan.original_price}</span>
+                          )}
+                        </p>
                       </div>
                       <div className="flex gap-2">
                         <Button variant="outline" size="sm" onClick={() => handleEditPlan(plan, idx)}>

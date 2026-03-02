@@ -121,6 +121,7 @@ function PrivacyTermsManager() {
         }
         if (termsRes.ok) {
           const data = await termsRes.json();
+          // console.log("data from the terms of service:", data);
           setTermsContent(normalizeContentForEditor(data.content || ""));
           setTermsMetaTitle(data.meta_title || "");
           setTermsMetaKeywords(data.meta_keywords || "");
@@ -219,6 +220,7 @@ function PrivacyTermsManager() {
           },
         }
       );
+      console.log("res.data :", res.data);
 
       if (res.data.success) {
         toast.success("✅ Terms of Service updated successfully!");

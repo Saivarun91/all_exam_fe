@@ -168,7 +168,7 @@ import { Button } from "@/components/ui/button";
 import BackButton from "./BackButton";
 
 // ✅ Force static rendering
-export const dynamic = "force-static";
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata() {
   const API_BASE_URL =
@@ -176,7 +176,7 @@ export async function generateMetadata() {
 
   try {
     const res = await fetch(`${API_BASE_URL}/api/settings/disclaimer/`, {
-      cache: "force-cache", // ✅ IMPORTANT CHANGE
+      cache: "no-store", // ✅ Make it dynamic
     });
 
     if (!res.ok) {
@@ -188,14 +188,11 @@ export async function generateMetadata() {
     if (result.success) {
       return {
         title:
-          result.meta_title ||
-          "Disclaimer - AllExamQuestions | Legal Information & Disclaimers",
+          result.meta_title || "",
         description:
-          result.meta_description ||
-          "Read the AllExamQuestions disclaimer. Important legal information about our exam preparation platform, educational content, affiliations, and limitations of liability.",
+          result.meta_description || "",
         keywords:
-          result.meta_keywords ||
-          "disclaimer, legal disclaimer, AllExamQuestions disclaimer, exam platform disclaimer, educational disclaimer, liability disclaimer",
+          result.meta_keywords || "",
         alternates: {
           canonical: "https://allexamquestions.com/disclaimer",
         },
@@ -206,15 +203,7 @@ export async function generateMetadata() {
   }
 
   return {
-    title:
-      "Disclaimer - AllExamQuestions | Legal Information & Disclaimers",
-    description:
-      "Read the AllExamQuestions disclaimer. Important legal information about our exam preparation platform, educational content, affiliations, and limitations of liability.",
-    keywords:
-      "disclaimer, legal disclaimer, AllExamQuestions disclaimer, exam platform disclaimer, educational disclaimer, liability disclaimer",
-    alternates: {
-      canonical: "https://allexamquestions.com/disclaimer",
-    },
+    title: "Disclaimer - AllExamQuestions",
   };
 }
 
@@ -227,7 +216,7 @@ export default async function Disclaimer() {
 
   try {
     const res = await fetch(`${API_BASE_URL}/api/settings/disclaimer/`, {
-      cache: "force-cache", // ✅ IMPORTANT CHANGE
+      cache: "no-store", // ✅ IMPORTANT CHANGE
     });
 
     if (!res.ok) {
