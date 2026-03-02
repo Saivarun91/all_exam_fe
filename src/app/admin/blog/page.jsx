@@ -379,6 +379,7 @@
 // app/admin/blog/page.jsx (Server Component)
 import { Card, CardContent } from "@/components/ui/card";
 import { getOptimizedImageUrl } from "@/utils/imageUtils";
+export const dynamic = "force-dynamic";
 
 // Example: Fetch blogs and courses server-side
 async function fetchBlogs() {

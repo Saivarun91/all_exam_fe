@@ -9,6 +9,7 @@ import { useSiteName } from "@/hooks/useSiteName";
 import { useLogoUrl } from "@/hooks/useLogoUrl";
 import { getOptimizedImageUrl } from "@/utils/imageUtils";
 
+
 const Header = () => {
   const pathname = usePathname();
   const router = useRouter();

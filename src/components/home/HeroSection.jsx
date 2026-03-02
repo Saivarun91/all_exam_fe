@@ -216,7 +216,10 @@ const API_BASE_URL =
 async function getHeroData() {
   try {
     const res = await fetch(`${API_BASE_URL}/api/home/hero/`, {
-      cache: "no-store",
+      // cache: "no-store",
+      next: {
+        revalidate: 3600, 
+      },
     });
     const data = await res.json();
     if (data.success && data.data) return data.data;
@@ -227,7 +230,10 @@ async function getHeroData() {
 async function getProviders() {
   try {
     const res = await fetch(`${API_BASE_URL}/api/providers/`, {
-      cache: "no-store",
+      // cache: "no-store",
+      next: {
+        revalidate: 3600,
+      },
     });
     const data = await res.json();
     if (Array.isArray(data)) {

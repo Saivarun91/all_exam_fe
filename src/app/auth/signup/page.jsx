@@ -12,6 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { GraduationCap, Mail, Lock, User, Phone, Eye, EyeOff } from "lucide-react";
 import ReCAPTCHA from "react-google-recaptcha";
 import { useLogoUrl } from "@/hooks/useLogoUrl";
+export const dynamic = "force-dynamic";
 
 // ----------------------- API URLs -----------------------
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";

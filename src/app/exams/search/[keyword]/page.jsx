@@ -40,6 +40,7 @@
 
 
 
+
 import ExamsPageContent from "@/components/exams/ExamsPageContent";
 
 export default function KeywordExamsPage({ params }) {
@@ -66,3 +67,8 @@ export default function KeywordExamsPage({ params }) {
     />
   );
 }
+
+
+
+
+

@@ -11,6 +11,7 @@ import { GraduationCap } from "lucide-react";
 import axios from "axios";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLogoUrl } from "@/hooks/useLogoUrl";
+export const dynamic = "force-dynamic";
 
 // ----------------------- API URLs -----------------------
 const API_BASE_URL =

@@ -1245,13 +1245,13 @@ export default async function ExamDetailPage({ params }) {
   return (
     <>
       {/* SERVER HTML FOR SEO / SOURCE VIEW */}
-      <div style={{display:"none"}}>
+      {/* <div style={{display:"none"}}>
         <h1>{examData.title}</h1>
         <p>{examData.duration}</p>
         <p>{examData.totalQuestions}</p>
         <p>{examData.about}</p>
         <p>{examData.whyMatters}</p>
-      </div>
+      </div> */}
   
       {/* REAL UI */}
       <ExamDetailClient

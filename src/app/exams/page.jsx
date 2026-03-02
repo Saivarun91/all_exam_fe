@@ -177,6 +177,7 @@
 
 import { Suspense } from "react";
 import ExamsPageContent from "@/components/exams/ExamsPageContent";
+export const dynamic = "force-dynamic";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
@@ -249,16 +250,13 @@ export async function generateMetadata() {
       keywords: seoData.meta_keywords || "",
       metadataBase: new URL("https://allexamquestions.com"),
       alternates: {
-        canonical: "/exams/", // ✅ relative path
+        canonical: "/exams", // ✅ relative path
       },
     };
   } catch {
     return { title: "Exams" };
   }
 }
-
-
-
 
 // Main exams page
 export default async function ExamsPage() {
