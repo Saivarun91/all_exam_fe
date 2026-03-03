@@ -291,7 +291,7 @@ export async function generateMetadata() {
     const seo = result?.data || {};
 
     return {
-      title: seo.meta_title || "",
+      title: seo.meta_title + " | All Exam Questions" || "",
       description: seo.meta_description || "",
       keywords: seo.meta_keywords || "",
       metadataBase: new URL("https://allexamquestions.com"),

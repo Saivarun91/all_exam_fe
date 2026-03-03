@@ -245,7 +245,7 @@ export async function generateMetadata() {
     console.log("SEO DATA", seoData);
 
     return {
-      title: seoData.meta_title || "",
+      title: seoData.meta_title + " | All Exam Questions" || "",
       description: seoData.meta_description || "",
       keywords: seoData.meta_keywords || "",
       metadataBase: new URL("https://allexamquestions.com"),

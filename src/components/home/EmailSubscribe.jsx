@@ -45,9 +45,9 @@ export default async function EmailSubscribe() {
         <div className="max-w-3xl mx-auto text-center space-y-4 md:space-y-6">
 
           {/* ✅ THIS IS NOW IN PAGE SOURCE */}
-          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white px-2">
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white px-2">
             {title}
-          </h1>
+          </h2>
 
           <p className="text-base sm:text-lg md:text-xl text-white/90 px-2">
             {subtitle}

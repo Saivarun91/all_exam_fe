@@ -332,7 +332,7 @@ export async function generateMetadata() {
   try {
     const data = await getTermsAndConditions();
     return {
-      title: data.meta_title || "",
+      title: data.meta_title + " | All Exam Questions" || "",
       description: data.meta_description || "",
       keywords: data.meta_keywords || "",
       alternates: {

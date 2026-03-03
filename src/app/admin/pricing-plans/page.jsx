@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -355,41 +356,23 @@ export default function PricingPlansAdmin() {
         hero_title: heroData.title,
         hero_subtitle: heroData.subtitle,
         pricing_plans: pricingPlans.map(plan => {
-          // Format price with currency symbol if it's a number
-          let formattedPrice = plan.price;
-          if (typeof plan.price === 'number') {
-            formattedPrice = `₹${plan.price}`;
-          } else if (typeof plan.price === 'string' && !plan.price.includes('₹')) {
-            formattedPrice = `₹${plan.price}`;
-          }
-          
-          // Format original price with currency symbol if it's a number
-          let formattedOriginalPrice = plan.original_price;
-          if (plan.original_price) {
-            if (typeof plan.original_price === 'number') {
-              formattedOriginalPrice = `₹${plan.original_price}`;
-            } else if (typeof plan.original_price === 'string' && !plan.original_price.includes('₹')) {
-              formattedOriginalPrice = `₹${plan.original_price}`;
-            }
-          }
-          
-          // Format duration
           let durationText = plan.duration;
+        
           if (!durationText && plan.duration_months) {
-            const months = plan.duration_months;
-            const days = plan.duration_days || (months * 30);
+            const months = Number(plan.duration_months) || 1;
+            const days = Number(plan.duration_days) || months * 30;
             durationText = `${months} month${months > 1 ? 's' : ''} (${days} days)`;
           }
-          
+        
           return {
             name: plan.name,
             duration: durationText,
-            duration_months: plan.duration_months,
-            duration_days: plan.duration_days,
-            price: formattedPrice,
-            original_price: formattedOriginalPrice,
-            discount_percentage: plan.discount_percentage || 0,
-            per_day_cost: plan.per_day_cost || "",
+            duration_months: Number(plan.duration_months) || 1,
+            duration_days: Number(plan.duration_days) || 30,
+            price: Number(plan.price) || 0,
+            original_price: Number(plan.original_price) || 0,
+            discount_percentage: Number(plan.discount_percentage) || 0,
+            per_day_cost: Number(plan.per_day_cost) || 0,
             popular: plan.popular || false,
             features: Array.isArray(plan.features) ? plan.features : [],
             status: plan.status || "active",
@@ -1417,3 +1400,10 @@ export default function PricingPlansAdmin() {
     </div>
   );
 }
+
+
+
+
+
+
+

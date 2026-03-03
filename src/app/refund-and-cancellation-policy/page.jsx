@@ -175,7 +175,7 @@ export async function generateMetadata() {
     });
     const result = await res.json();
     return {
-      title: result.meta_title || "Refund & Cancellation Policy",
+      title: result.meta_title + " | All Exam Questions" || "",
       description: result.meta_description || "",
       keywords: result.meta_keywords || "",
       alternates: {

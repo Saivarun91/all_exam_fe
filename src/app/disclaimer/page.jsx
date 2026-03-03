@@ -188,7 +188,7 @@ export async function generateMetadata() {
     if (result.success) {
       return {
         title:
-          result.meta_title || "",
+          result.meta_title + " | All Exam Questions" || "",
         description:
           result.meta_description || "",
         keywords:

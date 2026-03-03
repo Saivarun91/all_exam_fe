@@ -861,53 +861,111 @@ export default function ExamsPageContent({
   // }, [selectedProviders, selectedCategories, searchKeyword, minQuestions, providers, categories, allExams]);
 
 
+  // const filteredExams = useMemo(() => {
+  //   const q = searchKeyword?.trim().toLowerCase() || "";
+  
+  //   return allExams.filter((exam) => {
+  //     // Filter by providers
+  //     // if (selectedProviders.length > 0) {
+  //     //   const examProviderSlug = providers.find(
+  //     //     p => p.name.toLowerCase() === (exam.provider || "").toLowerCase()
+  //     //   )?.slug;
+  //     //   if (!selectedProviders.includes(examProviderSlug)) return false;
+  //     // }
+
+  //     if (selectedCategories.length > 0) {
+  //       const examCategorySlug = createSlug(exam.category || "");
+  //       if (!selectedCategories.includes(examCategorySlug)) return false;
+  //     }
+  
+  //     // Filter by categories
+  //     // if (selectedCategories.length > 0) {
+  //     //   const examCategorySlug = categories.find(
+  //     //     c => c.name.toLowerCase() === (exam.category || "").toLowerCase()
+  //     //   )?.slug;
+  //     //   if (!selectedCategories.includes(examCategorySlug)) return false;
+  //     // }
+
+
+  //     if (selectedCategories.length > 0) {
+  //       const examCategorySlug = createSlug(exam.category || "");
+  //       if (!selectedCategories.includes(examCategorySlug)) return false;
+  //     }
+  
+  //     // Filter by keyword
+  //     if (q) {
+  //       const title = (exam.title || exam.name || "").toLowerCase();
+  //       const code = (exam.code || "").toLowerCase();
+  //       const provider = (exam.provider || "").toLowerCase();
+  //       if (!title.includes(q) && !code.includes(q) && !provider.includes(q)) return false;
+  //     }
+  
+  //     // Filter by minimum questions
+  //     if (exam.questions < minQuestions) return false;
+  
+  //     return true;
+  //   });
+  // }, [allExams, selectedProviders, selectedCategories, searchKeyword, minQuestions, providers, categories]);
+  // const totalQuestions = filteredExams.reduce((sum, exam) => sum + (exam.questions || 0), 0);
+  // const updatedThisWeek = filteredExams.length; // All are considered recent
+
   const filteredExams = useMemo(() => {
     const q = searchKeyword?.trim().toLowerCase() || "";
   
     return allExams.filter((exam) => {
-      // Filter by providers
-      // if (selectedProviders.length > 0) {
-      //   const examProviderSlug = providers.find(
-      //     p => p.name.toLowerCase() === (exam.provider || "").toLowerCase()
-      //   )?.slug;
-      //   if (!selectedProviders.includes(examProviderSlug)) return false;
-      // }
-
-      if (selectedCategories.length > 0) {
-        const examCategorySlug = createSlug(exam.category || "");
-        if (!selectedCategories.includes(examCategorySlug)) return false;
+  
+      // ✅ Provider filter (FIXED)
+      if (selectedProviders.length > 0) {
+        const examProviderSlug = createSlug(exam.provider || "");
+        if (!selectedProviders.includes(examProviderSlug)) {
+          return false;
+        }
       }
   
-      // Filter by categories
-      // if (selectedCategories.length > 0) {
-      //   const examCategorySlug = categories.find(
-      //     c => c.name.toLowerCase() === (exam.category || "").toLowerCase()
-      //   )?.slug;
-      //   if (!selectedCategories.includes(examCategorySlug)) return false;
-      // }
-
-
+      // ✅ Category filter
       if (selectedCategories.length > 0) {
         const examCategorySlug = createSlug(exam.category || "");
-        if (!selectedCategories.includes(examCategorySlug)) return false;
+        if (!selectedCategories.includes(examCategorySlug)) {
+          return false;
+        }
       }
   
-      // Filter by keyword
+      // ✅ Keyword filter
       if (q) {
         const title = (exam.title || exam.name || "").toLowerCase();
         const code = (exam.code || "").toLowerCase();
         const provider = (exam.provider || "").toLowerCase();
-        if (!title.includes(q) && !code.includes(q) && !provider.includes(q)) return false;
+  
+        if (
+          !title.includes(q) &&
+          !code.includes(q) &&
+          !provider.includes(q)
+        ) {
+          return false;
+        }
       }
   
-      // Filter by minimum questions
-      if (exam.questions < minQuestions) return false;
+      // ✅ Min questions
+      if ((exam.questions || 0) < minQuestions) {
+        return false;
+      }
   
       return true;
     });
-  }, [allExams, selectedProviders, selectedCategories, searchKeyword, minQuestions, providers, categories]);
-  const totalQuestions = filteredExams.reduce((sum, exam) => sum + (exam.questions || 0), 0);
-  const updatedThisWeek = filteredExams.length; // All are considered recent
+  }, [
+    allExams,
+    selectedProviders,
+    selectedCategories,
+    searchKeyword,
+    minQuestions,
+  ]);
+  // ✅ ADD THESE BACK
+  const totalQuestions = filteredExams.reduce(
+    (sum, exam) => sum + (exam.questions || 0),
+    0
+  );
+
+  const updatedThisWeek = filteredExams.length;
 
   if (loading) {
     return (

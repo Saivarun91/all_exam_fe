@@ -998,7 +998,7 @@ export async function generateMetadata({ params }) {
 
     return {
       title:
-        exam.meta_title ||
+        exam.meta_title + " | All Exam Questions" ||
         exam.title ||
         `${examCode} Certification Exam`,
 

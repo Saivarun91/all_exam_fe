@@ -7,5 +7,6 @@ Disallow: /signup/
 Disallow: /auth/
 Disallow: /api/
 Disallow: /test-review/
+Disallow: /_next/static/chunks/
 
 Sitemap: https://allexamquestions.com/sitemap.xml
