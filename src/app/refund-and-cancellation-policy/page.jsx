@@ -163,21 +163,136 @@
 
 
 
+// import BackButton from "./BackButton";
+
+// const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
+
+// export const dynamic = "force-dynamic";
+// export async function generateMetadata() {
+//   try {
+//     const res = await fetch(`${API_BASE_URL}/api/settings/refund-cancellation-policy/`, {
+//       cache: "no-store",
+//     });
+//     const result = await res.json();
+//     return {
+//       // title: result.meta_title + " | All Exam Questions" || "",
+//       title: result.meta_title?.trim()
+//         ? `${result.meta_title.trim()} | All Exam Questions`
+//         : "Refund and Cancellation Policy | All Exam Questions",
+//       description: result.meta_description || "",
+//       keywords: result.meta_keywords || "",
+//       alternates: {
+//         canonical: "https://allexamquestions.com/refund-and-cancellation-policy",
+//       },
+//     };
+//   } catch (err) {
+//     console.error("Error fetching metadata:", err);
+//     return {
+//       title: "Refund & Cancellation Policy",
+//       description: "",
+//       keywords: "",
+//       alternates: {
+//         canonical: "https://allexamquestions.com/refund-and-cancellation-policy",
+//       },
+//     };
+//   }
+// }
+
+// // Main server-side page component
+// export default async function RefundCancellationPolicyPage() {
+//   const { content, error } = await fetchPolicy();
+
+//   return (
+//     <div className="py-16 bg-background">
+//       <div className="container mx-auto px-4 max-w-5xl">
+//         {/* Client-side back button */}
+//         <BackButton />
+
+//         <div className="text-center mb-12">
+//           <h1 className="text-5xl font-bold mb-4 text-foreground">Refund & Cancellation Policy</h1>
+//           <p className="text-muted-foreground text-lg">Our refund and cancellation policies</p>
+//         </div>
+
+//         {error ? (
+//           <div className="flex items-center justify-center min-h-[400px]">
+//             <p className="text-red-500">Failed to load refund & cancellation policy. Please try again later.</p>
+//           </div>
+//         ) : (
+//           <div className="prose prose-lg max-w-none">
+//             <div className="bg-card border border-border rounded-lg p-8 shadow-sm">
+//               {content && content.trim().startsWith("<") ? (
+//                 <div
+//                   className="text-foreground leading-relaxed text-base tiptap-editor-content prose prose-p:my-2 prose-ul:my-2 prose-ol:my-2 prose-li:my-0"
+//                   dangerouslySetInnerHTML={{ __html: content }}
+//                 />
+//               ) : (
+//                 <div className="text-foreground whitespace-pre-wrap leading-relaxed text-base">{content}</div>
+//               )}
+//             </div>
+//           </div>
+//         )}
+//       </div>
+//     </div>
+//   );
+// }
+
+// // Server-side fetch function
+// async function fetchPolicy() {
+//   try {
+//     const res = await fetch(`${API_BASE_URL}/api/settings/refund-cancellation-policy/`, {
+//       next: { revalidate: 60 },
+//     });
+
+//     if (!res.ok) throw new Error("Failed to fetch refund & cancellation policy");
+
+//     const result = await res.json();
+
+//     if (result.success) {
+//       return {
+//         content: result.content || "Refund & cancellation policy content will be updated by admin.",
+//         metaTitle: result.meta_title || "",
+//         metaKeywords: result.meta_keywords || "",
+//         metaDescription: result.meta_description || "",
+//       };
+//     } else {
+//       throw new Error(result.error || "Failed to load refund & cancellation policy");
+//     }
+//   } catch (err) {
+//     console.error(err);
+//     return { content: null, metaTitle: "", metaKeywords: "", metaDescription: "", error: true };
+//   }
+// }
+
+
+
+
+
+// app/refund-and-cancellation-policy/page.jsx
 import BackButton from "./BackButton";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
 
+// -------------------- DYNAMIC PAGE --------------------
 export const dynamic = "force-dynamic";
+
+// -------------------- METADATA --------------------
 export async function generateMetadata() {
   try {
     const res = await fetch(`${API_BASE_URL}/api/settings/refund-cancellation-policy/`, {
-      cache: "no-store",
+      cache: "force-cache", // ensure SSR fetch for view-source
     });
     const result = await res.json();
+
     return {
-      title: result.meta_title + " | All Exam Questions" || "",
-      description: result.meta_description || "",
-      keywords: result.meta_keywords || "",
+      title: result.meta_title?.trim()
+        ? `${result.meta_title.trim()} | All Exam Questions`
+        : "Refund and Cancellation Policy | All Exam Questions",
+      description:
+        result.meta_description ||
+        "Read AllExamQuestions refund and cancellation policies related to subscriptions, payments, and exam content access.",
+      keywords:
+        result.meta_keywords ||
+        "refund, cancellation, subscription, payments, exam content, AllExamQuestions",
       alternates: {
         canonical: "https://allexamquestions.com/refund-and-cancellation-policy",
       },
@@ -185,9 +300,11 @@ export async function generateMetadata() {
   } catch (err) {
     console.error("Error fetching metadata:", err);
     return {
-      title: "Refund & Cancellation Policy",
-      description: "",
-      keywords: "",
+      title: "Refund & Cancellation Policy | All Exam Questions",
+      description:
+        "Read AllExamQuestions refund and cancellation policies related to subscriptions, payments, and exam content access.",
+      keywords:
+        "refund, cancellation, subscription, payments, exam content, AllExamQuestions",
       alternates: {
         canonical: "https://allexamquestions.com/refund-and-cancellation-policy",
       },
@@ -195,12 +312,35 @@ export async function generateMetadata() {
   }
 }
 
-// Main server-side page component
+// -------------------- FETCH POLICY DATA --------------------
+async function fetchPolicy() {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/settings/refund-cancellation-policy/`, {
+      next: { revalidate: 60 },
+    });
+    if (!res.ok) throw new Error("Failed to fetch refund & cancellation policy");
+
+    const result = await res.json();
+    if (result.success) {
+      return {
+        content: result.content || "Refund & cancellation policy content will be updated by admin.",
+        error: false,
+      };
+    } else {
+      throw new Error(result.error || "Failed to load refund & cancellation policy");
+    }
+  } catch (err) {
+    console.error(err);
+    return { content: null, error: true };
+  }
+}
+
+// -------------------- PAGE COMPONENT --------------------
 export default async function RefundCancellationPolicyPage() {
   const { content, error } = await fetchPolicy();
 
   return (
-    <div className="py-16 bg-background">
+    <main className="py-16 bg-background">
       <div className="container mx-auto px-4 max-w-5xl">
         {/* Client-side back button */}
         <BackButton />
@@ -229,33 +369,6 @@ export default async function RefundCancellationPolicyPage() {
           </div>
         )}
       </div>
-    </div>
+    </main>
   );
-}
-
-// Server-side fetch function
-async function fetchPolicy() {
-  try {
-    const res = await fetch(`${API_BASE_URL}/api/settings/refund-cancellation-policy/`, {
-      next: { revalidate: 60 },
-    });
-
-    if (!res.ok) throw new Error("Failed to fetch refund & cancellation policy");
-
-    const result = await res.json();
-
-    if (result.success) {
-      return {
-        content: result.content || "Refund & cancellation policy content will be updated by admin.",
-        metaTitle: result.meta_title || "",
-        metaKeywords: result.meta_keywords || "",
-        metaDescription: result.meta_description || "",
-      };
-    } else {
-      throw new Error(result.error || "Failed to load refund & cancellation policy");
-    }
-  } catch (err) {
-    console.error(err);
-    return { content: null, metaTitle: "", metaKeywords: "", metaDescription: "", error: true };
-  }
 }

@@ -230,76 +230,224 @@
 
 
 
+// import { Mail, Phone, MapPin, Globe } from "lucide-react";
+// import BackButton from "./BackButton"; // small client component for interactive back button
+
+// const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
+
+// export const dynamic = "force-dynamic";
+// export async function generateMetadata() {
+//   try {
+//     const res = await fetch(`${API_BASE_URL}/api/settings/contact-us/`, {
+//       cache: "no-store",
+//     });
+//     const result = await res.json();
+//     return {
+//       // title: result.meta_title + " | All Exam Questions" || "",
+//       title: result.meta_title?.trim()
+//         ? `${result.meta_title} | All Exam Questions`
+//         : "Contact Us | All Exam Questions",
+//       description: result.meta_description || "",
+//       keywords: result.meta_keywords || "",
+//       alternates: {
+//         canonical: "https://allexamquestions.com/contact-us",
+//       },
+//     };
+//   } catch (err) {
+//     console.error("Error fetching metadata:", err);
+//     return {
+//       title: "Contact Us",
+//       description: "",
+//       keywords: "",
+//       alternates: {
+//         canonical: "https://allexamquestions.com/contact-us",
+//       },
+//     };
+//   }
+// }
+
+// async function fetchContactData() {
+//   try {
+//     const res = await fetch(`${API_BASE_URL}/api/settings/contact-us/`, { next: { revalidate: 60 } });
+//     if (!res.ok) throw new Error("Failed to fetch contact details");
+//     const result = await res.json();
+
+//     if (result.success) {
+//       return {
+//         contactDetails: {
+//           email: result.contact_email || "",
+//           phone: result.contact_phone || "",
+//           address: result.contact_address || "",
+//           website: result.contact_website || "",
+//         },
+//         error: false,
+//       };
+//     } else {
+//       throw new Error(result.error || "Failed to load contact details");
+//     }
+//   } catch (err) {
+//     console.error(err);
+//     return {
+//       contactDetails: { email: "", phone: "", address: "", website: "" },
+//       error: true,
+//     };
+//   }
+// }
+
+// export default async function ContactUsPage() {
+//   const { contactDetails, error } = await fetchContactData();
+//   const hasContactInfo =
+//     contactDetails.email || contactDetails.phone || contactDetails.address || contactDetails.website;
+
+//   return (
+//     <div className="py-16 bg-background">
+//       <div className="container mx-auto px-4 max-w-5xl">
+//         {/* Back button (client component) */}
+//         <BackButton />
+
+//         <div className="text-center mb-12">
+//           <h1 className="text-5xl font-bold mb-4 text-foreground">Contact Us</h1>
+//           <p className="text-muted-foreground text-lg">Get in touch with us</p>
+//         </div>
+
+//         <div className="prose prose-lg max-w-none">
+//           <div className="bg-card border border-border rounded-lg p-8 shadow-sm">
+//             {error ? (
+//               <p className="text-red-500">Failed to load contact information. Please try again later.</p>
+//             ) : hasContactInfo ? (
+//               <div className="space-y-6">
+//                 {contactDetails.email && (
+//                   <div className="flex items-start gap-4">
+//                     <Mail className="w-6 h-6 text-blue-600 mt-1 flex-shrink-0" />
+//                     <div>
+//                       <h3 className="font-semibold text-foreground mb-1">Email</h3>
+//                       <a
+//                         href={`mailto:${contactDetails.email.trim()}`}
+//                         className="text-blue-600 hover:text-blue-800 transition-colors break-all"
+//                       >
+//                         {contactDetails.email.trim()}
+//                       </a>
+//                     </div>
+//                   </div>
+//                 )}
+//                 {contactDetails.phone && (
+//                   <div className="flex items-start gap-4">
+//                     <Phone className="w-6 h-6 text-blue-600 mt-1 flex-shrink-0" />
+//                     <div>
+//                       <h3 className="font-semibold text-foreground mb-1">Phone</h3>
+//                       <a
+//                         href={`tel:${contactDetails.phone.trim().replace(/\s+/g, "")}`}
+//                         className="text-blue-600 hover:text-blue-800 transition-colors"
+//                       >
+//                         {contactDetails.phone.trim()}
+//                       </a>
+//                     </div>
+//                   </div>
+//                 )}
+//                 {contactDetails.address && (
+//                   <div className="flex items-start gap-4">
+//                     <MapPin className="w-6 h-6 text-blue-600 mt-1 flex-shrink-0" />
+//                     <div>
+//                       <h3 className="font-semibold text-foreground mb-1">Address</h3>
+//                       <p className="text-foreground whitespace-pre-line">{contactDetails.address.trim()}</p>
+//                     </div>
+//                   </div>
+//                 )}
+//                 {contactDetails.website && (
+//                   <div className="flex items-start gap-4">
+//                     <Globe className="w-6 h-6 text-blue-600 mt-1 flex-shrink-0" />
+//                     <div>
+//                       <h3 className="font-semibold text-foreground mb-1">Website</h3>
+//                       <a
+//                         href={
+//                           contactDetails.website.trim().startsWith("http")
+//                             ? contactDetails.website.trim()
+//                             : `https://${contactDetails.website.trim()}`
+//                         }
+//                         target="_blank"
+//                         rel="noopener noreferrer"
+//                         className="text-blue-600 hover:text-blue-800 transition-colors break-all"
+//                       >
+//                         {contactDetails.website.trim().replace(/^https?:\/\//, "")}
+//                       </a>
+//                     </div>
+//                   </div>
+//                 )}
+//               </div>
+//             ) : (
+//               <p className="text-muted-foreground">Contact information will be updated by admin.</p>
+//             )}
+//           </div>
+//         </div>
+//       </div>
+//     </div>
+//   );
+// }
+
+
+
+
+
+
+// app/contact-us/page.jsx
 import { Mail, Phone, MapPin, Globe } from "lucide-react";
-import BackButton from "./BackButton"; // small client component for interactive back button
+import BackButton from "./BackButton";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
 
-export const dynamic = "force-dynamic";
+// -------------------- METADATA --------------------
 export async function generateMetadata() {
+  // fetch once at SSR/build time
+  let meta = {
+    title: "Contact Us | All Exam Questions",
+    description:
+      "Contact AllExamQuestions for support, queries, or assistance related to certification exams, practice tests, subscriptions, or technical issues.",
+    keywords:
+      "contact us, customer support, exam help, technical support, certification assistance, AllExamQuestions support",
+    alternates: {
+      canonical: "https://allexamquestions.com/contact-us",
+    },
+  };
+
   try {
-    const res = await fetch(`${API_BASE_URL}/api/settings/contact-us/`, {
-      cache: "no-store",
-    });
-    const result = await res.json();
-    return {
-      title: result.meta_title + " | All Exam Questions" || "",
-      description: result.meta_description || "",
-      keywords: result.meta_keywords || "",
-      alternates: {
-        canonical: "https://allexamquestions.com/contact-us",
-      },
-    };
+    const res = await fetch(`${API_BASE_URL}/api/settings/contact-us/`, { cache: "force-cache" });
+    const data = await res.json();
+    if (data.meta_title) meta.title = `${data.meta_title} | All Exam Questions`;
+    if (data.meta_description) meta.description = data.meta_description;
+    if (data.meta_keywords) meta.keywords = data.meta_keywords;
   } catch (err) {
-    console.error("Error fetching metadata:", err);
-    return {
-      title: "Contact Us",
-      description: "",
-      keywords: "",
-      alternates: {
-        canonical: "https://allexamquestions.com/contact-us",
-      },
-    };
+    console.error("Failed to fetch metadata", err);
   }
+
+  return meta;
 }
 
+// -------------------- CONTACT DATA --------------------
 async function fetchContactData() {
   try {
     const res = await fetch(`${API_BASE_URL}/api/settings/contact-us/`, { next: { revalidate: 60 } });
-    if (!res.ok) throw new Error("Failed to fetch contact details");
-    const result = await res.json();
-
-    if (result.success) {
-      return {
-        contactDetails: {
-          email: result.contact_email || "",
-          phone: result.contact_phone || "",
-          address: result.contact_address || "",
-          website: result.contact_website || "",
-        },
-        error: false,
-      };
-    } else {
-      throw new Error(result.error || "Failed to load contact details");
-    }
+    const data = await res.json();
+    if (!data.success) throw new Error(data.error || "Failed to fetch contact details");
+    return {
+      email: data.contact_email || "",
+      phone: data.contact_phone || "",
+      address: data.contact_address || "",
+      website: data.contact_website || "",
+    };
   } catch (err) {
     console.error(err);
-    return {
-      contactDetails: { email: "", phone: "", address: "", website: "" },
-      error: true,
-    };
+    return { email: "", phone: "", address: "", website: "" };
   }
 }
 
+// -------------------- PAGE --------------------
 export default async function ContactUsPage() {
-  const { contactDetails, error } = await fetchContactData();
-  const hasContactInfo =
-    contactDetails.email || contactDetails.phone || contactDetails.address || contactDetails.website;
+  const contact = await fetchContactData();
+  const hasInfo = contact.email || contact.phone || contact.address || contact.website;
 
   return (
-    <div className="py-16 bg-background">
+    <main className="py-16 bg-background">
       <div className="container mx-auto px-4 max-w-5xl">
-        {/* Back button (client component) */}
         <BackButton />
 
         <div className="text-center mb-12">
@@ -309,74 +457,58 @@ export default async function ContactUsPage() {
 
         <div className="prose prose-lg max-w-none">
           <div className="bg-card border border-border rounded-lg p-8 shadow-sm">
-            {error ? (
-              <p className="text-red-500">Failed to load contact information. Please try again later.</p>
-            ) : hasContactInfo ? (
-              <div className="space-y-6">
-                {contactDetails.email && (
-                  <div className="flex items-start gap-4">
-                    <Mail className="w-6 h-6 text-blue-600 mt-1 flex-shrink-0" />
-                    <div>
-                      <h3 className="font-semibold text-foreground mb-1">Email</h3>
-                      <a
-                        href={`mailto:${contactDetails.email.trim()}`}
-                        className="text-blue-600 hover:text-blue-800 transition-colors break-all"
-                      >
-                        {contactDetails.email.trim()}
-                      </a>
-                    </div>
-                  </div>
-                )}
-                {contactDetails.phone && (
-                  <div className="flex items-start gap-4">
-                    <Phone className="w-6 h-6 text-blue-600 mt-1 flex-shrink-0" />
-                    <div>
-                      <h3 className="font-semibold text-foreground mb-1">Phone</h3>
-                      <a
-                        href={`tel:${contactDetails.phone.trim().replace(/\s+/g, "")}`}
-                        className="text-blue-600 hover:text-blue-800 transition-colors"
-                      >
-                        {contactDetails.phone.trim()}
-                      </a>
-                    </div>
-                  </div>
-                )}
-                {contactDetails.address && (
-                  <div className="flex items-start gap-4">
-                    <MapPin className="w-6 h-6 text-blue-600 mt-1 flex-shrink-0" />
-                    <div>
-                      <h3 className="font-semibold text-foreground mb-1">Address</h3>
-                      <p className="text-foreground whitespace-pre-line">{contactDetails.address.trim()}</p>
-                    </div>
-                  </div>
-                )}
-                {contactDetails.website && (
-                  <div className="flex items-start gap-4">
-                    <Globe className="w-6 h-6 text-blue-600 mt-1 flex-shrink-0" />
-                    <div>
-                      <h3 className="font-semibold text-foreground mb-1">Website</h3>
-                      <a
-                        href={
-                          contactDetails.website.trim().startsWith("http")
-                            ? contactDetails.website.trim()
-                            : `https://${contactDetails.website.trim()}`
-                        }
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-600 hover:text-blue-800 transition-colors break-all"
-                      >
-                        {contactDetails.website.trim().replace(/^https?:\/\//, "")}
-                      </a>
-                    </div>
-                  </div>
-                )}
+            {!hasInfo && <p className="text-muted-foreground">Contact information will be updated by admin.</p>}
+
+            {contact.email && (
+              <div className="flex items-start gap-4">
+                <Mail className="w-6 h-6 text-blue-600 mt-1 flex-shrink-0" />
+                <div>
+                  <h3 className="font-semibold text-foreground mb-1">Email</h3>
+                  <a href={`mailto:${contact.email}`} className="text-blue-600 hover:text-blue-800">
+                    {contact.email}
+                  </a>
+                </div>
               </div>
-            ) : (
-              <p className="text-muted-foreground">Contact information will be updated by admin.</p>
+            )}
+            {contact.phone && (
+              <div className="flex items-start gap-4">
+                <Phone className="w-6 h-6 text-blue-600 mt-1 flex-shrink-0" />
+                <div>
+                  <h3 className="font-semibold text-foreground mb-1">Phone</h3>
+                  <a href={`tel:${contact.phone.replace(/\s+/g, "")}`} className="text-blue-600 hover:text-blue-800">
+                    {contact.phone}
+                  </a>
+                </div>
+              </div>
+            )}
+            {contact.address && (
+              <div className="flex items-start gap-4">
+                <MapPin className="w-6 h-6 text-blue-600 mt-1 flex-shrink-0" />
+                <div>
+                  <h3 className="font-semibold text-foreground mb-1">Address</h3>
+                  <p>{contact.address}</p>
+                </div>
+              </div>
+            )}
+            {contact.website && (
+              <div className="flex items-start gap-4">
+                <Globe className="w-6 h-6 text-blue-600 mt-1 flex-shrink-0" />
+                <div>
+                  <h3 className="font-semibold text-foreground mb-1">Website</h3>
+                  <a
+                    href={contact.website.startsWith("http") ? contact.website : `https://${contact.website}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:text-blue-800"
+                  >
+                    {contact.website.replace(/^https?:\/\//, "")}
+                  </a>
+                </div>
+              </div>
             )}
           </div>
         </div>
       </div>
-    </div>
+    </main>
   );
 }

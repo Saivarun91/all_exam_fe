@@ -169,7 +169,10 @@ export async function generateMetadata() {
     });
     const result = await res.json();
     return {
-      title: result.meta_title + " | All Exam Questions" || "",
+      // title: result.meta_title + " | All Exam Questions" || "",
+      title: result.meta_title?.trim()
+        ? `${result.meta_title.trim()} | All Exam Questions`
+        : "Editorial Policy | All Exam Questions",
       description: result.meta_description || "",
       keywords: result.meta_keywords || "",
       alternates: {

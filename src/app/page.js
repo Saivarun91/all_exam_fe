@@ -214,6 +214,7 @@
 
 
 
+
 // export const dynamic = "force-dynamic";
 // export const fetchCache = "force-no-store";
 // export const revalidate = 0;
@@ -273,33 +274,78 @@ import ScrollHandler from "@/components/home/ScrollHandler";
 
 // ================= METADATA =================
 
+// export async function generateMetadata() {
+//   try {
+//     const API_BASE =
+//       process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
+
+//     const res = await fetch(
+//       `${API_BASE}/api/home/home-page-seo/`,
+//       { cache: "no-store" }
+//     );
+
+//     if (!res.ok) {
+//       return { title: "All Exam Questions" };
+//     }
+
+//     const result = await res.json();
+//     const seo = result?.data || {};
+
+//     return {
+//       title: seo.meta_title + " | All Exam Questions" || "",
+//       description: seo.meta_description || "",
+//       keywords: seo.meta_keywords || "",
+//       metadataBase: new URL("https://allexamquestions.com"),
+//       alternates: {
+//         canonical: "/", // ✅ relative path
+//       },
+//     };
+//     // const baseTitle = seo?.meta_title?.trim() || "All Exam Questions";
+
+//     // return {
+//     //   title: baseTitle.includes("All Exam Questions")
+//     //     ? baseTitle
+//     //     : `${baseTitle} | All Exam Questions`,
+//     //   description: seo?.meta_description || "",
+//     //   keywords: seo?.meta_keywords || "",
+//     //   metadataBase: new URL("https://allexamquestions.com"),
+//     //   alternates: {
+//     //     canonical: "/",
+//     //   },
+//     // };
+//   } catch (error) {
+//     return { title: "All Exam Questions" };
+//   }
+// }
+
+
 export async function generateMetadata() {
   try {
-    const API_BASE =
-      process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
+    const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
 
-    const res = await fetch(
-      `${API_BASE}/api/home/home-page-seo/`,
-      { cache: "no-store" }
-    );
+    // Fetch with server-side caching so metadata can be SSR
+    const res = await fetch(`${API_BASE}/api/home/home-page-seo/`, {
+      next: { revalidate: 60 }, // ✅ ISR, avoids no-store
+    });
 
-    if (!res.ok) {
-      return { title: "All Exam Questions" };
-    }
+    if (!res.ok) return { title: "All Exam Questions" };
 
-    const result = await res.json();
-    const seo = result?.data || {};
+    const seo = (await res.json())?.data || {};
+
+    const baseTitle = seo.meta_title?.trim() || "All Exam Questions";
 
     return {
-      title: seo.meta_title + " | All Exam Questions" || "",
+      title: baseTitle.includes("All Exam Questions")
+        ? baseTitle
+        : `${baseTitle} | All Exam Questions`,
       description: seo.meta_description || "",
       keywords: seo.meta_keywords || "",
       metadataBase: new URL("https://allexamquestions.com"),
       alternates: {
-        canonical: "/", // ✅ relative path
+        canonical: "/", // full URL = https://allexamquestions.com/
       },
     };
-  } catch (error) {
+  } catch (err) {
     return { title: "All Exam Questions" };
   }
 }

@@ -187,8 +187,11 @@ export async function generateMetadata() {
 
     if (result.success) {
       return {
-        title:
-          result.meta_title + " | All Exam Questions" || "",
+        // title:
+        //   result.meta_title + " | All Exam Questions" || "",
+        title: result.meta_title?.trim()
+          ? `${result.meta_title.trim()} | All Exam Questions`
+          : "Disclaimer | All Exam Questions",
         description:
           result.meta_description || "",
         keywords:

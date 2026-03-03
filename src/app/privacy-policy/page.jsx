@@ -245,7 +245,10 @@ export async function generateMetadata() {
   const { metaTitle, metaDescription, metaKeywords } = await fetchPrivacyPolicy();
 
   return {
-    title: metaTitle + " | All Exam Questions" || "",
+    // title: metaTitle + " | All Exam Questions" || "",
+    title: metaTitle?.trim()
+      ? `${metaTitle.trim()} | All Exam Questions`
+      : "Privacy Policy | All Exam Questions",
     description: metaDescription,
     keywords: metaKeywords,
     alternates: {

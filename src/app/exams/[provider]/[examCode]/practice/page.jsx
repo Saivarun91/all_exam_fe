@@ -552,10 +552,13 @@ export async function generateMetadata({ params }) {
     const exam = await res.json();
 
     return {
-      title:
-        exam.meta_title
-          ? `${exam.meta_title} - Practice Tests`
-          : `${exam.title} Practice Tests`,
+      // title:
+      //   exam.meta_title
+      //     ? `${exam.meta_title} - Practice Tests`
+      //     : `${exam.title} Practice Tests`,
+      title: exam.meta_title
+      ? exam.meta_title + " | All Exam Questions"
+      : exam.title || `${examCode} Certification Exam`,
 
       description:
         exam.meta_description ||

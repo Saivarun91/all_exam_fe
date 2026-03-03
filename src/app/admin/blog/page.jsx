@@ -433,19 +433,33 @@ export default async function AdminBlogPage() {
             <Card key={blog.id} className="shadow-md">
               <CardContent className="p-4">
                 {blog.image_url ? (
+                  // <div className="w-full aspect-[16/9] rounded-md overflow-hidden mb-3 bg-gray-100">
+                  //   <img 
+                  //     src={getOptimizedImageUrl(blog.image_url, 600, 338)} 
+                  //     alt={blog.title || "Blog image"}
+                  //     width={600}
+                  //     height={338}
+                  //     className="w-full h-full object-contain"
+                  //     style={{ objectFit: 'contain' }}
+                  //     loading="lazy"
+                  //     sizes="(max-width: 768px) 100vw, 600px"
+                  //     decoding="async"
+                  //   />
+                  // </div>
+
                   <div className="w-full aspect-[16/9] rounded-md overflow-hidden mb-3 bg-gray-100">
-                    <img 
-                      src={getOptimizedImageUrl(blog.image_url, 600, 338)} 
-                      alt={blog.title || "Blog image"}
-                      width={600}
-                      height={338}
-                      className="w-full h-full object-contain"
-                      style={{ objectFit: 'contain' }}
-                      loading="lazy"
-                      sizes="(max-width: 768px) 100vw, 600px"
-                      decoding="async"
-                    />
-                  </div>
+                  <img 
+                    src={getOptimizedImageUrl(blog.image_url, 360, 202)} 
+                    alt={blog.title || "Blog image"}
+                    width={360}
+                    height={202}
+                    className="w-full h-full object-cover"
+                    loading="lazy"
+                    sizes="(max-width: 768px) 100vw, 358px"
+                    decoding="async"
+                  />
+                </div>
+              
                 ) : (
                   <div className="w-full aspect-[16/9] bg-gray-100 flex items-center justify-center rounded-md mb-3 text-gray-500">
                     No Image Available
