@@ -215,9 +215,7 @@
 
 
 
-// export const dynamic = "force-dynamic";
-// export const fetchCache = "force-no-store";
-// export const revalidate = 0;
+
 
 import dynamicImport from "next/dynamic";
 
@@ -344,6 +342,34 @@ export async function generateMetadata() {
       alternates: {
         canonical: "/", // full URL = https://allexamquestions.com/
       },
+      openGraph: {
+        title: baseTitle.includes("All Exam Questions")
+          ? baseTitle
+          : `${baseTitle} | All Exam Questions`,
+        description: seo.meta_description || "",
+        url: "https://allexamquestions.com",
+        siteName: "All Exam Questions",
+        images: [
+          {
+            url: "https://allexamquestions.com/alleq_logo.png",
+            width: 1200,
+            height: 630,
+          },
+        ],
+        locale: "en_US",
+        type: "website",
+      },
+      twitter: {
+        card: "summary_large_image",
+        title: baseTitle.includes("All Exam Questions")
+          ? baseTitle
+          : `${baseTitle} | All Exam Questions`,
+        description: seo.meta_description || "",
+        images: ["https://allexamquestions.com/twitter_logo.png"],
+      },
+      
+
+
     };
   } catch (err) {
     return { title: "All Exam Questions" };
@@ -372,3 +398,9 @@ export default function Page() {
     </div>
   );
 }
+
+
+
+
+
+

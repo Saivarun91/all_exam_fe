@@ -9,6 +9,7 @@ import { useContactDetails } from "@/hooks/useContactDetails";
 import { useLogoUrl } from "@/hooks/useLogoUrl";
 import { useSocialMediaUrls } from "@/hooks/useSocialMediaUrls";
 import { getOptimizedImageUrl } from "@/utils/imageUtils";
+import Image from "next/image";
 import Script from "next/script";
 /**
  * Footer Component
@@ -60,8 +61,8 @@ const Footer = () => {
 
   // Available resources pages (only show what exists)
   const availableResources = [
-    { name: "Blog", href: "/blog", exists: true },
-    { name: "FAQ", href: "/FAQ", exists: true },
+    { name: "Blogs", href: "/blog", exists: true },
+    { name: "faq", href: "/faq", exists: true },
   ];
 
   // Company pages (only show if they exist - currently none exist, so empty)
@@ -278,7 +279,7 @@ const Footer = () => {
           </div>
 
           <div className="flex items-center gap-4 md:gap-6">
-            {socialLinks.map((social, index) => {
+            {/* {socialLinks.map((social, index) => {
               const Icon = social.icon;
               return (
                 <a
@@ -290,6 +291,31 @@ const Footer = () => {
                   aria-label={social.label}
                 >
                   <Icon className="w-4 h-4 md:w-5 md:h-5" />
+                </a>
+              );
+            })} */}
+
+            {socialLinks.map((social, index) => {
+              return (
+                <a
+                  key={index}
+                  href={social.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[#F0F4FF] hover:text-[#1A73E8] transition-colors"
+                  aria-label={social.label}
+                >
+                  {social.label === "Twitter" ? (
+                    <Image
+                      src="/twitter_logo.png"
+                      alt="Twitter"
+                      width={20}
+                      height={20}
+                      className="w-4 h-4 md:w-5 md:h-5 object-contain"
+                    />
+                  ) : (
+                    <social.icon className="w-4 h-4 md:w-5 md:h-5" />
+                  )}
                 </a>
               );
             })}

@@ -430,14 +430,55 @@ export async function generateMetadata({ params }) {
     };
   }
 
+  // return {
+  //   title: blog.meta_title || blog.title,
+  //   description: blog.meta_description || blog.excerpt || "Read this blog post.",
+  //   keywords: blog.meta_keywords || "blog, article, education",
+  //   alternates: {
+  //     canonical: `${baseUrl}/blog/${slug}`,
+  //   },
+  // };
+  const pageTitle = blog.meta_title || blog.title;
+  const pageDescription =
+    blog.meta_description || blog.excerpt || "Read this blog post.";
+
+  const pageUrl = `${baseUrl}/blog/${slug}`;
+
+  const pageImage = blog.image_url
+    ? getOptimizedImageUrl(blog.image_url, 1200, 630)
+    : `${baseUrl}/logo.png`; // fallback if no blog image
+
   return {
-    title: blog.meta_title || blog.title,
-    description: blog.meta_description || blog.excerpt || "Read this blog post.",
+    title: pageTitle,
+    description: pageDescription,
     keywords: blog.meta_keywords || "blog, article, education",
+
     alternates: {
-      canonical: `${baseUrl}/blog/${slug}`,
+      canonical: pageUrl,
+    },
+
+    openGraph: {
+      title: pageTitle,
+      description: pageDescription,
+      url: pageUrl,
+      type: "article",
+      images: [
+        {
+          url: pageImage,
+          width: 1200,
+          height: 630,
+        },
+      ],
+    },
+
+    twitter: {
+      card: "summary_large_image",
+      title: pageTitle,
+      description: pageDescription,
+      images: [pageImage],
     },
   };
+
 }
 
 // Blog Detail Page Component

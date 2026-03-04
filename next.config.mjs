@@ -84,6 +84,7 @@ const nextConfig = {
         destination: 'https://allexamquestions.com/:path*',
         permanent: true,
       },
+      
     ];
   },
   images: {

@@ -996,28 +996,67 @@ export async function generateMetadata({ params }) {
 
     const exam = await res.json();
 
-    return {
-      // title:
-      //   exam.meta_title + " | All Exam Questions"  ,
-        // exam.title ||
-        // `${examCode} Certification Exam`,
+    // return {
+    //   // title:
+    //   //   exam.meta_title + " | All Exam Questions"  ,
+    //     // exam.title ||
+    //     // `${examCode} Certification Exam`,
 
-      title: exam.meta_title
+    //   title: exam.meta_title
+    //   ? exam.meta_title + " | All Exam Questions"
+    //   : exam.title || `${examCode} Certification Exam`,
+
+    //   description:
+    //     exam.meta_description ||
+    //     exam.description ||
+    //     "",
+
+    //   keywords:
+    //     exam.meta_keywords || "",
+
+    //   alternates: {
+    //     canonical: `https://allexamquestions.com/exams/${provider}/${examCode}`,
+    //   },
+    // };
+    const pageTitle = exam.meta_title
       ? exam.meta_title + " | All Exam Questions"
-      : exam.title || `${examCode} Certification Exam`,
+      : exam.title || `${examCode} Certification Exam`;
 
-      description:
-        exam.meta_description ||
-        exam.description ||
-        "",
+    const pageDescription =
+      exam.meta_description ||
+      exam.description ||
+      "";
 
-      keywords:
-        exam.meta_keywords || "",
+    const pageUrl = `https://allexamquestions.com/exams/${provider}/${examCode}`;
+
+    return {
+      title: pageTitle,
+      description: pageDescription,
+      keywords: exam.meta_keywords || "",
 
       alternates: {
-        canonical: `https://allexamquestions.com/exams/${provider}/${examCode}`,
+        canonical: pageUrl,
+      },
+
+      openGraph: {
+        title: pageTitle,
+        description: pageDescription,
+        url: pageUrl,
+        type: "website",
+        images: [
+          {
+            url: exam.meta_image
+              ? exam.meta_image
+              : "https://allexamquestions.com/alleq_logo.png",
+            width: 1200,
+            height: 630,
+            alt: exam.meta_title || "All Exam Questions Exam Page",
+          },
+        ],
+      
       },
     };
+  
   } catch (error) {
     return {
       title: "Exam | AllExamQuestions",

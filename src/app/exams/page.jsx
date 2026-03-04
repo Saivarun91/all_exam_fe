@@ -230,6 +230,35 @@ async function fetchData() {
   }
 }
 
+// export async function generateMetadata() {
+//   try {
+//     const res = await fetch(
+//       `${API_BASE_URL}/api/home/exams-page-seo/`,
+//       { cache: "no-store" }
+//     );
+
+//     if (!res.ok) {
+//       return { title: "Exams" };
+//     }
+
+//     const seoData = await res.json();
+//     console.log("SEO DATA", seoData);
+
+//     return {
+//       title: seoData.meta_title + " | All Exam Questions" || "",
+//       description: seoData.meta_description || "",
+//       keywords: seoData.meta_keywords || "",
+//       metadataBase: new URL("https://allexamquestions.com"),
+//       alternates: {
+//         canonical: "/exams", // ✅ relative path
+//       },
+//     };
+//   } catch {
+//     return { title: "Exams" };
+//   }
+// }
+
+// Main exams page
 export async function generateMetadata() {
   try {
     const res = await fetch(
@@ -238,27 +267,68 @@ export async function generateMetadata() {
     );
 
     if (!res.ok) {
-      return { title: "Exams" };
+      return {
+        title: "Exams | All Exam Questions",
+        description: "Explore all exams on All Exam Questions platform.",
+        metadataBase: new URL("https://allexamquestions.com"),
+        alternates: {
+          canonical: "/exams",
+        },
+      };
     }
 
     const seoData = await res.json();
-    console.log("SEO DATA", seoData);
 
     return {
-      title: seoData.meta_title + " | All Exam Questions" || "",
-      description: seoData.meta_description || "",
-      keywords: seoData.meta_keywords || "",
       metadataBase: new URL("https://allexamquestions.com"),
+
+      title: seoData?.meta_title
+        ? `${seoData.meta_title} | All Exam Questions`
+        : "Exams | All Exam Questions",
+
+      description:
+        seoData?.meta_description ||
+        "Explore all exams on All Exam Questions platform.",
+
+      keywords: seoData?.meta_keywords || "",
+
       alternates: {
-        canonical: "/exams", // ✅ relative path
+        canonical: "/exams",
+      },
+
+      openGraph: {
+        title: seoData?.meta_title
+          ? `${seoData.meta_title} | All Exam Questions`
+          : "Exams | All Exam Questions",
+        description:
+          seoData?.meta_description ||
+          "Explore all exams on All Exam Questions platform.",
+        url: "https://allexamquestions.com/exams",
+        type: "website",
+        images: [
+          {
+            url: seoData?.meta_image
+              ? seoData.meta_image
+              : "https://allexamquestions.com/alleq_logo.png",
+            width: 1200,
+            height: 630,
+            alt: seoData?.meta_title || "All Exam Questions Exams Page",
+          },
+        ],
       },
     };
-  } catch {
-    return { title: "Exams" };
+  } catch (error) {
+    return {
+      title: "Exams | All Exam Questions",
+      description: "Explore all exams on All Exam Questions platform.",
+      metadataBase: new URL("https://allexamquestions.com"),
+      alternates: {
+        canonical: "/exams",
+      },
+    };
   }
 }
 
-// Main exams page
 export default async function ExamsPage() {
   const data = await fetchData();
   

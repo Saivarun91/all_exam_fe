@@ -245,7 +245,7 @@ const Header = () => {
                 : "text-[#0C1A35] hover:text-[#1A73E8]"
             }`}
           >
-            Blog
+            Blogs
           </Link>
 
           <Link 

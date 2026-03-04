@@ -167,20 +167,20 @@ export const metadata = {
   keywords:
     "FAQ, All Exam Questions, exam questions, frequently asked questions, exam preparation, exam tips, question bank",
   alternates: {
-    canonical: "https://allexamquestions.com/FAQ",
+    canonical: "https://allexamquestions.com/faq",
   },
   openGraph: {
     title: "Frequently Asked Questions | AllExamQuestions",
     description:
       "Frequently Asked Questions about AllExamQuestions platform. Find answers to all common queries about exams, questions, and preparation tips.",
-    url: "https://allexamquestions.com/FAQ",
+    url: "https://allexamquestions.com/faq",
     type: "website",
   },
 };
 
 // ================== SSR PAGE COMPONENT ==================
 export default async function FAQ() {
-  let faqSections = [];
+  let faqs = [];
 
   // ================== FETCH FAQs SERVER-SIDE ==================
   try {
@@ -188,32 +188,19 @@ export default async function FAQ() {
     const res = await fetch(`${API_BASE_URL}/api/home/faqs/`);
     const result = await res.json();
 
-    const faqsByCategory = {};
     if (result.success && result.data) {
-      result.data.forEach(faq => {
-        const category = faq.category || "General";
-        if (!faqsByCategory[category]) faqsByCategory[category] = [];
-        faqsByCategory[category].push({
-          question: faq.question,
-          answer: faq.answer,
-        });
-      });
+      faqs = result.data.map(faq => ({
+        question: faq.question,
+        answer: faq.answer,
+      }));
     }
-
-    faqSections = Object.keys(faqsByCategory).map(category => ({
-      title: category,
-      faqs: faqsByCategory[category],
-    }));
   } catch (err) {
     console.error("Failed to fetch FAQs:", err);
-    faqSections = [];
+    faqs = [];
   }
 
-  // Flatten all FAQs for JSON-LD
-  const allFAQs = faqSections.flatMap(section => section.faqs || []);
-
   // ================== HANDLE EMPTY ==================
-  if (!faqSections || faqSections.length === 0) {
+  if (!faqs || faqs.length === 0) {
     return (
       <div className="min-h-screen flex items-center justify-center text-red-500">
         Failed to load FAQs.
@@ -225,7 +212,7 @@ export default async function FAQ() {
   return (
     <div className="min-h-screen">
       {/* ================== FAQ JSON-LD ================== */}
-      {allFAQs.length > 0 && <FAQJsonLd faqs={allFAQs} />}
+      {faqs.length > 0 && <FAQJsonLd faqs={faqs} />}
 
       <Header />
 
@@ -240,35 +227,26 @@ export default async function FAQ() {
             </p>
           </div>
 
-          <div className="space-y-12">
-            {faqSections.map((section, sectionIndex) => (
-              <div key={sectionIndex}>
-                <h2 className="text-2xl font-bold mb-6 text-foreground">
-                  {section.title}
-                </h2>
-                <Accordion type="single" collapsible className="w-full space-y-4">
-                  {section.faqs.map((faq, faqIndex) => (
-                    <AccordionItem
-                      key={faqIndex}
-                      value={`section-${sectionIndex}-item-${faqIndex}`}
-                      className="border border-border rounded-lg px-6 bg-card"
-                    >
-                      <AccordionTrigger className="text-left font-semibold text-foreground hover:no-underline">
-                        {faq.question}
-                      </AccordionTrigger>
-                      <AccordionContent className="text-muted-foreground">
-                        {faq.answer}
-                      </AccordionContent>
-                    </AccordionItem>
-                  ))}
-                </Accordion>
-              </div>
+          <Accordion type="single" collapsible className="w-full space-y-4">
+            {faqs.map((faq, index) => (
+              <AccordionItem
+                key={index}
+                value={`item-${index}`}
+                className="border border-border rounded-lg px-6 bg-card"
+              >
+                <AccordionTrigger className="text-left font-semibold text-foreground hover:no-underline">
+                  {faq.question}
+                </AccordionTrigger>
+                <AccordionContent className="text-muted-foreground">
+                  {faq.answer}
+                </AccordionContent>
+              </AccordionItem>
             ))}
-          </div>
+          </Accordion>
         </div>
       </main>
 
-      <Footer />
+      {/* <Footer /> */}
     </div>
   );
 }
