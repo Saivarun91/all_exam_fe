@@ -210,7 +210,7 @@ const Footer = () => {
             <div>
               <h3 className="font-bold text-base md:text-lg mb-2 md:mb-3 text-[#F5F8FF]">Contact Us</h3>
               <ul className="space-y-1.5 md:space-y-2">
-                {hasEmail && (
+                {/* {hasEmail && (
                   <li className="flex items-start gap-2">
                     <Mail className="w-3.5 h-3.5 md:w-4 md:h-4 text-[#1A73E8] mt-0.5 flex-shrink-0" />
                     <a 
@@ -220,7 +220,21 @@ const Footer = () => {
                       {contactDetails.email.trim()}
                     </a>
                   </li>
+                )} */}
+
+                {hasEmail && (
+                  <li className="flex items-start gap-2">
+                    <Mail className="w-3.5 h-3.5 md:w-4 md:h-4 text-[#1A73E8] mt-0.5 flex-shrink-0" />
+                    <a
+                      href={`mailto:${contactDetails.email.trim().replace("@", "[at]").replace(".", "[dot]")}`}
+                      className="text-[#F0F4FF] hover:text-[#1A73E8] transition-colors text-xs md:text-sm break-all"
+                    >
+                      {contactDetails.email.trim().replace("@", " [at] ").replace(".", " [dot] ")}
+                    </a>
+                  </li>
                 )}
+
+
                 {hasPhone && (
                   <li className="flex items-start gap-2">
                     <Phone className="w-3.5 h-3.5 md:w-4 md:h-4 text-[#1A73E8] mt-0.5 flex-shrink-0" />
