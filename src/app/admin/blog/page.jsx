@@ -447,18 +447,34 @@ export default async function AdminBlogPage() {
                   //   />
                   // </div>
 
-                  <div className="w-full aspect-[16/9] rounded-md overflow-hidden mb-3 bg-gray-100">
-                  <img 
-                    src={getOptimizedImageUrl(blog.image_url, 360, 202)} 
+                //   <div className="w-full aspect-[16/9] rounded-md overflow-hidden mb-3 bg-gray-100">
+                //   <img 
+                //     src={getOptimizedImageUrl(blog.image_url, 360, 202)} 
+                //     alt={blog.title || "Blog image"}
+                //     width={360}
+                //     height={202}
+                //     className="w-full h-full object-cover"
+                //     loading="lazy"
+                //     sizes="(max-width: 768px) 100vw, 358px"
+                //     decoding="async"
+                //   />
+                // </div>
+
+                
+
+                // inside your blog card
+                <div className="w-full aspect-[16/9] rounded-md overflow-hidden mb-3 bg-gray-100">
+                  <Image
+                    src={getOptimizedImageUrl(blog.image_url, 358, 220)}  // uploaded WebP image in /public/images/
                     alt={blog.title || "Blog image"}
-                    width={360}
-                    height={202}
-                    className="w-full h-full object-cover"
-                    loading="lazy"
+                    width={358}      // displayed width
+                    height={220}     // displayed height
                     sizes="(max-width: 768px) 100vw, 358px"
-                    decoding="async"
+                    style={{ objectFit: 'cover' }} // ensures proper scaling without stretching
+                    priority={false} // lazy load by default
                   />
                 </div>
+
               
                 ) : (
                   <div className="w-full aspect-[16/9] bg-gray-100 flex items-center justify-center rounded-md mb-3 text-gray-500">

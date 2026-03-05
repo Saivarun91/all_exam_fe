@@ -175,29 +175,200 @@
 
   
 
-import { Suspense } from "react";
+// import { Suspense } from "react";
+// import ExamsPageContent from "@/components/exams/ExamsPageContent";
+// export const dynamic = "force-dynamic";
+
+// const API_BASE_URL =
+//   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
+
+// // Fetch exams page data
+// async function fetchData() {
+//   try {
+//     const [
+//       providersRes,
+//       categoriesRes,
+//       coursesRes,
+//       trustBarRes,
+//       aboutRes,
+//     ] = await Promise.all([
+//       fetch(`${API_BASE_URL}/api/providers/`, { cache: "no-store" }),
+//       fetch(`${API_BASE_URL}/api/categories/`, { cache: "no-store" }),
+//       fetch(`${API_BASE_URL}/api/courses/`, { cache: "no-store" }),
+//       fetch(`${API_BASE_URL}/api/home/exams-trust-bar/`, { cache: "no-store" }),
+//       fetch(`${API_BASE_URL}/api/home/exams-about/`, { cache: "no-store" }),
+//     ]);
+
+//     const providersData = await providersRes.json();
+//     const categoriesData = await categoriesRes.json();
+//     const coursesData = await coursesRes.json();
+//     const trustBarData = await trustBarRes.json();
+//     const aboutData = await aboutRes.json();
+
+//     return {
+//       providers: Array.isArray(providersData)
+//         ? providersData.filter((p) => p.is_active)
+//         : [],
+//       categories: Array.isArray(categoriesData)
+//         ? categoriesData.filter((c) => c.is_active !== false)
+//         : [],
+//       exams: Array.isArray(coursesData)
+//         ? coursesData.filter((c) => c.is_active !== false)
+//         : [],
+//       trustBarItems: trustBarData?.success ? trustBarData.data : [],
+//       aboutSection: aboutData?.success ? aboutData.data : {},
+//     };
+//   } catch (error) {
+//     console.error("Server fetch error:", error);
+//     return {
+//       providers: [],
+//       categories: [],
+//       exams: [],
+//       trustBarItems: [],
+//       aboutSection: {},
+//     };
+//   }
+// }
+
+// // export async function generateMetadata() {
+// //   try {
+// //     const res = await fetch(
+// //       `${API_BASE_URL}/api/home/exams-page-seo/`,
+// //       { cache: "no-store" }
+// //     );
+
+// //     if (!res.ok) {
+// //       return { title: "Exams" };
+// //     }
+
+// //     const seoData = await res.json();
+// //     console.log("SEO DATA", seoData);
+
+// //     return {
+// //       title: seoData.meta_title + " | All Exam Questions" || "",
+// //       description: seoData.meta_description || "",
+// //       keywords: seoData.meta_keywords || "",
+// //       metadataBase: new URL("https://allexamquestions.com"),
+// //       alternates: {
+// //         canonical: "/exams", // ✅ relative path
+// //       },
+// //     };
+// //   } catch {
+// //     return { title: "Exams" };
+// //   }
+// // }
+
+// // Main exams page
+// export async function generateMetadata() {
+//   try {
+//     const res = await fetch(
+//       `${API_BASE_URL}/api/home/exams-page-seo/`,
+//       { cache: "no-store" }
+//     );
+
+//     if (!res.ok) {
+//       return {
+//         title: "Exams | All Exam Questions",
+//         description: "Explore all exams on All Exam Questions platform.",
+//         metadataBase: new URL("https://allexamquestions.com"),
+//         alternates: {
+//           canonical: "/exams",
+//         },
+//       };
+//     }
+
+//     const seoData = await res.json();
+
+//     return {
+//       metadataBase: new URL("https://allexamquestions.com"),
+
+//       title: seoData?.meta_title
+//         ? `${seoData.meta_title} | All Exam Questions`
+//         : "Exams | All Exam Questions",
+
+//       description:
+//         seoData?.meta_description ||
+//         "Explore all exams on All Exam Questions platform.",
+
+//       keywords: seoData?.meta_keywords || "",
+
+//       alternates: {
+//         canonical: "/exams",
+//       },
+
+//       openGraph: {
+//         title: seoData?.meta_title
+//           ? `${seoData.meta_title} | All Exam Questions`
+//           : "Exams | All Exam Questions",
+//         description:
+//           seoData?.meta_description ||
+//           "Explore all exams on All Exam Questions platform.",
+//         url: "https://allexamquestions.com/exams",
+//         type: "website",
+//         images: [
+//           {
+//             url: seoData?.meta_image
+//               ? seoData.meta_image
+//               : "https://allexamquestions.com/alleq_logo.png",
+//             width: 1200,
+//             height: 630,
+//             alt: seoData?.meta_title || "All Exam Questions Exams Page",
+//           },
+//         ],
+//       },
+//     };
+//   } catch (error) {
+//     return {
+//       title: "Exams | All Exam Questions",
+//       description: "Explore all exams on All Exam Questions platform.",
+//       metadataBase: new URL("https://allexamquestions.com"),
+//       alternates: {
+//         canonical: "/exams",
+//       },
+//     };
+//   }
+// }
+
+// export default async function ExamsPage() {
+//   const data = await fetchData();
+  
+
+//   return (
+//     <Suspense fallback={null}>
+//       <ExamsPageContent
+//         initialProvidersData={data.providers}
+//         initialCategoriesData={data.categories}
+//         initialExamsData={data.exams}
+//         initialTrustBarData={data.trustBarItems}
+//         initialAboutData={data.aboutSection}
+//         usePathBasedRouting={true}
+//       />
+//     </Suspense>
+//   );
+// }
+
+
+
+
+// app/exams/page.tsx (or .jsx)
 import ExamsPageContent from "@/components/exams/ExamsPageContent";
+
 export const dynamic = "force-dynamic";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
-// Fetch exams page data
+// ------------------ Fetch Data ------------------
 async function fetchData() {
   try {
-    const [
-      providersRes,
-      categoriesRes,
-      coursesRes,
-      trustBarRes,
-      aboutRes,
-    ] = await Promise.all([
-      fetch(`${API_BASE_URL}/api/providers/`, { cache: "no-store" }),
-      fetch(`${API_BASE_URL}/api/categories/`, { cache: "no-store" }),
-      fetch(`${API_BASE_URL}/api/courses/`, { cache: "no-store" }),
-      fetch(`${API_BASE_URL}/api/home/exams-trust-bar/`, { cache: "no-store" }),
-      fetch(`${API_BASE_URL}/api/home/exams-about/`, { cache: "no-store" }),
-    ]);
+    const [providersRes, categoriesRes, coursesRes, trustBarRes, aboutRes] =
+      await Promise.all([
+        fetch(`${API_BASE_URL}/api/providers/`, { cache: "no-store" }),
+        fetch(`${API_BASE_URL}/api/categories/`, { cache: "no-store" }),
+        fetch(`${API_BASE_URL}/api/courses/`, { cache: "no-store" }),
+        fetch(`${API_BASE_URL}/api/home/exams-trust-bar/`, { cache: "no-store" }),
+        fetch(`${API_BASE_URL}/api/home/exams-about/`, { cache: "no-store" }),
+      ]);
 
     const providersData = await providersRes.json();
     const categoriesData = await categoriesRes.json();
@@ -230,91 +401,54 @@ async function fetchData() {
   }
 }
 
-// export async function generateMetadata() {
-//   try {
-//     const res = await fetch(
-//       `${API_BASE_URL}/api/home/exams-page-seo/`,
-//       { cache: "no-store" }
-//     );
-
-//     if (!res.ok) {
-//       return { title: "Exams" };
-//     }
-
-//     const seoData = await res.json();
-//     console.log("SEO DATA", seoData);
-
-//     return {
-//       title: seoData.meta_title + " | All Exam Questions" || "",
-//       description: seoData.meta_description || "",
-//       keywords: seoData.meta_keywords || "",
-//       metadataBase: new URL("https://allexamquestions.com"),
-//       alternates: {
-//         canonical: "/exams", // ✅ relative path
-//       },
-//     };
-//   } catch {
-//     return { title: "Exams" };
-//   }
-// }
-
-// Main exams page
+// ------------------ Dynamic Metadata ------------------
 export async function generateMetadata() {
   try {
-    const res = await fetch(
-      `${API_BASE_URL}/api/home/exams-page-seo/`,
-      { cache: "no-store" }
-    );
+    const res = await fetch(`${API_BASE_URL}/api/home/exams-page-seo/`, {
+      cache: "no-store",
+    });
 
-    if (!res.ok) {
-      return {
-        title: "Exams | All Exam Questions",
-        description: "Explore all exams on All Exam Questions platform.",
-        metadataBase: new URL("https://allexamquestions.com"),
-        alternates: {
-          canonical: "/exams",
-        },
-      };
-    }
+    if (!res.ok) throw new Error("SEO fetch failed");
 
     const seoData = await res.json();
 
+    const title = seoData?.meta_title
+      ? `${seoData.meta_title} | All Exam Questions`
+      : "Exams | All Exam Questions";
+
+    const description =
+      seoData?.meta_description || "Explore all exams on All Exam Questions platform.";
+
+    const image =
+      seoData?.meta_image || "https://allexamquestions.com/alleq_logo.png";
+
     return {
-      metadataBase: new URL("https://allexamquestions.com"),
-
-      title: seoData?.meta_title
-        ? `${seoData.meta_title} | All Exam Questions`
-        : "Exams | All Exam Questions",
-
-      description:
-        seoData?.meta_description ||
-        "Explore all exams on All Exam Questions platform.",
-
+      title,
+      description,
       keywords: seoData?.meta_keywords || "",
-
+      metadataBase: new URL("https://allexamquestions.com"),
       alternates: {
         canonical: "/exams",
       },
-
       openGraph: {
-        title: seoData?.meta_title
-          ? `${seoData.meta_title} | All Exam Questions`
-          : "Exams | All Exam Questions",
-        description:
-          seoData?.meta_description ||
-          "Explore all exams on All Exam Questions platform.",
+        title,
+        description,
         url: "https://allexamquestions.com/exams",
         type: "website",
         images: [
           {
-            url: seoData?.meta_image
-              ? seoData.meta_image
-              : "https://allexamquestions.com/alleq_logo.png",
+            url: image,
             width: 1200,
             height: 630,
-            alt: seoData?.meta_title || "All Exam Questions Exams Page",
+            alt: title,
           },
         ],
+      },
+      twitter: {
+        card: "summary_large_image",
+        title,
+        description,
+        images: [image],
       },
     };
   } catch (error) {
@@ -329,20 +463,18 @@ export async function generateMetadata() {
   }
 }
 
+// ------------------ Page Component ------------------
 export default async function ExamsPage() {
   const data = await fetchData();
-  
 
   return (
-    <Suspense fallback={null}>
-      <ExamsPageContent
-        initialProvidersData={data.providers}
-        initialCategoriesData={data.categories}
-        initialExamsData={data.exams}
-        initialTrustBarData={data.trustBarItems}
-        initialAboutData={data.aboutSection}
-        usePathBasedRouting={true}
-      />
-    </Suspense>
+    <ExamsPageContent
+      initialProvidersData={data.providers}
+      initialCategoriesData={data.categories}
+      initialExamsData={data.exams}
+      initialTrustBarData={data.trustBarItems}
+      initialAboutData={data.aboutSection}
+      usePathBasedRouting={true}
+    />
   );
 }

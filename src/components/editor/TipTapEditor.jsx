@@ -204,6 +204,10 @@ const TipTapEditor = ({
   const [highlightGradientDirection, setHighlightGradientDirection] = useState("right");
   const [uploadingImage, setUploadingImage] = useState(false);
   const imageInputRef = useRef(null);
+  const [linkOpen, setLinkOpen] = useState(false);
+  const [linkUrl, setLinkUrl] = useState("");
+  const [linkRel, setLinkRel] = useState("");
+
 
   const uploadImageToCloudinary = async (file) => {
     const imageData = new FormData();
@@ -1830,7 +1834,7 @@ const TipTapEditor = ({
         <div className="w-px h-6 bg-gray-300 mx-1" />
 
         {/* Insert Options */}
-        <Button
+        {/* <Button
           type="button"
           variant={editor.isActive("link") ? "default" : "ghost"}
           size="sm"
@@ -1843,7 +1847,61 @@ const TipTapEditor = ({
           className="h-8 w-8 p-0"
         >
           <LinkIcon className="h-4 w-4" />
-        </Button>
+        </Button> */}
+
+        <Popover open={linkOpen} onOpenChange={setLinkOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              type="button"
+              variant={editor.isActive("link") ? "default" : "ghost"}
+              size="sm"
+              className="h-8 w-8 p-0"
+            >
+              <LinkIcon className="h-4 w-4" />
+            </Button>
+          </PopoverTrigger>
+
+          <PopoverContent className="w-64 p-4">
+            <div className="space-y-2">
+              <label className="text-xs text-gray-600">URL</label>
+              <input
+                type="text"
+                value={linkUrl}
+                onChange={(e) => setLinkUrl(e.target.value)}
+                className="w-full px-2 py-1 border rounded text-xs"
+                placeholder="https://example.com"
+              />
+
+              {/* Link Type Dropdown */}
+              <label className="text-xs text-gray-600">Link Type</label>
+              <select
+                value={linkRel}
+                onChange={(e) => setLinkRel(e.target.value)}
+                className="w-full px-2 py-1 border rounded text-xs"
+              >
+                {/* <option value="">Default</option> */}
+                <option value="nofollow">nofollow</option>
+                <option value="dofollow">dofollow</option>
+              </select>
+
+
+              <Button
+                type="button"
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white text-xs"
+                onClick={() => {
+                  editor.chain().focus().setLink({
+                    href: linkUrl,
+                    rel: linkRel || undefined,
+                    target: "_blank",
+                  }).run();
+                  setLinkOpen(false);
+                }}
+              >
+                Apply Link
+              </Button>
+            </div>
+          </PopoverContent>
+        </Popover>
         <input
           ref={imageInputRef}
           type="file"
