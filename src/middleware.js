@@ -1,14 +1,25 @@
-import { NextResponse } from 'next/server';
+import { NextResponse } from "next/server";
 
 export function middleware(request) {
   const url = request.nextUrl.clone();
-  const hostname = request.headers.get('host') || '';
+  const hostname = request.headers.get("host") || "";
+  const pathname = url.pathname;
 
-  // Redirect www to non-www (canonicalize to non-www)
-  if (hostname === 'www.allexamquestions.com') {
-    url.hostname = 'allexamquestions.com';
-    url.protocol = 'https:';
-    return NextResponse.redirect(url, 301); // Permanent redirect
+  // 1️⃣ Redirect www → non-www
+  if (hostname === "www.allexamquestions.com") {
+    url.hostname = "allexamquestions.com";
+    url.protocol = "https:";
+    return NextResponse.redirect(url, 301);
+  }
+
+  // 2️⃣ Convert only FAQ and Dashboard paths to lowercase
+  if (
+    pathname === "/FAQ" ||
+    pathname === "/Dashboard"
+  ) {
+    console.log("middleware : ")
+    url.pathname = pathname.toLowerCase();
+    return NextResponse.redirect(url, 301);
   }
 
   return NextResponse.next();
@@ -16,14 +27,8 @@ export function middleware(request) {
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - api (API routes)
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     */
-    '/((?!api|_next/static|_next/image|favicon.ico).*)',
+    "/FAQ",
+    "/Dashboard",
+    "/((?!api|_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml).*)",
   ],
 };
-
