@@ -463,12 +463,13 @@ export default async function AdminBlogPage() {
                 
 
                 // inside your blog card
-                <div className="w-full aspect-[16/9] rounded-md overflow-hidden mb-3 bg-gray-100">
+                // <div className="w-full aspect-[16/9] rounded-md overflow-hidden mb-3 bg-gray-100">
+                <div className="w-full rounded-md overflow-hidden mb-3 bg-gray-100">
                   <Image
-                    src={getOptimizedImageUrl(blog.image_url, 358, 220)}  // uploaded WebP image in /public/images/
+                    src={getOptimizedImageUrl(blog.image_url, 358, 201)}  // uploaded WebP image in /public/images/
                     alt={blog.title || "Blog image"}
                     width={358}      // displayed width
-                    height={220}     // displayed height
+                    height={201}     // displayed height
                     sizes="(max-width: 768px) 100vw, 358px"
                     style={{ objectFit: 'cover' }} // ensures proper scaling without stretching
                     priority={false} // lazy load by default
