@@ -462,6 +462,7 @@ export default async function AdminBlogPage() {
 
                 
 
+                
                 // inside your blog card
                 // <div className="w-full aspect-[16/9] rounded-md overflow-hidden mb-3 bg-gray-100">
                 <div className="w-full rounded-md overflow-hidden mb-3 bg-gray-100">
