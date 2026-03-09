@@ -219,12 +219,19 @@
 
 import dynamicImport from "next/dynamic";
 
+
 // ================= DYNAMIC COMPONENTS =================
 
 const HeroSection = dynamicImport(() => import("@/components/home/HeroSection"), {
   ssr: true,
   loading: () => <div className="min-h-[450px] md:min-h-[550px]" />,
 });
+
+const SeoIntroSection = dynamicImport(() => import("@/components/home/SeoIntroSection"), {
+  ssr: true,
+  loading: () => <div className="py-20" />,
+});
+
 
 const TopCategories = dynamicImport(() => import("@/components/home/TopCategories"), {
   ssr: true,
@@ -385,6 +392,7 @@ export default function Page() {
 
       <main>
         <HeroSection />
+        <SeoIntroSection />
         <TopCategories />
         <FeaturedExams />
         <ValuePrepositions />

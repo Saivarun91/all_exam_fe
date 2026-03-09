@@ -48,6 +48,7 @@ export default function Dashboard() {
         headers: { Authorization: `Bearer ${token}` },
         signal: signal,
       });
+      
 
       clearTimeout(timeoutId);
 

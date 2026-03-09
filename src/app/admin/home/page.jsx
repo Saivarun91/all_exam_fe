@@ -27,6 +27,7 @@ import { motion } from "framer-motion";
 
 // Import all page components
 import HeroSectionAdmin from "../home/hero/page";
+import SeoIntroAdmin from "../home/seointro/page";
 import FeaturedExamsAdmin from "../home/featured-exams/page";
 import ValuePropositionsAdmin from "../home/value-propositions/page";
 import TopCategoriesAdmin from "../home/top-categories/page";
@@ -169,6 +170,12 @@ export default function AdminHomePage() {
       name: "Hero Section",
       icon: Sparkles,
       component: HeroSectionAdmin,
+    },
+    {
+      id: "seo-intro",
+      name: "SEO Intro Section",
+      icon: FileText,
+      component: SeoIntroAdmin,
     },
     {
       id: "featured-exams",

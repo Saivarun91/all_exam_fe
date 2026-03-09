@@ -24,7 +24,7 @@ async function getFAQData() {
     const sectionJson = await sectionRes.json();
     const faqJson = await faqRes.json();
 
-    console.log("SERVER FAQ DATA:", faqJson); // ← shows in terminal
+    // console.log("SERVER FAQ DATA:", faqJson); // ← shows in terminal
 
     return {
       section:
@@ -51,7 +51,7 @@ export default async function HomeFAQ() {
   const { section, faqs } = await getFAQData();
 
   // 🔴 TEMP DEBUG (remove later)
-  console.log("TOTAL FAQ COUNT:", faqs.length);
+  // console.log("TOTAL FAQ COUNT:", faqs.length);
 
   return <HomeFAQClient section={section} faqs={faqs} />;
 }

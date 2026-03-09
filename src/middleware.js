@@ -13,10 +13,7 @@ export function middleware(request) {
   }
 
   // 2️⃣ Convert only FAQ and Dashboard paths to lowercase
-  if (
-    pathname === "/FAQ"
-
-  ) {
+  if ( pathname === "/FAQ") {
     console.log("middleware : ")
     url.pathname = pathname.toLowerCase();
     return NextResponse.redirect(url, 301);
@@ -29,6 +26,6 @@ export const config = {
   matcher: [
     "/FAQ",
 
-    "/((?!api|_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml).*)",
+    "/((?!api|_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml).*)"
   ],
 };

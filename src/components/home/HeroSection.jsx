@@ -247,6 +247,7 @@ export default async function HeroSection() {
   const heroData = await getHeroData();
   const providers = await getProviders();
 
+
   const stats =
     heroData?.stats?.length > 0
       ? heroData.stats.filter((s) => s.value && s.label)
@@ -302,8 +303,10 @@ export default async function HeroSection() {
 
           {/* STATS */}
           <div className="flex flex-wrap justify-center gap-4 md:gap-8 py-3 md:py-4">
-            {stats.map((stat, i) => (
-              <div key={i} className="text-center space-y-1">
+            {/* {stats.map((stat, i) => (
+              <div key={i} className="text-center space-y-1"> */}
+            {stats.map((stat) => (
+              <div key={stat.label} className="text-center space-y-1">
                 <div className="text-3xl font-bold text-[#E7ECF6]">
                   {stat.value}
                 </div>
@@ -321,6 +324,7 @@ export default async function HeroSection() {
       </div>
     </section>
   );
+  
 }
 
 

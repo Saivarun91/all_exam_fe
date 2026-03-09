@@ -132,7 +132,7 @@ import {
 
 export default function HomeFAQClient({ faqs, section }) {
 
-  console.log("CLIENT FAQ:", faqs);
+  // console.log("CLIENT FAQ:", faqs);
 
   return (
     <section className="py-12 md:py-16 bg-white">

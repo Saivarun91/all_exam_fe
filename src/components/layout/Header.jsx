@@ -13,7 +13,7 @@ import { getOptimizedImageUrl } from "@/utils/imageUtils";
 const Header = () => {
   const pathname = usePathname();
   const router = useRouter();
-  const siteName = useSiteName();
+  const siteName = useSiteName(); 
   const logoUrl = useLogoUrl();
   console.log("logoUrl : ",logoUrl);
 
