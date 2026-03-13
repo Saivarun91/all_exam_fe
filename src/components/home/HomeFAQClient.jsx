@@ -130,15 +130,27 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 
-export default function HomeFAQClient({ faqs, section }) {
+// export default function HomeFAQClient({ faqs, section }) {
+  export default function HomeFAQClient({ faqs, section, content }) {
 
   // console.log("CLIENT FAQ:", faqs);
 
   return (
-    <section className="py-12 md:py-16 bg-white">
-      <div className="container mx-auto px-4 max-w-4xl">
+    <section id="faq-section" className="pt-12 md:pt-16 pb-24 bg-white">
+      <div className="container mx-auto px-4">
 
-        <div className="text-center mb-10">
+        {content && (
+          <div className="mb-6 w-full">
+            <div className="rounded-xl border border-[#EAF2FF] bg-[#FAFCFF] px-5 py-4 shadow-sm">
+              <div
+                className="tiptap-editor-content leading-relaxed text-[#0C1A35]/80"
+                dangerouslySetInnerHTML={{ __html: content }}
+              />
+            </div>
+          </div>
+        )}
+
+        <div className="mb-8 text-center">
           <h2 className="text-2xl md:text-4xl font-bold mb-3 text-[#0C1A35]">
             {section?.heading || "Frequently Asked Questions"}
           </h2>
@@ -152,28 +164,30 @@ export default function HomeFAQClient({ faqs, section }) {
 
         {faqs?.length > 0 ? (
 
-          <Accordion type="single" collapsible className="space-y-4">
+          <div id="faq-list" className="max-w-4xl mx-auto">
+            <Accordion type="single" collapsible className="space-y-4">
 
-            {faqs.map((faq, index) => (
+              {faqs.map((faq, index) => (
 
-              <AccordionItem
-                key={faq.id || index}
-                value={`item-${index}`}
-                className="border border-[#D3E3FF] rounded-lg px-6 bg-white hover:border-[#1A73E8]"
-              >
-                <AccordionTrigger className="text-left font-semibold text-[#0C1A35] py-4 hover:no-underline hover:text-[#1A73E8]">
-                  {faq.question}
-                </AccordionTrigger>
+                <AccordionItem
+                  key={faq.id || index}
+                  value={`item-${index}`}
+                  className="border border-[#D3E3FF] rounded-lg px-6 bg-white hover:border-[#1A73E8]"
+                >
+                  <AccordionTrigger className="text-left font-semibold text-[#0C1A35] py-4 hover:no-underline hover:text-[#1A73E8]">
+                    {faq.question}
+                  </AccordionTrigger>
 
-                <AccordionContent className="text-[#0C1A35]/70 pb-4">
-                  {faq.answer}
-                </AccordionContent>
+                  <AccordionContent className="text-[#0C1A35]/70 pb-4">
+                    {faq.answer}
+                  </AccordionContent>
 
-              </AccordionItem>
+                </AccordionItem>
 
-            ))}
+              ))}
 
-          </Accordion>
+            </Accordion>
+          </div>
 
         ) : (
 

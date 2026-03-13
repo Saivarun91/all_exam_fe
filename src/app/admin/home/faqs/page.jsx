@@ -24,6 +24,8 @@ import {
 import { Plus, Edit, Trash2, Eye, HelpCircle, Settings } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { motion } from "framer-motion";
+import TipTapEditor from "@/components/editor/TipTapEditor";
+
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
@@ -35,6 +37,7 @@ export default function FAQsAdmin() {
   const [message, setMessage] = useState("");
   
   const [formData, setFormData] = useState({
+    content: "", 
     question: "",
     answer: "",
     order: 0,
@@ -43,6 +46,7 @@ export default function FAQsAdmin() {
   const [sectionSettings, setSectionSettings] = useState({
     heading: "Frequently Asked Questions",
     subtitle: "Find answers to common questions",
+    content: "",
   });
   
   useEffect(() => {
@@ -50,6 +54,7 @@ export default function FAQsAdmin() {
     fetchSectionSettings();
   }, []);
   
+  // console.log(sectionSettings.content)
   const fetchSectionSettings = async () => {
     try {
       const res = await fetch(`${API_BASE_URL}/api/home/admin/faqs-section/`, {
@@ -72,6 +77,7 @@ export default function FAQsAdmin() {
   const handleSectionSettingsUpdate = async () => {
     setLoading(true);
     setMessage("");
+    console.log("settings : ",sectionSettings)
     
     try {
       const res = await fetch(`${API_BASE_URL}/api/home/admin/faqs-section/`, {
@@ -107,17 +113,49 @@ export default function FAQsAdmin() {
       });
       
       const data = await res.json();
+      console.log("faqs data : ",data)
       
-      if (data.success) {
-        setFaqs(data.data);
+      if (data.success && data.data) {
+        const payload = data.data;
+
+        // If backend returns a plain array, use it directly
+        if (Array.isArray(payload)) {
+          setFaqs(payload);
+        } 
+        // If backend wraps FAQs + section settings together
+        else if (Array.isArray(payload.faqs)) {
+          setFaqs(payload.faqs);
+          setSectionSettings(prev => ({
+            ...prev,
+            heading: payload.heading ?? prev.heading,
+            subtitle: payload.subtitle ?? prev.subtitle,
+            content: payload.content ?? prev.content,
+          }));
+        } 
+        // Fallback: no FAQ array, but maybe only section info
+        else if (typeof payload === "object" && payload !== null) {
+          setFaqs([]);
+          setSectionSettings(prev => ({
+            ...prev,
+            heading: payload.heading ?? prev.heading,
+            subtitle: payload.subtitle ?? prev.subtitle,
+            content: payload.content ?? prev.content,
+          }));
+        } else {
+          setFaqs([]);
+        }
+      } else {
+        setFaqs([]);
       }
     } catch (error) {
       console.error("Error fetching FAQs:", error);
+      setFaqs([]);
     }
   };
   
   const resetForm = () => {
     setFormData({
+      content: "",
       question: "",
       answer: "",
       order: 0,
@@ -128,6 +166,7 @@ export default function FAQsAdmin() {
   const handleEdit = (faq) => {
     setEditing(faq);
     setFormData({
+      content: faq.content || "",
       question: faq.question || "",
       answer: faq.answer || "",
       order: faq.order || 0,
@@ -356,6 +395,18 @@ export default function FAQsAdmin() {
                 value={sectionSettings.subtitle}
                 onChange={(e) => setSectionSettings({...sectionSettings, subtitle: e.target.value})}
                 placeholder="Find answers to common questions"
+              />
+            </div>
+          </div>
+          {/* Section Content / Introduction */}
+          <div>
+            <Label>Section Content / Introduction</Label>
+            <div className="mt-2 border rounded-md p-2 min-h-[150px]">
+              <TipTapEditor
+                content={sectionSettings.content || ""}
+                onChange={(htmlContent) => {
+                  setSectionSettings(prev => ({ ...prev, content: htmlContent }));
+                }}
               />
             </div>
           </div>

@@ -149,15 +149,7 @@
 
 // app/FAQ/page.jsx
 
-import Header from "@/components/layout/Header";
-import Footer from "@/components/layout/Footer";
-import FAQJsonLd from "@/components/FAQJsonLd";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
+import { redirect } from "next/navigation";
 
 // ================== SEO METADATA ==================
 export const metadata = {
@@ -179,74 +171,7 @@ export const metadata = {
 };
 
 // ================== SSR PAGE COMPONENT ==================
-export default async function FAQ() {
-  let faqs = [];
-
-  // ================== FETCH FAQs SERVER-SIDE ==================
-  try {
-    const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
-    const res = await fetch(`${API_BASE_URL}/api/home/faqs/`);
-    const result = await res.json();
-
-    if (result.success && result.data) {
-      faqs = result.data.map(faq => ({
-        question: faq.question,
-        answer: faq.answer,
-      }));
-    }
-  } catch (err) {
-    console.error("Failed to fetch FAQs:", err);
-    faqs = [];
-  }
-
-  // ================== HANDLE EMPTY ==================
-  if (!faqs || faqs.length === 0) {
-    return (
-      <div className="min-h-screen flex items-center justify-center text-red-500">
-        Failed to load FAQs.
-      </div>
-    );
-  }
-
-  // ================== RENDER ==================
-  return (
-    <div className="min-h-screen">
-      {/* ================== FAQ JSON-LD ================== */}
-      {faqs.length > 0 && <FAQJsonLd faqs={faqs} />}
-
-      <Header />
-
-      <main className="py-16 bg-background">
-        <div className="container mx-auto px-4 max-w-5xl">
-          <div className="text-center mb-12">
-            <h1 className="text-5xl font-bold mb-4 text-foreground">
-              Frequently Asked Questions
-            </h1>
-            <p className="text-muted-foreground text-lg">
-              Everything you need to know about our platform
-            </p>
-          </div>
-
-          <Accordion type="single" collapsible className="w-full space-y-4">
-            {faqs.map((faq, index) => (
-              <AccordionItem
-                key={index}
-                value={`item-${index}`}
-                className="border border-border rounded-lg px-6 bg-card"
-              >
-                <AccordionTrigger className="text-left font-semibold text-foreground hover:no-underline">
-                  {faq.question}
-                </AccordionTrigger>
-                <AccordionContent className="text-muted-foreground">
-                  {faq.answer}
-                </AccordionContent>
-              </AccordionItem>
-            ))}
-          </Accordion>
-        </div>
-      </main>
-
-      {/* <Footer /> */}
-    </div>
-  );
+// Redirect standalone /faq route to the FAQ section on the home page
+export default function FAQ() {
+  redirect("/#faq-section");
 }

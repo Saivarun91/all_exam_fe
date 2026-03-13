@@ -9,6 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { getExamUrl } from "@/lib/utils";
 import BreadcrumbJsonLd from "@/components/BreadcrumbJsonLd";
+// import { useRouter } from "next/navigation";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -28,6 +29,7 @@ export default function CategoryPage() {
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  // const router = useRouter();
 
   useEffect(() => {
     if (!slug) return;
@@ -122,7 +124,9 @@ export default function CategoryPage() {
             <BreadcrumbSeparator />
             <BreadcrumbItem>
               <BreadcrumbLink asChild>
-                <Link href="/exams" className="text-[#0C1A35]/60 hover:text-[#1A73E8]">Exams</Link>
+                <Link href="/categories" className="text-[#0C1A35]/60 hover:text-[#1A73E8]">
+                  Categories
+                </Link>
               </BreadcrumbLink>
             </BreadcrumbItem>
             <BreadcrumbSeparator />

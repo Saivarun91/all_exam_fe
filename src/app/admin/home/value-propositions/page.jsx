@@ -49,6 +49,7 @@ const AVAILABLE_ICONS = [
   { value: "CheckCircle", label: "Check Circle ✅", icon: CheckCircle },
   { value: "Users", label: "Users 👥", icon: Users },
   { value: "FileText", label: "File Text 📄", icon: FileText },
+  // { value: "ClipboardCheck", label: "Clipboard Check 📋✅", icon: ClipboardCheck },
 ];
 
 const ICON_MAP = {

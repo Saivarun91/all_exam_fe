@@ -1048,11 +1048,11 @@ export default function ExamsPageContent({
             <h1 className="text-3xl font-bold text-[#0C1A35] mb-2">
               Showing {filteredExams.length} results for All Popular Exams
             </h1>
-            <div className="flex flex-wrap gap-4 text-sm text-[#0C1A35]/70">
-              <span>{updatedThisWeek} exams updated this week</span>
-              <span>•</span>
-              <span>{totalQuestions.toLocaleString()}+ questions available</span>
-            </div>
+            {/* <div className="flex flex-wrap gap-4 text-sm text-[#0C1A35]/70"> */}
+              {/* <span>{updatedThisWeek} exams updated this week</span> */}
+              {/* <span>•</span> */}
+              {/* <span>{totalQuestions.toLocaleString()}+ questions available</span> */}
+            {/* </div> */}
           </div>
 
           {/* Trust Bar - Dynamic from Admin */}
@@ -1265,7 +1265,7 @@ export default function ExamsPageContent({
           </div>
 
           {/* About Section - Dynamic from Admin */}
-          {aboutSection.content && (
+          {/* {aboutSection.content && (
             <section className="mt-12 mb-8">
               <Card className="p-8 border border-gray-200 bg-white shadow-sm">
                 <div 
@@ -1280,7 +1280,7 @@ export default function ExamsPageContent({
                 />
               </Card>
             </section>
-          )}
+          )} */}
         </div>
       </section>
     </div>

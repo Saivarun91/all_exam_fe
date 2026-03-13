@@ -24,7 +24,8 @@ async function getFAQData() {
     const sectionJson = await sectionRes.json();
     const faqJson = await faqRes.json();
 
-    // console.log("SERVER FAQ DATA:", faqJson); // ← shows in terminal
+
+    console.log("SERVER FAQ DATA:", faqJson); // ← shows in terminal
 
     return {
       section:
@@ -35,7 +36,7 @@ async function getFAQData() {
               subtitle:
                 "Clear answers to the most common questions our learners ask.",
             },
-
+      content: faqJson?.success ? faqJson.content || "" : "",
       faqs:
         faqJson?.success && Array.isArray(faqJson?.data)
           ? faqJson.data
@@ -48,10 +49,12 @@ async function getFAQData() {
 }
 
 export default async function HomeFAQ() {
-  const { section, faqs } = await getFAQData();
+  // const { section, faqs } = await getFAQData();
+  const { section, faqs, content } = await getFAQData();
 
   // 🔴 TEMP DEBUG (remove later)
   // console.log("TOTAL FAQ COUNT:", faqs.length);
 
-  return <HomeFAQClient section={section} faqs={faqs} />;
+  // return <HomeFAQClient section={section} faqs={faqs} />;
+  return <HomeFAQClient section={section} faqs={faqs} content={content} />;
 }

@@ -2,14 +2,13 @@ User-agent: *
 Allow: /
 
 Disallow: /admin/
-Disallow: /login/
-Disallow: /signup/
+
 Disallow: /auth/
 Disallow: /api/
-Disallow: /test-review/
+
 Disallow: /_next/static/chunks/
 Disallow: /exam-details/
 Disallow: /ExamDetails/
-Disallow: /categories/
+
 
 Sitemap: https://allexamquestions.com/sitemap.xml

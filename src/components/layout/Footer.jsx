@@ -3,7 +3,7 @@
 import { GraduationCap, Facebook, Twitter, Linkedin, Youtube, Instagram, Shield, Mail, Phone, MapPin, Globe } from "lucide-react";
 import Link from "next/link";
 import { useState, useEffect } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useSiteName } from "@/hooks/useSiteName";
 import { useContactDetails } from "@/hooks/useContactDetails";
 import { useLogoUrl } from "@/hooks/useLogoUrl";
@@ -22,6 +22,7 @@ import Script from "next/script";
  */
 const Footer = () => {
   const pathname = usePathname();
+  const router = useRouter();
   const siteName = useSiteName();
   console.log(siteName);
   const contactDetails = useContactDetails();
@@ -62,7 +63,8 @@ const Footer = () => {
   // Available resources pages (only show what exists)
   const availableResources = [
     { name: "Blogs", href: "/blog", exists: true },
-    { name: "faq", href: "/faq", exists: true },
+    // FAQ: handled with smooth scroll to home page section
+    { name: "FAQ", href: "/", exists: true },
   ];
 
   // Company pages (only show if they exist - currently none exist, so empty)
@@ -119,6 +121,27 @@ const Footer = () => {
     return "#";
   };
 
+  const handleFooterFAQClick = (event) => {
+    event.preventDefault();
+
+    const scrollToFaq = () => {
+      if (typeof document === "undefined") return;
+      const el =
+        document.getElementById("faq-list") ||
+        document.getElementById("faq-section");
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    };
+
+    if (pathname === "/") {
+      scrollToFaq();
+    } else {
+      router.push("/");
+      setTimeout(scrollToFaq, 600);
+    }
+  };
+
   return (
     <footer className="bg-gradient-to-br from-[#0C1A35] to-[#0E2444] text-white border-t border-[#1A73E8]/20">
       <div className="container mx-auto px-4 py-6 md:py-8">
@@ -153,16 +176,28 @@ const Footer = () => {
             <div>
               <h3 className="font-bold text-base md:text-lg mb-2 md:mb-3 text-[#F5F8FF]">Resources</h3>
               <ul className="space-y-1 md:space-y-1.5">
-                {availableResources.filter(resource => resource.exists).map((resource, index) => (
-                  <li key={index}>
-                    <Link
-                      href={resource.href}
-                      className="text-[#F0F4FF] hover:text-[#1A73E8] transition-colors text-xs md:text-sm"
-                    >
-                      {resource.name}
-                    </Link>
-                  </li>
-                ))}
+                {availableResources
+                  .filter((resource) => resource.exists)
+                  .map((resource, index) => (
+                    <li key={index}>
+                      {resource.name === "FAQ" ? (
+                        <button
+                          type="button"
+                          onClick={handleFooterFAQClick}
+                          className="text-left text-[#F0F4FF] hover:text-[#1A73E8] transition-colors text-xs md:text-sm"
+                        >
+                          {resource.name}
+                        </button>
+                      ) : (
+                        <Link
+                          href={resource.href}
+                          className="text-[#F0F4FF] hover:text-[#1A73E8] transition-colors text-xs md:text-sm"
+                        >
+                          {resource.name}
+                        </Link>
+                      )}
+                    </li>
+                  ))}
               </ul>
             </div>
           )}

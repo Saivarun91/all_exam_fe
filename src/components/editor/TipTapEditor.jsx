@@ -1605,7 +1605,10 @@ const TipTapEditor = ({
                   <ChevronDown className="h-3 w-3" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-auto p-2" align="start">
+              <PopoverContent
+                className="w-auto max-h-80 overflow-y-auto p-2"
+                align="start"
+              >
                 <div className="space-y-1">
                   <button
                     type="button"
