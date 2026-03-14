@@ -76,6 +76,9 @@
  * FAQ JSON-LD Structured Data Component
  * Server-side version (SSR compatible)
  */
+
+import Script from "next/script";
+
 export default function FAQJsonLd({ faqs = [] }) {
   if (!Array.isArray(faqs) || faqs.length === 0) return null;
 
@@ -96,7 +99,7 @@ export default function FAQJsonLd({ faqs = [] }) {
   const faqJsonLd = {
     "@context": "https://schema.org",
     "@type": "FAQPage",
-    mainEntity: validFAQs.map(faq => ({
+    mainEntity: validFAQs.map((faq) => ({
       "@type": "Question",
       name: faq.question.trim(),
       acceptedAnswer: {
@@ -107,10 +110,13 @@ export default function FAQJsonLd({ faqs = [] }) {
   };
 
   return (
-    <script
+    <Script
       id="faq-json-ld-schema"
       type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
+      strategy="afterInteractive"
+      dangerouslySetInnerHTML={{
+        __html: JSON.stringify(faqJsonLd)
+      }}
     />
   );
 }
