@@ -238,22 +238,11 @@ export default function ItemListJsonLd({
 
           url: itemUrl || BASE_URL,
 
-          // ...(itemType === "Course"
-          //   ? {
-          //       provider: {
-          //         "@type": "Organization",
-          //         name: item.provider || "AllExamQuestions",
-          //       },
-          //     }
-          //   : {}),
-          ...(itemType === "Course" && item.provider
+          ...(itemType === "Course"
             ? {
                 provider: {
                   "@type": "Organization",
-                  name:
-                    typeof item.provider === "string"
-                      ? item.provider
-                      : item.provider?.name,
+                  name: item.provider || "AllExamQuestions",
                 },
               }
             : {}),

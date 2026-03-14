@@ -47,7 +47,7 @@ export default async function FeaturedExams() {
   const schemaItems = courses.map((course) => ({
     title: course.title,
     description: course.description || course.excerpt || "",
-    provider: course.provider?.name || course.provider || "",
+    provider: course.provider || "",
     url: getExamUrl(course),
   }));
 
