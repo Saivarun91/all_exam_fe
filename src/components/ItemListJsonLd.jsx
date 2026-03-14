@@ -136,7 +136,7 @@ export default function ItemListJsonLd({
     "@context": "https://schema.org",
     "@type": "ItemList",
     "@id": `${BASE_URL}/#${schemaId}`,
-    name: listName || "Item List",
+    name: listName,
     numberOfItems: items.length,
 
     itemListElement: items.map((item, index) => ({
