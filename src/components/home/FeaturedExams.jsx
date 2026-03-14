@@ -26,7 +26,7 @@ async function getData() {
 
     const courses = Array.isArray(coursesJson)
       ? coursesJson.filter(
-          (c) => c.is_active !== false && c.is_featured !== false
+          (c) => c.is_active"featured-exams-json-ld-schema" !== false && c.is_featured !== false
         )
       : [];
 
@@ -47,7 +47,7 @@ export default async function FeaturedExams() {
   const schemaItems = courses.map((course) => ({
     title: course.title,
     description: course.description || course.excerpt || "",
-    provider: course.provider || "",
+    provider: course.provider?.name || course.provider || "",
     url: getExamUrl(course),
   }));
 

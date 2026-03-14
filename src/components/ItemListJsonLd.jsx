@@ -196,6 +196,7 @@ export default function ItemListJsonLd({
   schemaId = "itemlist-json-ld-schema",
 }) {
   if (!Array.isArray(items) || items.length === 0) return null;
+  
 
   const BASE_URL = "https://allexamquestions.com";
 
@@ -237,11 +238,22 @@ export default function ItemListJsonLd({
 
           url: itemUrl || BASE_URL,
 
-          ...(itemType === "Course"
+          // ...(itemType === "Course"
+          //   ? {
+          //       provider: {
+          //         "@type": "Organization",
+          //         name: item.provider || "AllExamQuestions",
+          //       },
+          //     }
+          //   : {}),
+          ...(itemType === "Course" && item.provider
             ? {
                 provider: {
                   "@type": "Organization",
-                  name: item.provider || "AllExamQuestions",
+                  name:
+                    typeof item.provider === "string"
+                      ? item.provider
+                      : item.provider?.name,
                 },
               }
             : {}),
