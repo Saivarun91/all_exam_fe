@@ -125,87 +125,49 @@
 export default function ItemListJsonLd({
   items = [],
   listName = "",
-  itemType = "ListItem",
+  itemType = "Course",
   schemaId = "itemlist-json-ld-schema",
 }) {
-  if (!Array.isArray(items) || items.length === 0) {
-    return null;
-  }
+  if (!Array.isArray(items) || items.length === 0) return null;
 
   const BASE_URL = "https://allexamquestions.com";
 
   const itemListJsonLd = {
     "@context": "https://schema.org",
     "@type": "ItemList",
+    "@id": `${BASE_URL}/#${schemaId}`,
     name: listName || "Item List",
     numberOfItems: items.length,
-    itemListElement: items.map((item, index) => {
-      const baseItem = {
-        "@type": "ListItem",
-        position: index + 1,
-      };
 
-      if (itemType === "Course" && item.title) {
-        return {
-          ...baseItem,
-          item: {
-            "@type": "Course",
-            name: item.title,
-            description: item.description || item.excerpt || "",
-            provider: {
-              "@type": "Organization",
-              name: item.provider || "AllExamQuestions",
-            },
-            url: `${BASE_URL}${item.url || item.slug || ""}`,
-          },
-        };
-      } 
-      
-      else if (itemType === "Category" && item.name) {
-        return {
-          ...baseItem,
-          item: {
-            "@type": "Thing",
-            name: item.name,
-            description: item.description || "",
-            url: `${BASE_URL}${item.url || ""}`,
-          },
-        };
-      } 
-      
-      else if (itemType === "Organization" && item.name) {
-        return {
-          ...baseItem,
-          item: {
-            "@type": "Organization",
-            name: item.name,
-            description: item.description || "",
-            url: `${BASE_URL}${item.url || ""}`,
-          },
-        };
-      } 
-      
-      else if (itemType === "Thing" && item.title) {
-        return {
-          ...baseItem,
-          item: {
-            "@type": "Thing",
-            name: item.title || item.name,
-            description: item.description || "",
-          },
-        };
-      } 
-      
-      else {
-        return {
-          ...baseItem,
-          item: {
-            "@type": "Thing",
-            name: item.name || item.title || `Item ${index + 1}`,
-          },
-        };
-      }
-    }),
+    itemListElement: items.map((item, index) => ({
+      "@type": "ListItem",
+      position: index + 1,
+
+      item: {
+        "@type": itemType === "Course" ? "Course" : "Thing",
+        name: item.title || item.name || `Item ${index + 1}`,
+
+        description:
+          item.description ||
+          item.excerpt ||
+          `Prepare for the ${item.title || item.name} certification exam with practice questions and study resources.`,
+
+        url: item.url
+          ? `${BASE_URL}${item.url}`
+          : item.slug
+          ? `${BASE_URL}/exams/${item.slug}`
+          : undefined,
+
+        ...(itemType === "Course"
+          ? {
+              provider: {
+                "@type": "Organization",
+                name: item.provider || "AllExamQuestions",
+              },
+            }
+          : {}),
+      },
+    })),
   };
 
   return (

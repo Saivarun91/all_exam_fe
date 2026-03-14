@@ -7,8 +7,7 @@ Disallow: /auth/
 Disallow: /api/
 
 Disallow: /_next/static/chunks/
-Disallow: /exam-details/
-Disallow: /ExamDetails/
+
 
 
 Sitemap: https://allexamquestions.com/sitemap.xml
