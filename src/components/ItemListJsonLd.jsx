@@ -122,6 +122,73 @@
  * Server-safe version (NO useEffect)
  */
 
+// export default function ItemListJsonLd({
+//   items = [],
+//   listName = "",
+//   itemType = "Course",
+//   schemaId = "itemlist-json-ld-schema",
+// }) {
+//   if (!Array.isArray(items) || items.length === 0) return null;
+
+//   const BASE_URL = "https://allexamquestions.com";
+
+//   const itemListJsonLd = {
+//     "@context": "https://schema.org",
+//     "@type": "ItemList",
+//     "@id": `${BASE_URL}/#${schemaId}`,
+//     name: listName,
+//     numberOfItems: items.length,
+//     itemListOrder: "https://schema.org/ItemListOrderAscending",
+
+//     itemListElement: items.map((item, index) => {
+//       const title = item.title || item.name || `Item ${index + 1}`;
+
+//       return {
+//         "@type": "ListItem",
+//         position: index + 1,
+
+//         item: {
+//           "@type": itemType === "Course" ? "Course" : "Thing",
+
+//           name: title,
+
+//           description:
+//             item.description ||
+//             item.excerpt ||
+//             `Prepare for the ${title} certification exam with practice questions and study resources.`,
+
+//           url: item.url
+//             ? `${BASE_URL}${item.url}`
+//             : item.slug
+//             ? `${BASE_URL}/exams/${item.slug}`
+//             : BASE_URL,
+
+//           ...(itemType === "Course"
+//             ? {
+//                 provider: {
+//                   "@type": "Organization",
+//                   name: item.provider || "AllExamQuestions",
+//                 },
+//               }
+//             : {}),
+//         },
+//       };
+//     }),
+//   };
+
+//   return (
+//     <script
+//       id={schemaId}
+//       type="application/ld+json"
+//       dangerouslySetInnerHTML={{
+//         __html: JSON.stringify(itemListJsonLd),
+//       }}
+//     />
+//   );
+// }
+
+
+
 export default function ItemListJsonLd({
   items = [],
   listName = "",
@@ -136,19 +203,30 @@ export default function ItemListJsonLd({
     "@context": "https://schema.org",
     "@type": "ItemList",
     "@id": `${BASE_URL}/#${schemaId}`,
-    name: listName,
-    numberOfItems: items.length,
+    name: listName || "Featured Exams",
     itemListOrder: "https://schema.org/ItemListOrderAscending",
+    numberOfItems: items.length,
 
     itemListElement: items.map((item, index) => {
       const title = item.title || item.name || `Item ${index + 1}`;
+
+      // Ensure URL is absolute
+      let itemUrl = item.url || "";
+      if (itemUrl && !itemUrl.startsWith("http")) {
+        itemUrl = `${BASE_URL}${itemUrl}`;
+      }
 
       return {
         "@type": "ListItem",
         position: index + 1,
 
+        // 👇 Important for Google
+        name: title,
+
         item: {
           "@type": itemType === "Course" ? "Course" : "Thing",
+
+          "@id": itemUrl || `${BASE_URL}/#course-${index + 1}`,
 
           name: title,
 
@@ -157,11 +235,7 @@ export default function ItemListJsonLd({
             item.excerpt ||
             `Prepare for the ${title} certification exam with practice questions and study resources.`,
 
-          url: item.url
-            ? `${BASE_URL}${item.url}`
-            : item.slug
-            ? `${BASE_URL}/exams/${item.slug}`
-            : BASE_URL,
+          url: itemUrl || BASE_URL,
 
           ...(itemType === "Course"
             ? {
