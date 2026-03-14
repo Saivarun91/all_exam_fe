@@ -1,4 +1,5 @@
 import HomeFAQClient from "./HomeFAQClient";
+import FAQJsonLd from "@/components/FAQJsonLd";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
@@ -56,5 +57,10 @@ export default async function HomeFAQ() {
   // console.log("TOTAL FAQ COUNT:", faqs.length);
 
   // return <HomeFAQClient section={section} faqs={faqs} />;
-  return <HomeFAQClient section={section} faqs={faqs} content={content} />;
+  return (
+    <>
+      <FAQJsonLd faqs={faqs} />  
+      <HomeFAQClient section={section} faqs={faqs} content={content} />
+    </>
+  );
 }
