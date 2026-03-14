@@ -138,36 +138,42 @@ export default function ItemListJsonLd({
     "@id": `${BASE_URL}/#${schemaId}`,
     name: listName,
     numberOfItems: items.length,
+    itemListOrder: "https://schema.org/ItemListOrderAscending",
 
-    itemListElement: items.map((item, index) => ({
-      "@type": "ListItem",
-      position: index + 1,
+    itemListElement: items.map((item, index) => {
+      const title = item.title || item.name || `Item ${index + 1}`;
 
-      item: {
-        "@type": itemType === "Course" ? "Course" : "Thing",
-        name: item.title || item.name || `Item ${index + 1}`,
+      return {
+        "@type": "ListItem",
+        position: index + 1,
 
-        description:
-          item.description ||
-          item.excerpt ||
-          `Prepare for the ${item.title || item.name} certification exam with practice questions and study resources.`,
+        item: {
+          "@type": itemType === "Course" ? "Course" : "Thing",
 
-        url: item.url
-          ? `${BASE_URL}${item.url}`
-          : item.slug
-          ? `${BASE_URL}/exams/${item.slug}`
-          : undefined,
+          name: title,
 
-        ...(itemType === "Course"
-          ? {
-              provider: {
-                "@type": "Organization",
-                name: item.provider || "AllExamQuestions",
-              },
-            }
-          : {}),
-      },
-    })),
+          description:
+            item.description ||
+            item.excerpt ||
+            `Prepare for the ${title} certification exam with practice questions and study resources.`,
+
+          url: item.url
+            ? `${BASE_URL}${item.url}`
+            : item.slug
+            ? `${BASE_URL}/exams/${item.slug}`
+            : BASE_URL,
+
+          ...(itemType === "Course"
+            ? {
+                provider: {
+                  "@type": "Organization",
+                  name: item.provider || "AllExamQuestions",
+                },
+              }
+            : {}),
+        },
+      };
+    }),
   };
 
   return (
