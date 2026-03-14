@@ -174,7 +174,6 @@ import { Badge } from "@/components/ui/badge";
 import { Award, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { getExamUrl } from "@/lib/utils";
-import ItemListJsonLd from "@/components/ItemListJsonLd";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
@@ -220,28 +219,11 @@ export default async function RecentlyUpdated() {
     getExams(),
   ]);
 
-  // Hide section if no exams (same as before)
+  // Hide section if no exams
   if (!exams.length) return null;
-
-  // Prepare schema items (same logic)
-  const schemaItems = exams.map((exam) => ({
-    title: exam.title,
-    description: exam.description || exam.excerpt || "",
-    provider: exam.provider || "",
-    url: getExamUrl(exam),
-  }));
 
   return (
     <section className="py-12 md:py-20 bg-gradient-to-b from-[#0C1A35]/2 to-white">
-      
-      {exams.length > 0 && (
-        <ItemListJsonLd
-          items={schemaItems}
-          listName={sectionSettings.heading || "Recently Updated Exams"}
-          itemType="Course"
-          schemaId="recently-updated-json-ld-schema"
-        />
-      )}
 
       <div className="container mx-auto px-4">
 
@@ -260,7 +242,6 @@ export default async function RecentlyUpdated() {
 
             {exams.map((exam, index) => {
 
-              // same logic preserved
               let practiceCount = 0;
               if (
                 exam.practice_tests_list &&
