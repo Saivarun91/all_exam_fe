@@ -361,13 +361,14 @@ const API_BASE_URL =
 // ------------------ Fetch Data ------------------
 async function fetchData() {
   try {
-    const [providersRes, categoriesRes, coursesRes, trustBarRes, aboutRes] =
+    const [providersRes, categoriesRes, coursesRes, trustBarRes, aboutRes, examsSeoRes] =
       await Promise.all([
         fetch(`${API_BASE_URL}/api/providers/`, { cache: "no-store" }),
         fetch(`${API_BASE_URL}/api/categories/`, { cache: "no-store" }),
         fetch(`${API_BASE_URL}/api/courses/`, { cache: "no-store" }),
         fetch(`${API_BASE_URL}/api/home/exams-trust-bar/`, { cache: "no-store" }),
         fetch(`${API_BASE_URL}/api/home/exams-about/`, { cache: "no-store" }),
+        fetch(`${API_BASE_URL}/api/home/exams-page-seo/`, { cache: "no-store" }),
       ]);
 
     const providersData = await providersRes.json();
@@ -375,6 +376,7 @@ async function fetchData() {
     const coursesData = await coursesRes.json();
     const trustBarData = await trustBarRes.json();
     const aboutData = await aboutRes.json();
+    const examsSeoData = await examsSeoRes.json();
 
     return {
       providers: Array.isArray(providersData)
@@ -388,6 +390,9 @@ async function fetchData() {
         : [],
       trustBarItems: trustBarData?.success ? trustBarData.data : [],
       aboutSection: aboutData?.success ? aboutData.data : {},
+      examsPageHeading:
+        (examsSeoData?.page_h1 && String(examsSeoData.page_h1).trim()) ||
+        "All Popular Exams",
     };
   } catch (error) {
     console.error("Server fetch error:", error);
@@ -397,6 +402,7 @@ async function fetchData() {
       exams: [],
       trustBarItems: [],
       aboutSection: {},
+      examsPageHeading: "All Popular Exams",
     };
   }
 }
@@ -474,6 +480,7 @@ export default async function ExamsPage() {
       initialExamsData={data.exams}
       initialTrustBarData={data.trustBarItems}
       initialAboutData={data.aboutSection}
+      initialPageHeading={data.examsPageHeading}
       usePathBasedRouting={true}
     />
   );

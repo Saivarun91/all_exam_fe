@@ -24,11 +24,11 @@ export default function HeroSearchClient({ providers }) {
 
     if (selectedProvider && searchKeyword.trim()) {
       const keywordSlug = createSlug(searchKeyword.trim());
-      targetUrl = `/exams/${selectedProvider}/search/${encodeURIComponent(
+      targetUrl = `/${selectedProvider}/search/${encodeURIComponent(
         keywordSlug
       )}`;
     } else if (selectedProvider) {
-      targetUrl = `/exams/${selectedProvider}`;
+      targetUrl = `/${selectedProvider}`;
     } else if (searchKeyword.trim()) {
       const keywordSlug = createSlug(searchKeyword.trim());
       targetUrl = `/exams/search/${encodeURIComponent(keywordSlug)}`;

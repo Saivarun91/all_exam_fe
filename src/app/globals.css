@@ -283,7 +283,7 @@
 
 .tiptap-editor-content ul[data-list-style="checkmark"] {
   list-style-type: none;
-  padding-left: 1.5rem;
+  padding-left: 0;
 }
 
 .tiptap-editor-content ul[data-list-style="checkmark"] li::before {
@@ -295,7 +295,7 @@
 
 .tiptap-editor-content ul[data-list-style="arrow"] {
   list-style-type: none;
-  padding-left: 1.5rem;
+  padding-left: 0;
 }
 
 .tiptap-editor-content ul[data-list-style="arrow"] li::before {
@@ -307,7 +307,7 @@
 
 .tiptap-editor-content ul[data-list-style="dash"] {
   list-style-type: none;
-  padding-left: 1.5rem;
+  padding-left: 0;
 }
 
 .tiptap-editor-content ul[data-list-style="dash"] li::before {
@@ -318,7 +318,7 @@
 
 .tiptap-editor-content ul[data-list-style="star"] {
   list-style-type: none;
-  padding-left: 1.5rem;
+  padding-left: 0;
 }
 
 .tiptap-editor-content ul[data-list-style="star"] li::before {
@@ -329,7 +329,30 @@
 
 .tiptap-editor-content ul[data-list-style="triangle"] {
   list-style-type: none;
-  padding-left: 1.5rem;
+  padding-left: 0;
+}
+
+.tiptap-editor-content ul[data-list-style="checkmark"] > li,
+.tiptap-editor-content ul[data-list-style="arrow"] > li,
+.tiptap-editor-content ul[data-list-style="dash"] > li,
+.tiptap-editor-content ul[data-list-style="star"] > li,
+.tiptap-editor-content ul[data-list-style="triangle"] > li {
+  list-style: none;
+  position: relative;
+  padding-left: 1.35rem;
+}
+
+.tiptap-editor-content ul[data-list-style="checkmark"] > li::before,
+.tiptap-editor-content ul[data-list-style="arrow"] > li::before,
+.tiptap-editor-content ul[data-list-style="dash"] > li::before,
+.tiptap-editor-content ul[data-list-style="star"] > li::before,
+.tiptap-editor-content ul[data-list-style="triangle"] > li::before {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1rem;
+  line-height: inherit;
+  margin-right: 0;
 }
 
 .tiptap-editor-content ul[data-list-style="triangle"] li::before {
@@ -370,17 +393,59 @@
   @apply max-w-full h-auto my-4 rounded;
 }
 
+.tiptap-editor-content {
+  --default-cell-min-width: 72px;
+}
+
+.tiptap-editor-content .tableWrapper {
+  overflow-x: auto;
+  max-width: 100%;
+  margin: 1rem 0;
+}
+
 .tiptap-editor-content table {
   @apply border-collapse border border-gray-300 my-4 w-full;
+  table-layout: fixed;
+  overflow: hidden;
 }
 
 .tiptap-editor-content table td,
 .tiptap-editor-content table th {
   @apply border border-gray-300 px-4 py-2;
+  vertical-align: top;
+  box-sizing: border-box;
+  position: relative;
 }
 
 .tiptap-editor-content table th {
   @apply bg-gray-100 font-semibold;
+}
+
+.tiptap-editor-content .column-resize-handle {
+  position: absolute;
+  right: -2px;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  z-index: 20;
+  background-color: #93c5fd;
+  pointer-events: none;
+}
+
+.tiptap-editor-content.resize-cursor {
+  cursor: col-resize;
+}
+
+.tiptap-editor-content .selectedCell::after {
+  z-index: 2;
+  position: absolute;
+  content: "";
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  background: rgba(191, 219, 254, 0.45);
+  pointer-events: none;
 }
 
 .tiptap-editor-content blockquote {

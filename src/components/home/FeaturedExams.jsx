@@ -7,17 +7,21 @@ const API_BASE_URL =
 
 async function getData() {
   try {
-    const [sectionRes, coursesRes] = await Promise.all([
+    const [sectionRes, coursesRes, providersRes] = await Promise.all([
       fetch(`${API_BASE_URL}/api/home/featured-exams-section/`, {
         cache: "no-store",
       }),
       fetch(`${API_BASE_URL}/api/courses/featured/`, {
         cache: "no-store",
       }),
+      fetch(`${API_BASE_URL}/api/providers/`, {
+        cache: "no-store",
+      }),
     ]);
 
     const sectionJson = await sectionRes.json().catch(() => ({}));
     const coursesJson = await coursesRes.json().catch(() => []);
+    const providersJson = await providersRes.json().catch(() => []);
 
     const sectionSettings =
       sectionJson?.success && sectionJson?.data
@@ -30,17 +34,27 @@ async function getData() {
         )
       : [];
 
-    return { sectionSettings, courses };
+    const providerSlugByName = Array.isArray(providersJson)
+      ? providersJson.reduce((acc, provider) => {
+          if (provider?.name && provider?.slug) {
+            acc[provider.name.toLowerCase().trim()] = provider.slug;
+          }
+          return acc;
+        }, {})
+      : {};
+
+    return { sectionSettings, courses, providerSlugByName };
   } catch {
     return {
       sectionSettings: { heading: "Featured Exams", subtitle: "" },
       courses: [],
+      providerSlugByName: {},
     };
   }
 }
 
 export default async function FeaturedExams() {
-  const { sectionSettings, courses } = await getData();
+  const { sectionSettings, courses, providerSlugByName } = await getData();
 
   if (!courses.length) return null;
 
@@ -64,6 +78,7 @@ export default async function FeaturedExams() {
       <FeaturedExamsClient
         courses={courses}
         sectionSettings={sectionSettings}
+        providerSlugByName={providerSlugByName}
       />
 
     </section>

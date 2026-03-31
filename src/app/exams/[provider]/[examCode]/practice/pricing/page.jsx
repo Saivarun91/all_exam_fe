@@ -659,18 +659,40 @@
 
 
 
+import { redirect } from "next/navigation";
 import PricingPageClient from "./PricingPageClient";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
 
+function normalizePathSegment(segment) {
+  if (segment == null || segment === "") return "";
+  let s = String(segment);
+  try {
+    s = decodeURIComponent(s);
+  } catch {
+    /* already decoded */
+  }
+  return s
+    .normalize("NFKC")
+    .toLowerCase()
+    .trim()
+    .replace(/_/g, "-")
+    .replace(/[\u2010\u2011\u2012\u2013\u2014\u2212\uFE63\uFF0D]/g, "-")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 export async function generateMetadata({ params }) {
   const { provider, examCode } = await params;
+  const np = normalizePathSegment(provider);
+  const ne = normalizePathSegment(examCode);
 
   return {
-    title: `${examCode} - ${provider} Certification Exam | AllExamQuestions`,
-    description: `Choose the best access plan for ${examCode} certification exam. AllExamQuestions provides unlimited practice tests, detailed explanations, and expert support.`,
+    title: `${ne} - ${np} Certification Exam | AllExamQuestions`,
+    description: `Choose the best access plan for ${ne} certification exam. AllExamQuestions provides unlimited practice tests, detailed explanations, and expert support.`,
     alternates: {
-      canonical: `https://allexamquestions.com/exams/${provider}/${examCode}/practice/pricing`,
+      canonical: `https://allexamquestions.com/exams/${np}/${ne}/practice/pricing`,
     },
   };
 }
@@ -684,8 +706,14 @@ export default async function PricingPage({ params }) {
     return <div>Invalid URL — missing provider or examCode.</div>;
   }
 
-  const normalizedProvider = provider.toLowerCase().replace(/_/g, "-");
-  const normalizedExamCode = examCode.toLowerCase().replace(/_/g, "-");
+  const normalizedProvider = normalizePathSegment(provider);
+  const normalizedExamCode = normalizePathSegment(examCode);
+
+  if (provider !== normalizedProvider || examCode !== normalizedExamCode) {
+    redirect(
+      `/exams/${normalizedProvider}/${normalizedExamCode}/practice/pricing`
+    );
+  }
   const slug = `${normalizedProvider}-${normalizedExamCode}`;
 
   let pricingData = null;
@@ -723,8 +751,8 @@ export default async function PricingPage({ params }) {
 
   return (
     <PricingPageClient
-      provider={provider}
-      examCode={examCode}
+      provider={normalizedProvider}
+      examCode={normalizedExamCode}
       pricingData={pricingData}
       error={error}
     />

@@ -30,7 +30,7 @@ async function getTestimonialsData() {
           : [],
     };
   } catch (err) {
-    console.error("Testimonials fetch error", err);
+    // Fail silently and render fallback when API is unavailable.
     return { section: {}, testimonials: [] };
   }
 }

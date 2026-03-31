@@ -69,6 +69,12 @@ const nextConfig = {
         source: '/sitemap.xml',
         destination: '/sitemap',
       },
+      // {
+      //   source: '/:slug',
+      //   destination: '/categories/:slug',
+      // },
+      
+
     ];
   },
   async redirects() {

@@ -10,23 +10,24 @@ async function getFAQData() {
       `${API_BASE_URL}/api/home/faqs-section/`,
       { cache: "no-store" }
     );
+    const contentRes = await fetch(
+      `${API_BASE_URL}/api/home/section-content/`,
+      { cache: "no-store" }
+    );
 
     const faqRes = await fetch(
       `${API_BASE_URL}/api/home/faqs/`,
       { cache: "no-store" }
     );
 
-    // 🔴 VERY IMPORTANT: check fetch success
     if (!faqRes.ok) {
-      console.error("FAQ API FAILED:", faqRes.status);
       return { section: {}, faqs: [] };
     }
 
     const sectionJson = await sectionRes.json();
+    const contentJson = await contentRes.json();
     const faqJson = await faqRes.json();
 
-
-    console.log("SERVER FAQ DATA:", faqJson); // ← shows in terminal
 
     return {
       section:
@@ -37,21 +38,28 @@ async function getFAQData() {
               subtitle:
                 "Clear answers to the most common questions our learners ask.",
             },
-      content: faqJson?.success ? faqJson.content || "" : "",
+      sectionContent:
+        contentJson?.success && contentJson?.data
+          ? {
+              heading: contentJson.data.heading || "Section Content",
+              content: contentJson.data.content || "",
+            }
+          : {
+              heading: "Section Content",
+              content: "",
+            },
       faqs:
         faqJson?.success && Array.isArray(faqJson?.data)
           ? faqJson.data
           : [],
     };
   } catch (err) {
-    console.error("SERVER FAQ ERROR:", err);
     return { section: {}, faqs: [] };
   }
 }
 
 export default async function HomeFAQ() {
-  // const { section, faqs } = await getFAQData();
-  const { section, faqs, content } = await getFAQData();
+  const { section, faqs, sectionContent } = await getFAQData();
 
   // 🔴 TEMP DEBUG (remove later)
   // console.log("TOTAL FAQ COUNT:", faqs.length);
@@ -60,7 +68,7 @@ export default async function HomeFAQ() {
   return (
     <>
       <FAQJsonLd faqs={faqs} />  
-      <HomeFAQClient section={section} faqs={faqs} content={content} />
+      <HomeFAQClient section={section} faqs={faqs} sectionContent={sectionContent} />
     </>
   );
 }

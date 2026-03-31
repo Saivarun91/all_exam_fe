@@ -354,7 +354,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { getOptimizedImageUrl } from "@/utils/imageUtils";
+import { getOptimizedImageUrl } from "../../utils/imageUtils";
 
 import {
   Cloud,

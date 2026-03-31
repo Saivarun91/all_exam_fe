@@ -281,9 +281,13 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ArrowRight, Award, ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
-import { getExamUrl } from "@/lib/utils";
+import { createSlug, getExamUrl } from "@/lib/utils";
 
-export default function FeaturedExamsClient({ courses, sectionSettings }) {
+export default function FeaturedExamsClient({
+  courses,
+  sectionSettings,
+  providerSlugByName = {},
+}) {
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [itemsPerView, setItemsPerView] = useState(3);
@@ -305,6 +309,11 @@ export default function FeaturedExamsClient({ courses, sectionSettings }) {
 
   const handlePrev = () => setCurrentIndex((p) => Math.max(0, p - 1));
   const handleNext = () => setCurrentIndex((p) => Math.min(maxIndex, p + 1));
+  const getProviderPageUrl = (exam) => {
+    const providerName = exam?.provider?.toLowerCase?.().trim?.() || "";
+    const canonicalSlug = providerSlugByName[providerName];
+    return `/providers/${canonicalSlug || exam?.provider_slug || createSlug(exam?.provider || "")}`;
+  };
 
   return (
     <div className="container mx-auto px-4">
@@ -377,16 +386,26 @@ export default function FeaturedExamsClient({ courses, sectionSettings }) {
 
                     <div className="flex-grow space-y-1">
                       <p className="text-sm text-[#0C1A35]/60 font-medium">
-                        {exam.provider || "Unknown Provider"}
+                        <Link
+                          href={getProviderPageUrl(exam)}
+                          className="hover:text-[#1A73E8] transition-colors"
+                          aria-label={`View ${exam.provider || "provider"} page`}
+                        >
+                          {exam.provider || "Unknown Provider"}
+                        </Link>
                       </p>
 
                       <h3 className="text-xl font-bold text-[#0C1A35] leading-tight">
-                        {exam.title || "Untitled Exam"}
+                        <Link
+                          href={getExamUrl(exam)}
+                          className="hover:text-[#1A73E8] transition-colors"
+                          aria-label={`Open ${exam.title || "exam"} page`}
+                        >
+                          {exam.title || "Untitled Exam"}
+                        </Link>
                       </h3>
 
-                      <p className="text-sm text-[#0C1A35]/60">
-                        {exam.code || "N/A"}
-                      </p>
+                      <p className="text-sm text-[#0C1A35]/60">{exam.code || "N/A"}</p>
                     </div>
 
                     <div className="pt-2 space-y-4">

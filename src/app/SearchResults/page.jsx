@@ -72,9 +72,10 @@ export default function SearchResults() {
     const providerSlug = selectedProvider !== "all" ? createSlug(selectedProvider) : "";
     const keywordSlug = searchKeyword.trim() ? createSlug(searchKeyword) : "";
 
-    if (providerSlug && !keywordSlug) router.push(`/exams/${providerSlug}`);
+    if (providerSlug && !keywordSlug) router.push(`/${providerSlug}`);
     else if (!providerSlug && keywordSlug) router.push(`/exams/search/${keywordSlug}`);
-    else if (providerSlug && keywordSlug) router.push(`/exams/${providerSlug}/${keywordSlug}`);
+    else if (providerSlug && keywordSlug)
+      router.push(`/${providerSlug}/search/${encodeURIComponent(keywordSlug)}`);
     else router.push(`/exams`);
   };
 

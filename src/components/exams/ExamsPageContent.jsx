@@ -657,6 +657,7 @@ export default function ExamsPageContent({
   initialExamsData = [],
   initialTrustBarData = [],
   initialAboutData = {},
+  initialPageHeading = "All Popular Exams",
   usePathBasedRouting = false,
 }) {
   const router = useRouter();
@@ -672,6 +673,7 @@ export default function ExamsPageContent({
   const [allExams, setAllExams] = useState(initialExamsData);
   const [trustBarItems, setTrustBarItems] = useState(initialTrustBarData);
   const [aboutSection, setAboutSection] = useState(initialAboutData);
+  const [pageHeading] = useState(initialPageHeading);
   const [loading, setLoading] = useState(false);
   const isInitializing = useRef(true);
   const hasInitialized = useRef(false);
@@ -679,21 +681,17 @@ export default function ExamsPageContent({
   // Helper function to build SEO-friendly URL
   const buildSEOUrl = (newProviders, newCategories, newKeyword) => {
     if (usePathBasedRouting) {
-      // Path-based routing: /exams/provider or /exams/provider/search/keyword or /exams/search/keyword
+      // Provider listing uses root slug (/provider); global keyword search stays under /exams/search/...
       if (newProviders.length > 0 && newKeyword && newKeyword.trim()) {
-        // Provider + keyword: /exams/provider/search/keyword
         const provider = newProviders[0];
         const keyword = encodeURIComponent(createSlug(newKeyword.trim()));
-        return `/exams/${provider}/search/${keyword}`;
+        return `/${provider}/search/${keyword}`;
       } else if (newProviders.length > 0) {
-        // Provider only: /exams/provider
-        return `/exams/${newProviders[0]}`;
+        return `/${newProviders[0]}`;
       } else if (newKeyword && newKeyword.trim()) {
-        // Keyword only: /exams/search/keyword
         const keyword = encodeURIComponent(createSlug(newKeyword.trim()));
         return `/exams/search/${keyword}`;
       } else {
-        // No filters: /exams
         return `/exams`;
       }
     } else {
@@ -814,6 +812,50 @@ export default function ExamsPageContent({
     }
   };
 
+  /** Normalize provider display names so EC-Council (ASCII hyphen) matches EC–Council (unicode dash) for filtering. */
+  const normalizeProviderNameKey = (name) => {
+    if (!name) return "";
+    return name
+      .toString()
+      .toLowerCase()
+      .trim()
+      .replace(/[\u2010\u2011\u2012\u2013\u2014\u2212]/g, "-")
+      .replace(/\s+/g, " ");
+  };
+
+  /** Canonical slug for an exam row — must stay in sync with checkbox values (provider.slug from API). */
+  const getExamProviderSlugForFilter = (exam) => {
+    if (exam?.provider_slug) {
+      return String(exam.provider_slug).toLowerCase().trim();
+    }
+    const examKey = normalizeProviderNameKey(exam?.provider || "");
+    const match = providers.find(
+      (p) => normalizeProviderNameKey(p?.name) === examKey
+    );
+    if (match?.slug) return String(match.slug).toLowerCase().trim();
+    return createSlug(normalizeProviderNameKey(exam?.provider || "").replace(/ /g, "-"));
+  };
+
+  const getProviderPageUrl = (exam) => {
+    const providerName = exam?.provider?.toLowerCase?.().trim?.() || "";
+    const canonicalProvider = providers.find(
+      (provider) => provider?.name?.toLowerCase?.().trim?.() === providerName
+    );
+    const providerSlug =
+      canonicalProvider?.slug || exam?.provider_slug || createSlug(exam?.provider || "");
+    return `/${providerSlug}`;
+  };
+
+  const getCategoryPageUrl = (exam) => {
+    const categoryName = exam?.category?.toLowerCase?.().trim?.() || "";
+    const canonicalCategory = categories.find(
+      (category) => category?.name?.toLowerCase?.().trim?.() === categoryName
+    );
+    const categorySlug =
+      canonicalCategory?.slug || exam?.category_slug || createSlug(exam?.category || "");
+    return `/categories/${categorySlug}`;
+  };
+
   // const filteredExams = useMemo(() => {
   //   return allExams.filter((exam) => {
   //     // Filter by providers (multiple selection with checkboxes)
@@ -911,13 +953,16 @@ export default function ExamsPageContent({
 
   const filteredExams = useMemo(() => {
     const q = searchKeyword?.trim().toLowerCase() || "";
+    const selectedProviderKeys = selectedProviders.map((s) =>
+      String(s || "").toLowerCase().trim()
+    );
   
     return allExams.filter((exam) => {
   
-      // ✅ Provider filter (FIXED)
-      if (selectedProviders.length > 0) {
-        const examProviderSlug = createSlug(exam.provider || "");
-        if (!selectedProviders.includes(examProviderSlug)) {
+      // Provider filter: use API provider_slug / name lookup — not createSlug(provider) alone (breaks EC-Council vs unicode dashes).
+      if (selectedProviderKeys.length > 0) {
+        const examProviderSlug = getExamProviderSlugForFilter(exam);
+        if (!examProviderSlug || !selectedProviderKeys.includes(examProviderSlug)) {
           return false;
         }
       }
@@ -958,6 +1003,7 @@ export default function ExamsPageContent({
     selectedCategories,
     searchKeyword,
     minQuestions,
+    providers,
   ]);
   // ✅ ADD THESE BACK
   const totalQuestions = filteredExams.reduce(
@@ -987,6 +1033,9 @@ export default function ExamsPageContent({
         <div className="absolute bottom-0 left-0 right-0 h-20 bg-white rounded-t-[4rem]"></div>
         
         <div className="container mx-auto px-4 max-w-5xl relative z-10">
+          <h1 className="text-3xl md:text-4xl font-bold text-white text-center mb-6">
+            {(pageHeading && String(pageHeading).trim()) || "All Popular Exams"}
+          </h1>
           {/* Semi-transparent dark blue container with rounded corners and shadow */}
           <div className="bg-[#0C1A35]/80 backdrop-blur-sm rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] border border-white/10 p-5">
             <div className="flex flex-col md:flex-row gap-3 items-stretch">
@@ -1043,11 +1092,38 @@ export default function ExamsPageContent({
       {/* MAIN CONTENT */}
       <section id="results-section" className="py-8 px-4 bg-white -mt-8">
         <div className="container mx-auto max-w-7xl">
+          {/* Intro Section */}
+          <Card className="p-5 md:p-6 mb-6 border border-[#DDE7FF] bg-[#F8FBFF] shadow-sm">
+            {aboutSection?.heading ? (
+              <div
+                className="text-[#0C1A35] mb-2"
+                dangerouslySetInnerHTML={{ __html: aboutSection.heading }}
+              />
+            ) : (
+              <h2 className="text-lg md:text-xl font-semibold text-[#0C1A35] mb-2">
+                Find the right exam quickly
+              </h2>
+            )}
+
+            {aboutSection?.content ? (
+              <div
+                className="text-sm md:text-base text-[#0C1A35]/75 leading-relaxed tiptap-editor-content"
+                dangerouslySetInnerHTML={{ __html: aboutSection.content }}
+              />
+            ) : (
+              <p className="text-sm md:text-base text-[#0C1A35]/75 leading-relaxed">
+                Use the provider dropdown, keyword search, and filters to discover the best exam
+                practice tests for your preparation. Open any exam card to view full details and
+                start practicing.
+              </p>
+            )}
+          </Card>
+
           {/* Results Header */}
           <div className="mb-6">
-            <h1 className="text-3xl font-bold text-[#0C1A35] mb-2">
+            <p className="text-3xl font-bold text-[#0C1A35] mb-2">
               Showing {filteredExams.length} results for All Popular Exams
-            </h1>
+            </p>
             {/* <div className="flex flex-wrap gap-4 text-sm text-[#0C1A35]/70"> */}
               {/* <span>{updatedThisWeek} exams updated this week</span> */}
               {/* <span>•</span> */}
@@ -1165,7 +1241,7 @@ export default function ExamsPageContent({
                 </div>
 
                 {/* Minimum Questions */}
-                <div>
+                {/* <div>
                   <Label className="text-[#0C1A35] font-medium mb-3 block text-sm">Minimum Questions</Label>
                   <Input
                     type="number"
@@ -1174,7 +1250,7 @@ export default function ExamsPageContent({
                     className="bg-white border-gray-300 h-10 text-sm"
                     placeholder="0"
                   />
-                </div>
+                </div> */}
               </Card>
             </div>
 
@@ -1187,18 +1263,50 @@ export default function ExamsPageContent({
                     className="p-6 border border-gray-200 hover:shadow-lg hover:-translate-y-1 transition-all bg-white shadow-sm"
                   >
                     <div className="flex gap-2 mb-3">
-                      <Badge variant="secondary" className="bg-gray-100 text-[#0C1A35] border-0 text-xs font-medium">
-                        {exam.provider}
-                      </Badge>
-                      {exam.category && (
-                        <Badge variant="secondary" className="bg-gray-100 text-[#0C1A35] border-0 text-xs font-medium">
-                          {exam.category}
+                      <Link
+                        href={getProviderPageUrl(exam)}
+                        className="inline-flex"
+                      >
+                        <Badge
+                          variant="secondary"
+                          className="bg-gray-100 text-[#0C1A35] border-0 text-xs font-medium hover:text-[#1A73E8] transition-colors"
+                        >
+                          {exam.provider}
                         </Badge>
+                      </Link>
+                      {exam.category && (
+                        <Link
+                          href={getCategoryPageUrl(exam)}
+                          className="inline-flex"
+                        >
+                          <Badge
+                            variant="secondary"
+                            className="bg-gray-100 text-[#0C1A35] border-0 text-xs font-medium hover:text-[#1A73E8] transition-colors"
+                          >
+                            {exam.category}
+                          </Badge>
+                        </Link>
                       )}
                     </div>
 
-                    <h3 className="text-xl font-bold text-[#0C1A35] mb-1">{exam.title || exam.name}</h3>
-                    <p className="text-sm text-[#0C1A35]/60 mb-3">{exam.code}</p>
+                    <h3 className="text-xl font-bold text-[#0C1A35] mb-1">
+                      <Link
+                        href={getExamUrl(exam)}
+                        className="hover:text-[#1A73E8] transition-colors"
+                        aria-label={`Open ${exam.title || exam.name || "exam"} details`}
+                      >
+                        {exam.title || exam.name}
+                      </Link>
+                    </h3>
+                    <p className="text-sm text-[#0C1A35]/60 mb-3">
+                      <Link
+                        href={getExamUrl(exam)}
+                        className="hover:text-[#1A73E8] transition-colors"
+                        aria-label={`Open ${exam.title || exam.name || "exam"} by code`}
+                      >
+                        {exam.code}
+                      </Link>
+                    </p>
 
                     <div className="flex gap-2 mb-3 flex-wrap">
                       {exam.badge && (

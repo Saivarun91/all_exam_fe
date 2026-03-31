@@ -229,10 +229,21 @@ const Header = () => {
             All Exams
           </Link>
 
-          <Link 
+          {/* <Link 
             href="/#popular-providers"
             onClick={(e) => handleAnchorClick(e, "popular-providers")}
             className="text-[#0C1A35] hover:text-[#1A73E8] transition-colors font-semibold min-h-[44px] min-w-[44px] flex items-center px-2"
+          >
+            Providers
+          </Link> */}
+
+          <Link
+            href="/providers"
+            className={`transition-colors font-semibold min-h-[44px] min-w-[44px] flex items-center px-2 ${
+              pathname === "/providers"
+                ? "text-[#1A73E8]"
+                : "text-[#0C1A35] hover:text-[#1A73E8]"
+            }`}
           >
             Providers
           </Link>

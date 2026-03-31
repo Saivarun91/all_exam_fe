@@ -1483,8 +1483,12 @@ export default function ExamDetailsManager() {
   const [aboutHeadingTag, setAboutHeadingTag] = useState("h2");
   const [aboutHeadingFontSize, setAboutHeadingFontSize] = useState("24");
   const [aboutHeadingFontWeight, setAboutHeadingFontWeight] = useState("700");
+  const [examDetailsHeadingText, setExamDetailsHeadingText] = useState("");
+  const [examDetailsHeadingTag, setExamDetailsHeadingTag] = useState("h2");
+  const [examDetailsHeadingFontSize, setExamDetailsHeadingFontSize] = useState("24");
+  const [examDetailsHeadingFontWeight, setExamDetailsHeadingFontWeight] = useState("700");
   
-  // Why Matters Heading
+  // ✅ ADD THIS (you missed this)
   const [whyMattersHeadingText, setWhyMattersHeadingText] = useState("");
   const [whyMattersHeadingTag, setWhyMattersHeadingTag] = useState("h2");
   const [whyMattersHeadingFontSize, setWhyMattersHeadingFontSize] = useState("24");
@@ -1525,8 +1529,21 @@ export default function ExamDetailsManager() {
   const [testInstructionsHeadingTag, setTestInstructionsHeadingTag] = useState("h2");
   const [testInstructionsHeadingFontSize, setTestInstructionsHeadingFontSize] = useState("24");
   const [testInstructionsHeadingFontWeight, setTestInstructionsHeadingFontWeight] = useState("700");
+
+  // Practice hub page (/slug/practice) — two optional sections below the test list
+  const [practiceHubS1HeadingText, setPracticeHubS1HeadingText] = useState("");
+  const [practiceHubS1HeadingTag, setPracticeHubS1HeadingTag] = useState("h2");
+  const [practiceHubS1HeadingFontSize, setPracticeHubS1HeadingFontSize] = useState("24");
+  const [practiceHubS1HeadingFontWeight, setPracticeHubS1HeadingFontWeight] = useState("700");
+  const [practiceHubS1Content, setPracticeHubS1Content] = useState("");
+  const [practiceHubS2HeadingText, setPracticeHubS2HeadingText] = useState("");
+  const [practiceHubS2HeadingTag, setPracticeHubS2HeadingTag] = useState("h2");
+  const [practiceHubS2HeadingFontSize, setPracticeHubS2HeadingFontSize] = useState("24");
+  const [practiceHubS2HeadingFontWeight, setPracticeHubS2HeadingFontWeight] = useState("700");
+  const [practiceHubS2Content, setPracticeHubS2Content] = useState("");
   
   const [about, setAbout] = useState("");
+  const [examDetails, setExamDetails] = useState("");
   const [testDescription, setTestDescription] = useState("");
   const [passRate, setPassRate] = useState("");
   const [rating, setRating] = useState("");
@@ -1537,7 +1554,7 @@ export default function ExamDetailsManager() {
 
   // List fields
   const [whatsIncluded, setWhatsIncluded] = useState([""]);
-  const [topics, setTopics] = useState([{ name: "", weight: "" }]);
+  const [topics, setTopics] = useState([{ name: "", weight: "", explanation: "" }]);
   const [practiceTests, setPracticeTests] = useState([{ 
     name: "", 
     questions: "", 
@@ -1822,6 +1839,71 @@ export default function ExamDetailsManager() {
     }
   };
 
+  const fetchCourseFullDetails = async (courseOrId) => {
+    const course =
+      courseOrId && typeof courseOrId === "object"
+        ? courseOrId
+        : { id: courseOrId };
+    const courseId = course?.id;
+    const providerPart =
+      course?.provider_slug ||
+      course?.providerSlug ||
+      course?.provider_code ||
+      course?.providerCode ||
+      course?.provider?.slug ||
+      course?.provider;
+    const codePart = course?.code || course?.exam_code || course?.examCode;
+    const examSlug =
+      course?.exam_slug ||
+      course?.examSlug ||
+      course?.slug ||
+      (providerPart && codePart
+        ? `${String(providerPart).toLowerCase()}-${String(codePart).toLowerCase()}`
+            .replace(/\s+/g, "-")
+            .replace(/-+/g, "-")
+        : null);
+
+    const candidateUrls = [
+      `${API_BASE_URL}/api/courses/admin/${courseId}/`,
+      `${API_BASE_URL}/api/courses/admin/${courseId}/detail/`,
+      ...(examSlug ? [`${API_BASE_URL}/api/courses/exams/${examSlug}/`] : []),
+    ];
+
+    for (const url of candidateUrls) {
+      try {
+        const res = await fetch(url, {
+          headers: getAuthHeaders(),
+        });
+
+        if (!res.ok) continue;
+        const data = await res.json();
+
+        if (data?.success && data?.data && typeof data.data === "object") {
+          return data.data;
+        }
+
+        if (data && typeof data === "object" && (data.id || data.code || data.title)) {
+          return data;
+        }
+      } catch (error) {
+        // Try next endpoint
+      }
+    }
+
+    return null;
+  };
+
+  const handleSelectCourse = async (course) => {
+    // Quick immediate load from list item
+    loadCourseDetails(course, false);
+
+    // Then hydrate with full API details if available
+    const fullCourse = await fetchCourseFullDetails(course);
+    if (fullCourse) {
+      loadCourseDetails({ ...course, ...fullCourse }, false);
+    }
+  };
+
   const loadCourseDetails = (course, showMessage = true) => {
     setSelectedCourse(course);
     
@@ -1832,6 +1914,16 @@ export default function ExamDetailsManager() {
     setAboutHeadingTag(aboutHeadingData.tag);
     setAboutHeadingFontSize(aboutHeadingData.fontSize);
     setAboutHeadingFontWeight(aboutHeadingData.fontWeight);
+
+    // Load Exam Details heading
+    const examDetailsHeadingData = parseHeadingHTML(
+      course.exam_details_heading || "",
+      "Exam Details"
+    );
+    setExamDetailsHeadingText(examDetailsHeadingData.text);
+    setExamDetailsHeadingTag(examDetailsHeadingData.tag);
+    setExamDetailsHeadingFontSize(examDetailsHeadingData.fontSize);
+    setExamDetailsHeadingFontWeight(examDetailsHeadingData.fontWeight);
     
     // Load Why Matters heading
     const whyMattersHeadingData = parseHeadingHTML(course.why_matters_heading || "", "Why This Certification Matters");
@@ -1881,8 +1973,22 @@ export default function ExamDetailsManager() {
     setTestInstructionsHeadingTag(testInstructionsHeadingData.tag);
     setTestInstructionsHeadingFontSize(testInstructionsHeadingData.fontSize);
     setTestInstructionsHeadingFontWeight(testInstructionsHeadingData.fontWeight);
+
+    const ph1h = parseHeadingHTML(course.practice_page_section_1_heading || "", "Extra section 1");
+    setPracticeHubS1HeadingText(ph1h.text);
+    setPracticeHubS1HeadingTag(ph1h.tag);
+    setPracticeHubS1HeadingFontSize(ph1h.fontSize);
+    setPracticeHubS1HeadingFontWeight(ph1h.fontWeight);
+    setPracticeHubS1Content(course.practice_page_section_1_content || "");
+    const ph2h = parseHeadingHTML(course.practice_page_section_2_heading || "", "Extra section 2");
+    setPracticeHubS2HeadingText(ph2h.text);
+    setPracticeHubS2HeadingTag(ph2h.tag);
+    setPracticeHubS2HeadingFontSize(ph2h.fontSize);
+    setPracticeHubS2HeadingFontWeight(ph2h.fontWeight);
+    setPracticeHubS2Content(course.practice_page_section_2_content || "");
     
     setAbout(course.about || "");
+    setExamDetails(course.exam_details || course.details || "");
     setTestDescription(course.test_description || "");
     setPassRate(course.pass_rate ? String(course.pass_rate) : "");
     setRating(course.rating || "");
@@ -1892,7 +1998,20 @@ export default function ExamDetailsManager() {
     setWhyMatters(course.why_matters || "");
     
     setWhatsIncluded(course.whats_included && course.whats_included.length > 0 ? course.whats_included : [""]);
-    setTopics(course.topics && course.topics.length > 0 ? course.topics : [{ name: "", weight: "" }]);
+    setTopics(
+      course.topics && course.topics.length > 0
+        ? course.topics.map((t) => ({
+            name: t.name || "",
+            weight: t.weight ?? "",
+            explanation:
+              typeof t.explanation === "string"
+                ? t.explanation
+                : typeof t.description === "string"
+                  ? t.description
+                  : "",
+          }))
+        : [{ name: "", weight: "", explanation: "" }]
+    );
     setPracticeTests(course.practice_tests_list && course.practice_tests_list.length > 0 ? course.practice_tests_list : [{ 
       name: "", 
       questions: "", 
@@ -1939,6 +2058,13 @@ export default function ExamDetailsManager() {
         aboutHeadingTag,
         aboutHeadingFontSize,
         aboutHeadingFontWeight
+      );
+
+      const examDetailsHeadingHTML = generateHeadingHTML(
+        examDetailsHeadingText,
+        examDetailsHeadingTag,
+        examDetailsHeadingFontSize,
+        examDetailsHeadingFontWeight
       );
       
       const whyMattersHeadingHTML = generateHeadingHTML(
@@ -1990,11 +2116,25 @@ export default function ExamDetailsManager() {
         testInstructionsHeadingFontWeight
       );
 
+      const practiceHubS1HeadingHTML = generateHeadingHTML(
+        practiceHubS1HeadingText,
+        practiceHubS1HeadingTag,
+        practiceHubS1HeadingFontSize,
+        practiceHubS1HeadingFontWeight
+      );
+      const practiceHubS2HeadingHTML = generateHeadingHTML(
+        practiceHubS2HeadingText,
+        practiceHubS2HeadingTag,
+        practiceHubS2HeadingFontSize,
+        practiceHubS2HeadingFontWeight
+      );
+
       const payload = {
         meta_title: metaTitle,
         meta_keywords: metaKeywords,
         meta_description: metaDescription,
         about_heading: aboutHeadingHTML || "",
+        exam_details_heading: examDetailsHeadingHTML || "",
         why_matters_heading: whyMattersHeadingHTML || "",
         whats_included_heading: whatsIncludedHeadingHTML || "",
         topics_heading: topicsHeadingHTML || "",
@@ -2002,7 +2142,13 @@ export default function ExamDetailsManager() {
         testimonials_heading: testimonialsHeadingHTML || "",
         faqs_heading: faqsHeadingHTML || "",
         test_instructions_heading: testInstructionsHeadingHTML || "",
+        practice_page_section_1_heading: practiceHubS1HeadingHTML || "",
+        practice_page_section_1_content: practiceHubS1Content || "",
+        practice_page_section_2_heading: practiceHubS2HeadingHTML || "",
+        practice_page_section_2_content: practiceHubS2Content || "",
         about,
+        exam_details: examDetails,
+        details: examDetails,
         test_description: testDescription,
         pass_rate: (passRate && String(passRate).trim() !== "") ? parseInt(String(passRate)) : null,
         rating: (rating && rating.toString().trim() !== "") ? parseFloat(rating) : null,
@@ -2013,7 +2159,8 @@ export default function ExamDetailsManager() {
         whats_included: whatsIncluded.filter(item => item.trim() !== ""),
         topics: topics.filter(t => t.name.trim() !== "").map(t => ({
           name: t.name,
-          weight: t.weight || ""
+          weight: t.weight || "",
+          explanation: (t.explanation || "").trim(),
         })),
         practice_tests_list: practiceTests.filter(t => t.name.trim() !== "").map((t, idx) => ({
           id: t.id || (idx + 1).toString(),
@@ -2058,6 +2205,20 @@ export default function ExamDetailsManager() {
 
       if (data.success) {
         setMessage("✅ Exam details updated successfully!");
+
+        // Prefer server-returned updated object (most reliable)
+        const returnedCourse =
+          (data?.data && typeof data.data === "object" && data.data) ||
+          (data?.course && typeof data.course === "object" && data.course) ||
+          null;
+        if (returnedCourse) {
+          loadCourseDetails({ ...selectedCourse, ...returnedCourse }, false);
+        }
+
+        const latestCourse = await fetchCourseFullDetails(selectedCourse);
+        if (latestCourse) {
+          loadCourseDetails({ ...selectedCourse, ...latestCourse }, false);
+        }
         
         // Fetch the updated courses list from server
         try {
@@ -2071,7 +2232,37 @@ export default function ExamDetailsManager() {
             // Find and reload the updated course
             const updatedCourse = coursesData.data.find(c => c.id === selectedCourse.id);
         if (updatedCourse) {
-              loadCourseDetails(updatedCourse, false);
+              // Some list responses can omit rich-content fields.
+              // Keep freshly saved values so form doesn't appear empty after save.
+              const hydratedCourse = {
+                ...selectedCourse,
+                ...updatedCourse,
+                exam_details:
+                  updatedCourse.exam_details ?? payload.exam_details ?? examDetails,
+                details: updatedCourse.details ?? payload.details ?? examDetails,
+                exam_details_heading:
+                  updatedCourse.exam_details_heading ??
+                  payload.exam_details_heading,
+                test_description:
+                  updatedCourse.test_description ??
+                  payload.test_description ??
+                  testDescription,
+                topics:
+                  updatedCourse.topics ?? payload.topics ?? selectedCourse.topics,
+                practice_page_section_1_heading:
+                  updatedCourse.practice_page_section_1_heading ??
+                  payload.practice_page_section_1_heading,
+                practice_page_section_1_content:
+                  updatedCourse.practice_page_section_1_content ??
+                  payload.practice_page_section_1_content,
+                practice_page_section_2_heading:
+                  updatedCourse.practice_page_section_2_heading ??
+                  payload.practice_page_section_2_heading,
+                practice_page_section_2_content:
+                  updatedCourse.practice_page_section_2_content ??
+                  payload.practice_page_section_2_content,
+              };
+              loadCourseDetails(hydratedCourse, false);
             }
           }
         } catch (err) {
@@ -2098,7 +2289,7 @@ export default function ExamDetailsManager() {
     setWhatsIncluded(updated);
   };
 
-  const addTopic = () => setTopics([...topics, { name: "", weight: "" }]);
+  const addTopic = () => setTopics([...topics, { name: "", weight: "", explanation: "" }]);
   const removeTopic = (index) => setTopics(topics.filter((_, i) => i !== index));
   const updateTopic = (index, field, value) => {
     const updated = [...topics];
@@ -2225,7 +2416,7 @@ export default function ExamDetailsManager() {
                 return (
                 <button
                   key={course.id}
-                  onClick={() => loadCourseDetails(course)}
+                  onClick={() => handleSelectCourse(course)}
                   className={`w-full text-left p-3 rounded-lg border transition-all ${
                     selectedCourse?.id === course.id
                       ? "border-[#1A73E8] bg-[#1A73E8]/10"
@@ -2318,7 +2509,18 @@ export default function ExamDetailsManager() {
                         {selectedCourse.topics && selectedCourse.topics.length > 0 ? (
                           <ul className="text-sm text-[#0C1A35]/70 mt-1 list-disc list-inside">
                             {selectedCourse.topics.map((topic, idx) => (
-                              <li key={idx}>{topic.name} - {topic.weight}{topic.weight && !topic.weight.toString().includes('%') ? '%' : ''}</li>
+                              <li key={idx} className="mb-1">
+                                <span>
+                                  {topic.name} - {topic.weight}
+                                  {topic.weight && !String(topic.weight).includes("%") ? "%" : ""}
+                                </span>
+                                {(topic.explanation || topic.description) ? (
+                                  <span className="block text-xs text-[#0C1A35]/55 mt-0.5 pl-2 border-l-2 border-gray-200">
+                                    {String(topic.explanation || topic.description).slice(0, 120)}
+                                    {String(topic.explanation || topic.description).length > 120 ? "…" : ""}
+                                  </span>
+                                ) : null}
+                              </li>
                             ))}
                           </ul>
                         ) : (
@@ -2419,6 +2621,30 @@ export default function ExamDetailsManager() {
                         content={about || ""}
                         onChange={(html) => setAbout(html)}
                         placeholder="Describe the exam certification..."
+                      />
+                    </div>
+                  </div>
+
+                  <HeadingInput
+                    label="Exam Details Section Heading"
+                    text={examDetailsHeadingText}
+                    setText={setExamDetailsHeadingText}
+                    tag={examDetailsHeadingTag}
+                    setTag={setExamDetailsHeadingTag}
+                    fontSize={examDetailsHeadingFontSize}
+                    setFontSize={setExamDetailsHeadingFontSize}
+                    fontWeight={examDetailsHeadingFontWeight}
+                    setFontWeight={setExamDetailsHeadingFontWeight}
+                    placeholder="Exam Details"
+                  />
+
+                  <div>
+                    <Label>Exam Details (shown under About This Exam)</Label>
+                    <div className="mt-2">
+                      <TipTapEditor
+                        content={examDetails || ""}
+                        onChange={(html) => setExamDetails(html)}
+                        placeholder="Add dynamic exam details content..."
                       />
                     </div>
                   </div>
@@ -2578,28 +2804,41 @@ export default function ExamDetailsManager() {
                       </Button>
                     </div>
                     {topics.map((topic, index) => (
-                      <div key={index} className="flex gap-2 mb-2">
-                        <Input
-                          value={topic.name}
-                          onChange={(e) => updateTopic(index, "name", e.target.value)}
-                          placeholder="Topic name"
-                          className="flex-1"
+                      <Card key={index} className="p-4 mb-3 border border-gray-200">
+                        <div className="flex gap-2 mb-3">
+                          <Input
+                            value={topic.name}
+                            onChange={(e) => updateTopic(index, "name", e.target.value)}
+                            placeholder="Topic name"
+                            className="flex-1"
+                          />
+                          <Input
+                            type="text"
+                            value={topic.weight}
+                            onChange={(e) => updateTopic(index, "weight", e.target.value)}
+                            placeholder="Weight (e.g., 10, 11-20, 11-20%)"
+                            className="w-36 shrink-0"
+                          />
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            className="shrink-0"
+                            onClick={() => removeTopic(index)}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                        <Label className="text-xs text-gray-600 mb-1 block">
+                          Explanation (optional, shown on exam & practice pages)
+                        </Label>
+                        <Textarea
+                          value={topic.explanation || ""}
+                          onChange={(e) => updateTopic(index, "explanation", e.target.value)}
+                          placeholder="Describe what this topic covers, key sub-areas, or study tips…"
+                          rows={3}
+                          className="text-sm resize-y min-h-[72px]"
                         />
-                        <Input
-                          type="text"
-                          value={topic.weight}
-                          onChange={(e) => updateTopic(index, "weight", e.target.value)}
-                          placeholder="Weight (e.g., 10, 11-20, 11-20%)"
-                          className="w-32"
-                        />
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          onClick={() => removeTopic(index)}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
+                      </Card>
                     ))}
                   </div>
                 </TabsContent>
@@ -2678,6 +2917,57 @@ export default function ExamDetailsManager() {
                       </div>
                     </Card>
                   ))}
+
+                  <div className="mt-8 pt-6 border-t border-dashed border-gray-300 space-y-6">
+                    <p className="text-sm text-gray-600">
+                      <span className="font-semibold text-[#0C1A35]">Practice hub page</span>{" "}
+                      — two optional sections shown on the short practice URL (e.g.{" "}
+                      <code className="text-xs bg-gray-100 px-1 rounded">/your-exam-slug/practice</code>)
+                      below the practice test list.
+                    </p>
+                    <HeadingInput
+                      label="Practice page — Section 1 heading"
+                      text={practiceHubS1HeadingText}
+                      setText={setPracticeHubS1HeadingText}
+                      tag={practiceHubS1HeadingTag}
+                      setTag={setPracticeHubS1HeadingTag}
+                      fontSize={practiceHubS1HeadingFontSize}
+                      setFontSize={setPracticeHubS1HeadingFontSize}
+                      fontWeight={practiceHubS1HeadingFontWeight}
+                      setFontWeight={setPracticeHubS1HeadingFontWeight}
+                      placeholder="Section 1 title"
+                    />
+                    <div>
+                      <Label className="mb-2 block">Practice page — Section 1 content</Label>
+                      <TipTapEditor
+                        content={practiceHubS1Content}
+                        onChange={setPracticeHubS1Content}
+                        placeholder="Rich text for section 1…"
+                        className="min-h-[160px]"
+                      />
+                    </div>
+                    <HeadingInput
+                      label="Practice page — Section 2 heading"
+                      text={practiceHubS2HeadingText}
+                      setText={setPracticeHubS2HeadingText}
+                      tag={practiceHubS2HeadingTag}
+                      setTag={setPracticeHubS2HeadingTag}
+                      fontSize={practiceHubS2HeadingFontSize}
+                      setFontSize={setPracticeHubS2HeadingFontSize}
+                      fontWeight={practiceHubS2HeadingFontWeight}
+                      setFontWeight={setPracticeHubS2HeadingFontWeight}
+                      placeholder="Section 2 title"
+                    />
+                    <div>
+                      <Label className="mb-2 block">Practice page — Section 2 content</Label>
+                      <TipTapEditor
+                        content={practiceHubS2Content}
+                        onChange={setPracticeHubS2Content}
+                        placeholder="Rich text for section 2…"
+                        className="min-h-[160px]"
+                      />
+                    </div>
+                  </div>
 
                   <div className="mt-6 pt-6 border-t border-gray-200">
                     <HeadingInput

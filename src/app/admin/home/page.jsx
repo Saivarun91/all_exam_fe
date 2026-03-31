@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -37,11 +37,13 @@ import BlogPostsAdmin from "../home/blog-posts/page";
 import RecentlyUpdatedAdmin from "../home/recently-updated/page";
 import FAQsAdmin from "../home/faqs/page";
 import EmailSubscribeSectionAdmin from "../home/email-subscribe/page";
+import SectionContentAdmin from "../home/section-content/page";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
 export default function AdminHomePage() {
   const router = useRouter();
+  const seoIntroRef = useRef(null);
   const [isAuthenticated, setIsAuthenticated] = useState(null);
   const [activeTab, setActiveTab] = useState("hero");
   const [seoLoading, setSeoLoading] = useState(false);
@@ -110,6 +112,17 @@ export default function AdminHomePage() {
     setSeoMessage("");
 
     try {
+      if (activeTab === "seo-intro" && seoIntroRef.current?.saveSeoIntro) {
+        const introResult = await seoIntroRef.current.saveSeoIntro();
+        if (!introResult.ok) {
+          setSeoMessage(
+            `❌ SEO Intro section could not be saved: ${introResult.message || "Unknown error"}`
+          );
+          setSeoLoading(false);
+          return;
+        }
+      }
+
       const res = await fetch(`${API_BASE_URL}/api/home/admin/home-page-seo/`, {
         method: "POST",
         headers: {
@@ -141,7 +154,11 @@ export default function AdminHomePage() {
       const data = await res.json();
 
       if (data.success) {
-        setSeoMessage("✅ SEO meta information saved successfully!");
+        setSeoMessage(
+          activeTab === "seo-intro"
+            ? "✅ SEO Intro section and meta tags saved successfully!"
+            : "✅ SEO meta information saved successfully!"
+        );
         setTimeout(() => setSeoMessage(""), 3000);
       } else {
         setSeoMessage("❌ Error: " + (data.error || "Failed to save"));
@@ -231,6 +248,12 @@ export default function AdminHomePage() {
       icon: Mail,
       component: EmailSubscribeSectionAdmin,
     },
+    {
+      id: "section-content",
+      name: "Section Content",
+      icon: FileText,
+      component: SectionContentAdmin,
+    },
   ];
 
   return (
@@ -256,7 +279,9 @@ export default function AdminHomePage() {
               <CardTitle className="text-xl text-[#0C1A35]">SEO Meta Information</CardTitle>
             </div>
             <p className="text-sm text-gray-600 mt-1">
-              Configure SEO meta tags for the home page
+              Configure SEO meta tags for the home page. If the{" "}
+              <strong>SEO Intro Section</strong> tab is selected, this button also
+              saves that tab&apos;s heading and content.
             </p>
           </CardHeader>
           <CardContent className="space-y-4 pt-6">
@@ -359,7 +384,11 @@ export default function AdminHomePage() {
             return (
               <TabsContent key={tab.id} value={tab.id} className="mt-0">
                 <div className="bg-white rounded-lg">
-                  <Component />
+                  {tab.id === "seo-intro" ? (
+                    <SeoIntroAdmin ref={seoIntroRef} />
+                  ) : (
+                    <Component />
+                  )}
                 </div>
               </TabsContent>
             );

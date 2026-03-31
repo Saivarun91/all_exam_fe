@@ -131,7 +131,7 @@ import {
 } from "@/components/ui/accordion";
 
 // export default function HomeFAQClient({ faqs, section }) {
-  export default function HomeFAQClient({ faqs, section, content }) {
+  export default function HomeFAQClient({ faqs, section, sectionContent }) {
 
   // console.log("CLIENT FAQ:", faqs);
 
@@ -139,12 +139,18 @@ import {
     <section id="faq-section" className="pt-12 md:pt-16 pb-24 bg-white">
       <div className="container mx-auto px-4">
 
-        {content && (
+        {sectionContent?.heading && (
+          <h2 className="text-2xl md:text-4xl font-bold mb-3 text-[#0C1A35] text-center">
+            {sectionContent.heading}
+          </h2>
+        )}
+
+        {sectionContent?.content && (
           <div className="mb-6 w-full">
             <div className="rounded-xl border border-[#EAF2FF] bg-[#FAFCFF] px-5 py-4 shadow-sm">
               <div
                 className="tiptap-editor-content leading-relaxed text-[#0C1A35]/80"
-                dangerouslySetInnerHTML={{ __html: content }}
+                dangerouslySetInnerHTML={{ __html: sectionContent.content }}
               />
             </div>
           </div>

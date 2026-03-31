@@ -57,7 +57,7 @@ export default async function PopularProviders() {
   const schemaItems = providers.map((provider) => ({
     name: provider.name,
     description: provider.description || "",
-    url: `/exams/${provider.slug}`,
+    url: `/${provider.slug}`,
   }));
 
   return (

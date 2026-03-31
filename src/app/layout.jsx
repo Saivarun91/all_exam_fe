@@ -228,9 +228,9 @@
 
 import "./globals.css";
 import { Poppins } from "next/font/google";
-import Header from "@/components/layout/Header";
-import Footer from "@/components/layout/Footer";
-import Providers from "@/components/providers";
+import Header from "../components/layout/Header";
+import Footer from "../components/layout/Footer";
+import Providers from "../components/providers";
 
 const poppins = Poppins({
   subsets: ["latin"],
@@ -245,6 +245,17 @@ export const metadata = {
   title: "AllExamQuestions - Certification Practice Tests",
   description:
     "Accurate, updated, exam-style questions trusted by thousands of professionals.",
+  alternates: {
+    canonical: "https://allexamquestions.com/",
+  },
+  icons: {
+    icon: [
+      { url: "/favicon-new.ico" },
+      { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
+      { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
+    ],
+    apple: "/apple-touch-icon.png",
+  },
 };
 
 export default function RootLayout({ children }) {

@@ -514,8 +514,7 @@
 
 
 
-import { notFound } from "next/navigation";
-import Link from "next/link";
+import { notFound, redirect } from "next/navigation";
 
 import PracticeTestJsonLd from "@/components/PracticeTestJsonLd";
 import ReviewsJsonLd from "@/components/ReviewsJsonLd";
@@ -526,6 +525,33 @@ import PracticePageClient from "./PracticePageClient";
 
 export const dynamic = "force-dynamic";
 
+/** ASCII path segments (fixes Unicode hyphen U+2011 etc. showing as %E2%80%91 in URLs) */
+function normalizePathSegment(segment) {
+  if (segment == null || segment === "") return "";
+  let s = String(segment);
+  try {
+    s = decodeURIComponent(s);
+  } catch {
+    /* already decoded */
+  }
+  return s
+    .normalize("NFKC")
+    .toLowerCase()
+    .trim()
+    .replace(/_/g, "-")
+    .replace(/[\u2010\u2011\u2012\u2013\u2014\u2212\uFE63\uFF0D]/g, "-")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function formatExamName(title, code) {
+  if (title && title !== code) return title;
+
+  return (code || "")
+    .replace(/[-_]/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
 
 export async function generateMetadata({ params }) {
   const { provider, examCode } = await params;
@@ -533,8 +559,8 @@ export async function generateMetadata({ params }) {
   const API_BASE =
     process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
 
-  const normalizedProvider = provider.toLowerCase().replace(/_/g, "-");
-  const normalizedExamCode = examCode.toLowerCase().replace(/_/g, "-");
+  const normalizedProvider = normalizePathSegment(provider);
+  const normalizedExamCode = normalizePathSegment(examCode);
   const slug = `${normalizedProvider}-${normalizedExamCode}`;
 
   try {
@@ -579,7 +605,7 @@ export async function generateMetadata({ params }) {
       exam.meta_description ||
       `Practice tests for ${exam.title}.`;
 
-    const pageUrl = `https://allexamquestions.com/exams/${provider}/${examCode}/practice`;
+    const pageUrl = `https://allexamquestions.com/exams/${normalizedProvider}/${normalizedExamCode}/practice`;
 
     return {
       title: pageTitle,
@@ -587,7 +613,7 @@ export async function generateMetadata({ params }) {
       keywords: exam.meta_keywords || "",
 
       alternates: {
-        canonical: `https://allexamquestions.com/exams/${provider}/${examCode}`,
+        canonical: `https://allexamquestions.com/exams/${normalizedProvider}/${normalizedExamCode}`,
       },
 
       openGraph: {
@@ -617,6 +643,9 @@ export async function generateMetadata({ params }) {
 
 export default async function PracticePage(props) {
   const { provider, examCode } = await props.params;
+
+  // Keep old route working but enforce clean public URL (ASCII hyphens only).
+  // redirect(`/${normalizePathSegment(examCode)}/practice`);
 
   if (!provider || !examCode) return notFound();
 
@@ -655,7 +684,12 @@ export default async function PracticePage(props) {
           t.weight ??
           0;
         const cleanValue = typeof raw === "string" ? parseFloat(raw.replace("%", "").trim()) : raw;
-        return { name: t.name || "Topic", percentage: isNaN(cleanValue) ? 0 : cleanValue };
+        const expl = t.explanation ?? t.description ?? "";
+        return {
+          name: t.name || "Topic",
+          percentage: isNaN(cleanValue) ? 0 : cleanValue,
+          explanation: typeof expl === "string" ? expl.trim() : "",
+        };
       })
     : [];
 
@@ -663,7 +697,7 @@ export default async function PracticePage(props) {
   const testimonials = Array.isArray(examData.testimonials) ? examData.testimonials : [];
 
   const exam = {
-    title: examData.title || `${examData.provider} ${examData.code}`,
+    title: formatExamName(examData.title, examData.code || examCode),
     code: examData.code || examCode.toUpperCase(),
     provider: examData.provider || provider.toUpperCase(),
     category: Array.isArray(examData.category) ? examData.category : examData.category ? [examData.category] : [],
@@ -695,8 +729,8 @@ export default async function PracticePage(props) {
   const breadcrumbItems = [
     { name: "Home", url: "/" },
     { name: "Exams", url: "/exams" },
-    { name: exam.provider, url: `/exams/${provider}` },
-    { name: exam.code, url: `/exams/${provider}/${examCode}` },
+    { name: exam.provider, url: `/${provider}` },
+    { name: exam.title, url: `/exams/${provider}/${examCode}` },
     { name: "Practice Tests", url: `/exams/${provider}/${examCode}/practice` },
   ];
 
@@ -728,7 +762,7 @@ export default async function PracticePage(props) {
           <span className="badge bg-green-100 text-green-700 border-0">{exam.difficulty}</span>
         </div>
         <h1 className="text-4xl font-bold text-[#0C1A35] mb-4">{exam.title}</h1>
-        <div className="flex flex-wrap items-center gap-6 text-sm text-[#0C1A35]/70">
+        {/* <div className="flex flex-wrap items-center gap-6 text-sm text-[#0C1A35]/70">
           <span>Updated {exam.lastUpdated}</span>
           <span className="text-green-600 font-semibold">{exam.passRate}% Pass Rate</span>
           <Link href={`/exams/${provider}/${examCode}/practice/pricing`}>
@@ -736,7 +770,7 @@ export default async function PracticePage(props) {
               View Pricing Plans →
             </button>
           </Link>
-        </div>
+        </div> */}
       </div>
 
 

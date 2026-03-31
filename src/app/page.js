@@ -222,60 +222,61 @@ import dynamicImport from "next/dynamic";
 
 // ================= DYNAMIC COMPONENTS =================
 
-const HeroSection = dynamicImport(() => import("@/components/home/HeroSection"), {
+const HeroSection = dynamicImport(() => import("../components/home/HeroSection"), {
   ssr: true,
   loading: () => <div className="min-h-[450px] md:min-h-[550px]" />,
 });
 
-const SeoIntroSection = dynamicImport(() => import("@/components/home/SeoIntroSection"), {
+const SeoIntroSection = dynamicImport(() => import("../components/home/SeoIntroSection"), {
   ssr: true,
   loading: () => <div className="py-20" />,
 });
 
 
-const TopCategories = dynamicImport(() => import("@/components/home/TopCategories"), {
+const TopCategories = dynamicImport(() => import("../components/home/TopCategories"), {
   ssr: true,
   loading: () => <div className="py-20" />,
 });
 
-const FeaturedExams = dynamicImport(() => import("@/components/home/FeaturedExams"), {
+const FeaturedExams = dynamicImport(() => import("../components/home/FeaturedExams"), {
   ssr: true,
   loading: () => <div className="py-20" />,
 });
 
-const ValuePrepositions = dynamicImport(() => import("@/components/home/ValuePropositions"), {
+const ValuePrepositions = dynamicImport(() => import("../components/home/ValuePropositions"), {
   ssr: true,
   loading: () => <div className="py-20" />,
 });
 
-const PopularProviders = dynamicImport(() => import("@/components/home/PopularProviders"), {
+const PopularProviders = dynamicImport(() => import("../components/home/PopularProviders"), {
   ssr: true,
   loading: () => <div className="py-20" />,
 });
 
-const RecentlyUpdated = dynamicImport(() => import("@/components/home/RecentlyUpdated"), {
+const RecentlyUpdated = dynamicImport(() => import("../components/home/RecentlyUpdated"), {
   ssr: true,
   loading: () => <div className="py-20" />,
 });
 
-const Testimonials = dynamicImport(() => import("@/components/home/Testimonials"), {
+const Testimonials = dynamicImport(() => import("../components/home/Testimonials"), {
   ssr: true,
   loading: () => <div className="py-20" />,
 });
 
-const EmailSubscribe = dynamicImport(() => import("@/components/home/EmailSubscribe"), {
+const EmailSubscribe = dynamicImport(() => import("../components/home/EmailSubscribe"), {
   ssr: true,
   loading: () => <div className="py-20" />,
 });
 
-const HomeFAQ = dynamicImport(() => import("@/components/home/HomeFAQ"), {
+
+const HomeFAQ = dynamicImport(() => import("../components/home/HomeFAQ"), {
   ssr: true,
   loading: () => <div className="py-20" />,
 });
 
 // Server component
-import BlogSection from "@/components/home/BlogSection";
-import ScrollHandler from "@/components/home/ScrollHandler";
+import BlogSection from "../components/home/BlogSection";
+import ScrollHandler from "../components/home/ScrollHandler";
 
 // ================= METADATA =================
 

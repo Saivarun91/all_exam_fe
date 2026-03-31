@@ -349,7 +349,8 @@ export default function TopCategoriesClient({ categories = [], sectionSettings }
 
                     <Card
                       className="hover:shadow-[0_8px_24px_rgba(26,115,232,0.15)] hover:-translate-y-1 transition-all cursor-pointer border-[#DDE7FF] bg-white h-full"
-                      onClick={() => router.push(`/categories/${category.slug}`)}
+                      // onClick={() => router.push(`/categories/${category.slug}`)}
+                      onClick={() => router.push(`/${category.slug}`)}
                     >
 
                       <CardContent className="p-6 space-y-4">

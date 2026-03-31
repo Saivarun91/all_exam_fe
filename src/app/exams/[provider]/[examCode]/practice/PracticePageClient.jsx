@@ -928,6 +928,12 @@ import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/
 // Icons
 import { CheckCircle2, Clock, BookOpen, Target, Award, Star, TrendingUp } from "lucide-react";
 
+function richTextMeaningful(html) {
+  if (html == null || typeof html !== "string") return false;
+  const t = html.replace(/<[^>]*>/g, " ").replace(/&nbsp;/gi, " ").replace(/\s+/g, " ").trim();
+  return t.length > 0;
+}
+
 export default function PracticePageClient({
   exam = {},
   practiceTests = [],
@@ -936,6 +942,10 @@ export default function PracticePageClient({
   testimonials = [],
   provider = "",
   examCode = "",
+  practicePageSection1Heading = "",
+  practicePageSection1Content = "",
+  practicePageSection2Heading = "",
+  practicePageSection2Content = "",
 }) {
   const router = useRouter();
   const [showLoginModal, setShowLoginModal] = useState(false);
@@ -951,6 +961,16 @@ export default function PracticePageClient({
       typeof testIdentifier === "string" ? testIdentifier.replace(/-[a-f0-9]{8}$/i, "") : testIdentifier;
     const url = `/exams/${provider}/${examCode}/practice/${cleanSlug}`;
 
+    if (!checkLogin()) {
+      setPendingTestUrl(url);
+      setShowLoginModal(true);
+    } else {
+      router.push(url);
+    }
+  };
+  const handleViewPricing = () => {
+    const url = `/exams/${provider}/${examCode}/practice/pricing`;
+  
     if (!checkLogin()) {
       setPendingTestUrl(url);
       setShowLoginModal(true);
@@ -996,8 +1016,93 @@ export default function PracticePageClient({
         </section>
       )}
 
+      {/* CTA - Pricing Plans */}
+      <section className="mb-12">
+        <div className="bg-[#1A73E8] text-white rounded-2xl p-8 text-center shadow-md">
+          
+          <h2 className="text-2xl md:text-3xl font-bold mb-4">
+            Unlock Full Practice Access 🚀
+          </h2>
+
+          <p className="text-white/90 mb-6 max-w-2xl mx-auto">
+            Get access to all premium practice tests, detailed explanations,
+            and performance analytics to boost your exam success.
+          </p>
+
+          <Button
+            onClick={handleViewPricing}
+            className="bg-white text-[#1A73E8] hover:bg-gray-100 font-semibold px-6 py-3"
+          >
+            View Pricing Plans
+          </Button>
+
+        </div>
+      </section>
+
+      {(richTextMeaningful(practicePageSection1Heading) ||
+        richTextMeaningful(practicePageSection1Content)) && (
+        <section className="mb-12">
+          <Card className="border-[#DDE7FF]">
+            {richTextMeaningful(practicePageSection1Heading) ? (
+              <CardHeader className="pb-2">
+                <div
+                  className="text-[#0C1A35]"
+                  dangerouslySetInnerHTML={{ __html: practicePageSection1Heading }}
+                />
+              </CardHeader>
+            ) : null}
+            {richTextMeaningful(practicePageSection1Content) ? (
+              <CardContent
+                className={
+                  richTextMeaningful(practicePageSection1Heading) ? "pt-0" : "pt-6"
+                }
+              >
+                <div
+                  className="tiptap-editor-content text-[#0C1A35]/80 leading-relaxed"
+                  dangerouslySetInnerHTML={{ __html: practicePageSection1Content }}
+                />
+              </CardContent>
+            ) : null}
+          </Card>
+        </section>
+      )}
+
+      {(richTextMeaningful(practicePageSection2Heading) ||
+        richTextMeaningful(practicePageSection2Content)) && (
+        <section className="mb-12">
+          <Card className="border-[#DDE7FF]">
+            {richTextMeaningful(practicePageSection2Heading) ? (
+              <CardHeader className="pb-2">
+                <div
+                  className="text-[#0C1A35]"
+                  dangerouslySetInnerHTML={{ __html: practicePageSection2Heading }}
+                />
+              </CardHeader>
+            ) : null}
+            {richTextMeaningful(practicePageSection2Content) ? (
+              <CardContent
+                className={
+                  richTextMeaningful(practicePageSection2Heading) ? "pt-0" : "pt-6"
+                }
+              >
+                <div
+                  className="tiptap-editor-content text-[#0C1A35]/80 leading-relaxed"
+                  dangerouslySetInnerHTML={{ __html: practicePageSection2Content }}
+                />
+              </CardContent>
+            ) : null}
+          </Card>
+        </section>
+      )}
+
+      
+
+
+
+
+
       {/* Exam Topics & Weightage */}
-      {topics.length > 0 && (
+      {/* {topics.length > 0 && (
         <section className="mb-12">
           <h2 className="text-3xl font-bold text-[#0C1A35] mb-6">Exam Topics & Weightage</h2>
           <div className="space-y-4">
@@ -1012,6 +1117,11 @@ export default function PracticePageClient({
                         <span className="text-sm text-[#0C1A35]/60">{topic.percentage}%</span>
                       </div>
                       <Progress value={topic.percentage} className="h-2" />
+                      {topic.explanation ? (
+                        <p className="text-sm text-[#0C1A35]/70 mt-3 leading-relaxed whitespace-pre-wrap pl-10">
+                          {topic.explanation}
+                        </p>
+                      ) : null}
                     </div>
                   </div>
                 </CardContent>
@@ -1019,10 +1129,10 @@ export default function PracticePageClient({
             ))}
           </div>
         </section>
-      )}
+      )} */}
 
       {/* About This Exam */}
-      <Card className="border-[#DDE7FF] mb-8">
+      {/* <Card className="border-[#DDE7FF] mb-8">
         <CardHeader>
           <CardTitle className="text-[#0C1A35]">About This Exam</CardTitle>
         </CardHeader>
@@ -1032,10 +1142,10 @@ export default function PracticePageClient({
             dangerouslySetInnerHTML={{ __html: exam.about }}
           />
         </CardContent>
-      </Card>
+      </Card> */}
 
       {/* What's Included */}
-      <Card className="border-[#DDE7FF] mb-8">
+      {/* <Card className="border-[#DDE7FF] mb-8">
         <CardHeader>
           <CardTitle className="text-[#0C1A35]">What's Included in This Practice Pack</CardTitle>
         </CardHeader>
@@ -1050,10 +1160,10 @@ export default function PracticePageClient({
             ))}
           </div>
         </CardContent>
-      </Card>
+      </Card> */}
 
       {/* Why This Exam Matters */}
-      <Card className="border-[#DDE7FF] mb-8">
+      {/* <Card className="border-[#DDE7FF] mb-8">
         <CardHeader>
           <CardTitle className="text-[#0C1A35]">Why This Exam Matters</CardTitle>
         </CardHeader>
@@ -1063,10 +1173,10 @@ export default function PracticePageClient({
             dangerouslySetInnerHTML={{ __html: exam.whyMatters }}
           />
         </CardContent>
-      </Card>
+      </Card> */}
 
       {/* Exam Format Summary */}
-      <Card className="border-[#DDE7FF] mb-12">
+      {/* <Card className="border-[#DDE7FF] mb-12">
         <CardHeader>
           <CardTitle className="text-[#0C1A35]">Exam Format Summary</CardTitle>
         </CardHeader>
@@ -1094,10 +1204,10 @@ export default function PracticePageClient({
             </div>
           </div>
         </CardContent>
-      </Card>
+      </Card> */}
 
       {/* Success Stories */}
-      {testimonials.length > 0 && (
+      {/* {testimonials.length > 0 && (
         <section className="mb-12">
           <h2 className="text-3xl font-bold text-[#0C1A35] mb-2">Success Stories</h2>
           <p className="text-[#0C1A35]/70 mb-6">Real results from learners who used our practice tests</p>
@@ -1128,10 +1238,10 @@ export default function PracticePageClient({
             ))}
           </div>
         </section>
-      )}
+      )} */}
 
       {/* FAQ Section */}
-      {faqs.length > 0 && (
+      {/* {faqs.length > 0 && (
         <section className="mb-12">
           <h2 className="text-3xl font-bold text-[#0C1A35] mb-2">Frequently Asked Questions</h2>
           <p className="text-[#0C1A35]/70 mb-6">Everything you need to know about this exam preparation pack</p>
@@ -1146,7 +1256,7 @@ export default function PracticePageClient({
             ))}
           </Accordion>
         </section>
-      )}
+      )} */}
 
       {/* Login Modal */}
       <Dialog open={showLoginModal} onOpenChange={setShowLoginModal}>

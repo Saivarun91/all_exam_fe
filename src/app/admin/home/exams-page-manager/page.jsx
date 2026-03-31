@@ -43,7 +43,9 @@ export default function ExamsPageManager() {
     meta_title: "",
     meta_keywords: "",
     meta_description: "",
+    
   });
+  const [pageH1, setPageH1] = useState("");
 
   // Trust Bar State
   const [trustBarItems, setTrustBarItems] = useState([
@@ -169,7 +171,9 @@ export default function ExamsPageManager() {
           meta_title: data.data.meta_title || "",
           meta_keywords: data.data.meta_keywords || "",
           meta_description: data.data.meta_description || "",
+          
         });
+        setPageH1(data.data.page_h1 || "");
       }
     } catch (error) {
       console.error("Error fetching SEO data:", error);
@@ -187,7 +191,7 @@ export default function ExamsPageManager() {
           "Content-Type": "application/json",
           ...getAuthHeaders(),
         },
-        body: JSON.stringify(seoData),
+        body: JSON.stringify({ ...seoData, page_h1: pageH1 }),
       });
       if (res.status === 401) {
         setSeoMessage("❌ Authentication failed. Please log in again.");
@@ -218,6 +222,7 @@ export default function ExamsPageManager() {
       setSeoLoading(false);
     }
   };
+  
 
   const fetchData = async () => {
     try {
@@ -394,6 +399,10 @@ export default function ExamsPageManager() {
             <p className="text-xs text-gray-500 mt-1">Separate keywords with commas</p>
           </div>
           <div>
+            
+            <p className="text-xs text-gray-500 mt-1">This text appears as the main heading on the /exams page</p>
+          </div>
+          <div>
             <Label htmlFor="seo_meta_description">Meta Description</Label>
             <Textarea
               id="seo_meta_description"
@@ -416,6 +425,31 @@ export default function ExamsPageManager() {
             className="w-fit"
           >
             {seoLoading ? "Saving..." : "Save SEO Meta Information"}
+          </Button>
+        </CardContent>
+      </Card>
+      <Card className="mb-6 border border-green-200">
+        <CardHeader>
+          <CardTitle className="text-xl text-[#0C1A35]">Page Heading (H1)</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <Label>Page H1</Label>
+            <Input
+              value={pageH1}
+              onChange={(e) => setPageH1(e.target.value)}
+              placeholder="Enter main H1 heading for exams page"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              This appears as the main heading on the /exams page (SEO important)
+            </p>
+          </div>
+
+          <Button
+            onClick={handleSaveSeo}
+            disabled={seoLoading}
+          >
+            {seoLoading ? "Saving..." : "Save Page Heading"}
           </Button>
         </CardContent>
       </Card>

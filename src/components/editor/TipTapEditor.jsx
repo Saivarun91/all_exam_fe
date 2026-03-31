@@ -60,6 +60,7 @@ import {
 } from "@/components/ui/popover";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import toast from "react-hot-toast";
 
 // Cloudinary configuration (same as other admin pages)
@@ -181,12 +182,21 @@ const getGradientCSS = (direction, color1, color2, color3 = null) => {
   return `linear-gradient(${dir}, ${color1}, ${color2})`;
 };
 
-const TipTapEditor = ({ 
-  content = "", 
-  onChange = () => {}, 
+/** Parse table size from toolbar inputs; clamp to sane bounds. */
+function clampTableDimension(raw, min, max, fallback) {
+  const n = parseInt(String(raw ?? "").trim(), 10);
+  if (!Number.isFinite(n) || Number.isNaN(n)) return fallback;
+  return Math.min(max, Math.max(min, n));
+}
+
+const TipTapEditor = ({
+  content = "",
+  value,
+  onChange = () => {},
   placeholder = "Start typing...",
-  className = "" 
+  className = "",
 }) => {
+  const htmlFromProps = value !== undefined && value !== null ? value : content;
   const [textColorOpen, setTextColorOpen] = useState(false);
   const [highlightColorOpen, setHighlightColorOpen] = useState(false);
   const [textColor, setTextColor] = useState("#000000");
@@ -207,6 +217,10 @@ const TipTapEditor = ({
   const [linkOpen, setLinkOpen] = useState(false);
   const [linkUrl, setLinkUrl] = useState("");
   const [linkRel, setLinkRel] = useState("");
+  const [tableMenuOpen, setTableMenuOpen] = useState(false);
+  const [tableCols, setTableCols] = useState("3");
+  const [tableRows, setTableRows] = useState("3");
+  const [tableHeaderRow, setTableHeaderRow] = useState(true);
 
 
   const uploadImageToCloudinary = async (file) => {
@@ -299,7 +313,7 @@ const TipTapEditor = ({
         placeholder: placeholder,
       }),
     ],
-    content: content || "",
+    content: htmlFromProps || "",
     onUpdate: ({ editor }) => {
       const html = editor.getHTML();
       onChange(html);
@@ -403,19 +417,19 @@ const TipTapEditor = ({
   });
 
   useEffect(() => {
-    if (editor && content !== undefined) {
+    if (editor && htmlFromProps !== undefined) {
       const currentContent = editor.getHTML();
       // Normalize empty content for comparison
       const normalizedCurrent = currentContent.trim() === "<p></p>" ? "" : currentContent;
-      const normalizedNew = content || "";
-      
+      const normalizedNew = htmlFromProps || "";
+
       // Only update if content actually changed (avoid infinite loops)
       if (normalizedCurrent !== normalizedNew) {
         // If content is empty, set empty string so placeholder shows
         editor.commands.setContent(normalizedNew, false);
       }
     }
-  }, [content, editor]);
+  }, [htmlFromProps, editor]);
 
   // Update color state when editor selection changes
   useEffect(() => {
@@ -461,8 +475,129 @@ const TipTapEditor = ({
   }
 
 
-  const insertTable = () => {
-    editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
+  const insertTableWithDimensions = (cols, rows, withHeader) => {
+    const c = clampTableDimension(cols, 1, 20, 3);
+    const r = clampTableDimension(rows, 1, 30, 3);
+
+    // If user selected content before inserting the table, use that content
+    // to auto-fill table cells. This prevents "data disappears" and avoids
+    // requiring manual row-by-row typing.
+    const { from, to } = editor.state.selection;
+    const selectedText = from !== to
+      ? editor.state.doc.textBetween(from, to, "\n", "\n").trim()
+      : "";
+
+    const shouldFillFromSelection = selectedText.length > 0;
+
+    if (!shouldFillFromSelection) {
+      editor.chain().focus().insertTable({ rows: r, cols: c, withHeaderRow: withHeader }).run();
+      setTableMenuOpen(false);
+      return;
+    }
+
+    const lines = selectedText
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .slice(0, r);
+
+    const parsedRows = Array.from({ length: r }, (_, rowIndex) => {
+      const line = lines[rowIndex] ?? "";
+      const base = Array.from({ length: c }, () => "");
+
+      if (!line) return base;
+      if (c === 1) {
+        base[0] = line;
+        return base;
+      }
+
+      // Common patterns:
+      // - "Label: Value" -> 2 columns
+      // - "A | B | C" or "A\tB" or "A,B" -> split by delimiter
+      let parts = [];
+      if (c === 2 && line.includes(":")) {
+        const idx = line.indexOf(":");
+        parts = [line.slice(0, idx).trim(), line.slice(idx + 1).trim()];
+      } else if (line.includes("|")) {
+        parts = line.split("|").map((p) => p.trim());
+      } else if (line.includes("\t")) {
+        parts = line.split("\t").map((p) => p.trim());
+      } else if (line.includes(",")) {
+        parts = line.split(",").map((p) => p.trim());
+      } else {
+        parts = [line];
+      }
+
+      for (let colIndex = 0; colIndex < c; colIndex++) {
+        base[colIndex] = parts[colIndex] ?? "";
+      }
+      return base;
+    });
+
+    editor
+      .chain()
+      .focus()
+      .insertTable({ rows: r, cols: c, withHeaderRow: withHeader })
+      .command(({ tr, state }) => {
+        // Locate the inserted table around the current selection.
+        const selFrom = tr.selection.from;
+        let tablePos = null;
+        let tableNode = null;
+        let bestDistance = Number.POSITIVE_INFINITY;
+
+        // Scan whole doc and pick the closest table to the selection.
+        // This avoids cases where the inserted table is not found within
+        // the local window (which would prevent insertion from showing up).
+        tr.doc.nodesBetween(0, tr.doc.content.size, (node, pos) => {
+          if (node.type.name !== "table") return;
+          const dist = Math.abs(pos - selFrom);
+          if (dist < bestDistance) {
+            bestDistance = dist;
+            tablePos = pos;
+            tableNode = node;
+          }
+        });
+
+        if (tablePos === null || !tableNode) return false;
+
+        const schema = state.schema;
+        const paragraphNode = (text) => {
+          const t = String(text ?? "");
+          return schema.nodes.paragraph.create({}, t ? [schema.text(t)] : []);
+        };
+
+        const tableRowNodes = [];
+        for (let rowIndex = 0; rowIndex < r; rowIndex++) {
+          const cellNodes = [];
+          for (let colIndex = 0; colIndex < c; colIndex++) {
+            const cellText = parsedRows[rowIndex]?.[colIndex] ?? "";
+            // Tiptap table node names:
+            // - tableRow, tableCell, tableHeader
+            const cellTypeName =
+              rowIndex === 0 && withHeader ? "tableHeader" : "tableCell";
+            const cellType = schema.nodes[cellTypeName];
+            if (!cellType) continue;
+
+            // table_cell/header expects its paragraph as child content.
+            cellNodes.push(cellType.create({}, [paragraphNode(cellText)]));
+          }
+
+          const rowType = schema.nodes.tableRow;
+          if (!rowType) continue;
+          tableRowNodes.push(rowType.create({}, cellNodes));
+        }
+
+        const newTableNode = schema.nodes.table.create(tableNode.attrs ?? {}, tableRowNodes);
+        tr.replaceWith(tablePos, tablePos + tableNode.nodeSize, newTableNode);
+        return true;
+      })
+      .run();
+
+    setTableMenuOpen(false);
+  };
+
+  const handleInsertTableFromForm = () => {
+    insertTableWithDimensions(tableCols, tableRows, tableHeaderRow);
   };
 
   const getCurrentFontSize = () => {
@@ -1400,7 +1535,9 @@ const TipTapEditor = ({
               editor.chain().focus().setParagraph().run();
             } else {
               const level = parseInt(value.replace("h", ""));
-              editor.chain().focus().toggleHeading({ level }).run();
+              // Use setHeading for deterministic behavior: selecting Heading 1/2/3
+              // should always apply that heading level (not toggle it off).
+              editor.chain().focus().setHeading({ level }).run();
             }
           }}
         >
@@ -1929,15 +2066,217 @@ const TipTapEditor = ({
             <ImageIcon className="h-4 w-4" />
           )}
         </Button>
-        <Button
-          type="button"
-          variant={editor.isActive("table") ? "default" : "ghost"}
-          size="sm"
-          onClick={insertTable}
-          className="h-8 w-8 p-0"
-        >
-          <TableIcon className="h-4 w-4" />
-        </Button>
+        <Popover open={tableMenuOpen} onOpenChange={setTableMenuOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              type="button"
+              variant={editor.isActive("table") ? "default" : "ghost"}
+              size="sm"
+              className="h-8 w-8 p-0"
+              title="Table — insert or edit"
+            >
+              <TableIcon className="h-4 w-4" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-80 p-3" align="start" sideOffset={6}>
+            {editor.isActive("table") ? (
+              <div className="space-y-3">
+                <div className="text-xs font-semibold text-gray-800 border-b border-gray-200 pb-2">
+                  Edit current table
+                </div>
+                <p className="text-[11px] text-gray-500 leading-snug">
+                  Add or remove rows/columns, merge cells, or delete the table. Move the cursor outside the table to insert a new one.
+                </p>
+                <div className="grid grid-cols-2 gap-1.5">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-xs"
+                    onClick={() => editor.chain().focus().addColumnBefore().run()}
+                    disabled={!editor.can().chain().focus().addColumnBefore().run()}
+                  >
+                    + Column left
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-xs"
+                    onClick={() => editor.chain().focus().addColumnAfter().run()}
+                    disabled={!editor.can().chain().focus().addColumnAfter().run()}
+                  >
+                    + Column right
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-xs"
+                    onClick={() => editor.chain().focus().addRowBefore().run()}
+                    disabled={!editor.can().chain().focus().addRowBefore().run()}
+                  >
+                    + Row above
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-xs"
+                    onClick={() => editor.chain().focus().addRowAfter().run()}
+                    disabled={!editor.can().chain().focus().addRowAfter().run()}
+                  >
+                    + Row below
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-xs"
+                    onClick={() => editor.chain().focus().deleteColumn().run()}
+                    disabled={!editor.can().chain().focus().deleteColumn().run()}
+                  >
+                    Delete column
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-xs"
+                    onClick={() => editor.chain().focus().deleteRow().run()}
+                    disabled={!editor.can().chain().focus().deleteRow().run()}
+                  >
+                    Delete row
+                  </Button>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    className="h-8 text-xs"
+                    onClick={() => editor.chain().focus().mergeCells().run()}
+                    disabled={!editor.can().chain().focus().mergeCells().run()}
+                  >
+                    Merge cells
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    className="h-8 text-xs"
+                    onClick={() => editor.chain().focus().splitCell().run()}
+                    disabled={!editor.can().chain().focus().splitCell().run()}
+                  >
+                    Split cell
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    className="h-8 text-xs"
+                    onClick={() => editor.chain().focus().toggleHeaderRow().run()}
+                    disabled={!editor.can().chain().focus().toggleHeaderRow().run()}
+                  >
+                    Toggle header row
+                  </Button>
+                </div>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="sm"
+                  className="w-full h-8 text-xs"
+                  onClick={() => {
+                    editor.chain().focus().deleteTable().run();
+                    setTableMenuOpen(false);
+                  }}
+                  disabled={!editor.can().chain().focus().deleteTable().run()}
+                >
+                  Delete entire table
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="text-xs font-semibold text-gray-800 border-b border-gray-200 pb-2">
+                  Insert table
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <Label htmlFor="tiptap-table-cols" className="text-xs text-gray-600 font-normal">
+                      Columns (1–20)
+                    </Label>
+                    <input
+                      id="tiptap-table-cols"
+                      type="number"
+                      min={1}
+                      max={20}
+                      value={tableCols}
+                      onChange={(e) => setTableCols(e.target.value)}
+                      className="w-full h-8 px-2 border border-gray-300 rounded text-xs"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="tiptap-table-rows" className="text-xs text-gray-600 font-normal">
+                      Rows (1–30)
+                    </Label>
+                    <input
+                      id="tiptap-table-rows"
+                      type="number"
+                      min={1}
+                      max={30}
+                      value={tableRows}
+                      onChange={(e) => setTableRows(e.target.value)}
+                      className="w-full h-8 px-2 border border-gray-300 rounded text-xs"
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="tiptap-table-header"
+                    checked={tableHeaderRow}
+                    onCheckedChange={(v) => setTableHeaderRow(v === true)}
+                  />
+                  <Label htmlFor="tiptap-table-header" className="text-xs font-normal cursor-pointer">
+                    First row is header
+                  </Label>
+                </div>
+                <div>
+                  <div className="text-[11px] text-gray-500 mb-1.5">Quick sizes</div>
+                  <div className="flex flex-wrap gap-1">
+                    {[
+                      { c: 1, r: 3 },
+                      { c: 2, r: 2 },
+                      { c: 2, r: 4 },
+                      { c: 3, r: 3 },
+                      { c: 4, r: 3 },
+                      { c: 4, r: 6 },
+                      { c: 5, r: 2 },
+                      { c: 6, r: 4 },
+                    ].map(({ c, r }) => (
+                      <Button
+                        key={`preset-${c}x${r}`}
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        className="h-7 px-2 text-[10px]"
+                        onClick={() => insertTableWithDimensions(c, r, tableHeaderRow)}
+                      >
+                        {c}×{r}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  className="w-full h-9 text-xs bg-blue-600 hover:bg-blue-700 text-white"
+                  onClick={handleInsertTableFromForm}
+                >
+                  Insert table
+                </Button>
+              </div>
+            )}
+          </PopoverContent>
+        </Popover>
       </div>
 
       {/* Editor Content */}

@@ -43,105 +43,93 @@ export default function FAQsAdmin() {
     order: 0,
   });
   
-  const [sectionSettings, setSectionSettings] = useState({
-    heading: "Frequently Asked Questions",
-    subtitle: "Find answers to common questions",
-    content: "",
-  });
+  // const [sectionSettings, setSectionSettings] = useState({
+  //   heading: "Frequently Asked Questions",
+  //   subtitle: "Find answers to common questions",
+  //   content: "",
+  // });
   
   useEffect(() => {
     fetchFAQs();
-    fetchSectionSettings();
+    // fetchSectionSettings();
   }, []);
   
   // console.log(sectionSettings.content)
-  const fetchSectionSettings = async () => {
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/home/admin/faqs-section/`, {
-        headers: {
-          "Authorization": `Bearer ${localStorage.getItem("token")}`
-        }
-      });
+  // const fetchSectionSettings = async () => {
+  //   try {
+  //     const res = await fetch(`${API_BASE_URL}/api/home/admin/faqs-section/`, {
+  //       headers: {
+  //         "Authorization": `Bearer ${localStorage.getItem("token")}`
+  //       }
+  //     });
       
-      if (res.ok) {
-        const data = await res.json();
-        if (data.success && data.data) {
-          setSectionSettings(data.data);
-        }
-      }
-    } catch (error) {
-      console.error("Error fetching section settings:", error);
-    }
-  };
+  //     if (res.ok) {
+  //       const data = await res.json();
+  //       if (data.success && data.data) {
+  //         setSectionSettings(data.data);
+  //       }
+  //     }
+  //   } catch (error) {
+  //     console.error("Error fetching section settings:", error);
+  //   }
+  // };
   
-  const handleSectionSettingsUpdate = async () => {
-    setLoading(true);
-    setMessage("");
-    console.log("settings : ",sectionSettings)
+  // const handleSectionSettingsUpdate = async () => {
+  //   setLoading(true);
+  //   setMessage("");
+  //   console.log("settings : ",sectionSettings)
     
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/home/admin/faqs-section/`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${localStorage.getItem("token")}`
-        },
-        body: JSON.stringify(sectionSettings),
-      });
+  //   try {
+  //     const res = await fetch(`${API_BASE_URL}/api/home/admin/faqs-section/`, {
+  //       method: "POST",
+  //       headers: {
+  //         "Content-Type": "application/json",
+  //         "Authorization": `Bearer ${localStorage.getItem("token")}`
+  //       },
+  //       body: JSON.stringify(sectionSettings),
+  //     });
       
-      const data = await res.json();
+  //     const data = await res.json();
       
-      if (data.success) {
-        setMessage("✅ Section settings updated successfully!");
-        setTimeout(() => setMessage(""), 3000);
-      } else {
-        setMessage("❌ Error: " + (data.error || "Failed to save"));
-      }
-    } catch (err) {
-      setMessage("❌ Error: " + err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+  //     if (data.success) {
+  //       setMessage("✅ Section settings updated successfully!");
+  //       setTimeout(() => setMessage(""), 3000);
+  //     } else {
+  //       setMessage("❌ Error: " + (data.error || "Failed to save"));
+  //     }
+  //   } catch (err) {
+  //     setMessage("❌ Error: " + err.message);
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
   
   const fetchFAQs = async () => {
     try {
       const res = await fetch(`${API_BASE_URL}/api/home/admin/faqs/`, {
         headers: {
-          "Authorization": `Bearer ${localStorage.getItem("token")}`
-        }
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
       });
-      
+  
       const data = await res.json();
-      console.log("faqs data : ",data)
-      
+      console.log("faqs data : ", data);
+  
       if (data.success && data.data) {
         const payload = data.data;
-
-        // If backend returns a plain array, use it directly
+  
+        // ✅ If backend returns array
         if (Array.isArray(payload)) {
           setFaqs(payload);
-        } 
-        // If backend wraps FAQs + section settings together
+        }
+  
+        // ✅ If backend returns { faqs: [...] }
         else if (Array.isArray(payload.faqs)) {
           setFaqs(payload.faqs);
-          setSectionSettings(prev => ({
-            ...prev,
-            heading: payload.heading ?? prev.heading,
-            subtitle: payload.subtitle ?? prev.subtitle,
-            content: payload.content ?? prev.content,
-          }));
-        } 
-        // Fallback: no FAQ array, but maybe only section info
-        else if (typeof payload === "object" && payload !== null) {
-          setFaqs([]);
-          setSectionSettings(prev => ({
-            ...prev,
-            heading: payload.heading ?? prev.heading,
-            subtitle: payload.subtitle ?? prev.subtitle,
-            content: payload.content ?? prev.content,
-          }));
-        } else {
+        }
+  
+        // ❌ No need to handle section settings anymore
+        else {
           setFaqs([]);
         }
       } else {
@@ -370,7 +358,7 @@ export default function FAQsAdmin() {
       )}
 
       {/* Section Settings */}
-      <Card className="mb-6">
+      {/* <Card className="mb-6">
         <CardHeader>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -397,9 +385,9 @@ export default function FAQsAdmin() {
                 placeholder="Find answers to common questions"
               />
             </div>
-          </div>
+          </div> */}
           {/* Section Content / Introduction */}
-          <div>
+          {/* <div>
             <Label>Section Content / Introduction</Label>
             <div className="mt-2 border rounded-md p-2 min-h-[150px]">
               <TipTapEditor
@@ -419,7 +407,7 @@ export default function FAQsAdmin() {
             {loading ? "Saving..." : "Save Section Settings"}
           </Button>
         </CardContent>
-      </Card>
+      </Card> */}
       
       {/* FAQs Table */}
       <Card className="border-[#D3E3FF]">

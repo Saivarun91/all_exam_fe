@@ -49,6 +49,16 @@ export default function AdminCategoriesPage() {
 
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
   const BASE_URL = `${API_BASE_URL}/api/categories`;
+  const HOME_BASE_URL = `${API_BASE_URL}/api/home`;
+
+  // SEO for the /categories page (not per-category SEO)
+  const [categoriesPageSeo, setCategoriesPageSeo] = useState({
+    meta_title: "",
+    meta_keywords: "",
+    meta_description: "",
+  });
+  const [seoLoading, setSeoLoading] = useState(false);
+  const [seoMessage, setSeoMessage] = useState("");
 
   // Fetch categories and course counts
   useEffect(() => {
@@ -102,6 +112,63 @@ export default function AdminCategoriesPage() {
     fetchCategories();
     return () => { mounted = false; };
   }, [BASE_URL, API_BASE_URL]);
+
+  // Fetch /categories page SEO
+  useEffect(() => {
+    let mounted = true;
+    const fetchCategoriesPageSeo = async () => {
+      try {
+        const res = await fetch(`${HOME_BASE_URL}/admin/categories-page-seo/`);
+        if (!mounted) return;
+        if (!res.ok) return;
+        const data = await res.json();
+
+        if (data?.success && data?.data) {
+          setCategoriesPageSeo({
+            meta_title: data.data.meta_title || "",
+            meta_keywords: data.data.meta_keywords || "",
+            meta_description: data.data.meta_description || "",
+          });
+        }
+      } catch (err) {
+        console.error("Error fetching categories page SEO:", err);
+      }
+    };
+
+    fetchCategoriesPageSeo();
+    return () => {
+      mounted = false;
+    };
+  }, [HOME_BASE_URL]);
+
+  const handleSaveCategoriesPageSeo = async () => {
+    setSeoLoading(true);
+    setSeoMessage("");
+    try {
+      const res = await fetch(`${HOME_BASE_URL}/admin/categories-page-seo/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(categoriesPageSeo),
+      });
+
+      if (!res.ok) {
+        const errText = await res.text();
+        throw new Error(errText || `Failed to save SEO: ${res.status}`);
+      }
+
+      const data = await res.json();
+      if (data?.success) {
+        setSeoMessage("✅ Categories page SEO saved successfully!");
+        setTimeout(() => setSeoMessage(""), 3000);
+      } else {
+        setSeoMessage(`❌ Error saving SEO: ${data?.error || "Unknown error"}`);
+      }
+    } catch (err) {
+      setSeoMessage(`❌ ${err instanceof Error ? err.message : "Unknown error"}`);
+    } finally {
+      setSeoLoading(false);
+    }
+  };
 
   // Search - searches in title, description, and slug
   useEffect(() => {
@@ -314,6 +381,104 @@ export default function AdminCategoriesPage() {
               </Button>
             )}
           </div>
+        </div>
+
+        {/* SEO Settings for /categories page */}
+        <div className="mb-6">
+          <Card className="border-indigo-200 shadow-lg">
+            <CardContent className="p-6">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
+                <div>
+                  <h3 className="text-xl font-bold text-indigo-700">
+                    🔍 SEO Settings ( /categories page )
+                  </h3>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Meta Title / Description / Keywords for the main categories listing page.
+                  </p>
+                </div>
+
+                <Button
+                  onClick={handleSaveCategoriesPageSeo}
+                  disabled={seoLoading}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-6 py-2"
+                >
+                  {seoLoading ? "Saving..." : "Save SEO"}
+                </Button>
+              </div>
+
+              {seoMessage ? (
+                <p
+                  className={`text-sm mb-4 ${
+                    seoMessage.startsWith("✅")
+                      ? "text-green-700"
+                      : seoMessage.startsWith("❌")
+                        ? "text-red-600"
+                        : "text-gray-700"
+                  }`}
+                >
+                  {seoMessage}
+                </p>
+              ) : null}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Meta Title
+                  </label>
+                  <Input
+                    value={categoriesPageSeo.meta_title}
+                    onChange={(e) =>
+                      setCategoriesPageSeo({
+                        ...categoriesPageSeo,
+                        meta_title: e.target.value,
+                      })
+                    }
+                    placeholder="e.g., All Categories - Certification Exams | AllExamQuestions"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Recommended: 50-60 characters
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Meta Keywords
+                  </label>
+                  <Input
+                    value={categoriesPageSeo.meta_keywords}
+                    onChange={(e) =>
+                      setCategoriesPageSeo({
+                        ...categoriesPageSeo,
+                        meta_keywords: e.target.value,
+                      })
+                    }
+                    placeholder="cloud, security, networking, certifications..."
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Comma-separated keywords
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-4">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Meta Description
+                </label>
+                <textarea
+                  value={categoriesPageSeo.meta_description}
+                  onChange={(e) =>
+                    setCategoriesPageSeo({
+                      ...categoriesPageSeo,
+                      meta_description: e.target.value,
+                    })
+                  }
+                  className="w-full border border-gray-300 rounded-lg p-3 text-base focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition bg-white"
+                  rows={3}
+                  placeholder="Concise description shown in Google results (150-160 characters recommended)"
+                />
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         <div className="bg-white rounded-2xl border border-indigo-200 shadow-lg overflow-hidden">

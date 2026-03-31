@@ -822,6 +822,9 @@ export default function BlogPostsAdmin() {
   const [sectionSettings, setSectionSettings] = useState({
     heading: "Latest Blog Posts",
     subtitle: "Stay updated with certification tips and news",
+    meta_title: "",
+    meta_keywords: "",
+    meta_description: "",
   });
   
   useEffect(() => {
@@ -840,7 +843,7 @@ export default function BlogPostsAdmin() {
       if (res.ok) {
         const data = await res.json();
         if (data.success && data.data) {
-          setSectionSettings(data.data);
+          setSectionSettings((prev) => ({ ...prev, ...data.data }));
         }
       }
     } catch (error) {
@@ -1439,6 +1442,33 @@ export default function BlogPostsAdmin() {
                 placeholder="Stay updated with certification tips and news"
               />
             </div>
+          </div>
+          <div className="grid md:grid-cols-2 gap-4">
+            <div>
+              <Label>Meta Title</Label>
+              <Input
+                value={sectionSettings.meta_title}
+                onChange={(e) => setSectionSettings({ ...sectionSettings, meta_title: e.target.value })}
+                placeholder="Blog - Certification Exam Tips & Guides | AllExamQuestions"
+              />
+            </div>
+            <div>
+              <Label>Meta Keywords</Label>
+              <Input
+                value={sectionSettings.meta_keywords}
+                onChange={(e) => setSectionSettings({ ...sectionSettings, meta_keywords: e.target.value })}
+                placeholder="certification exams, practice tests, exam guides"
+              />
+            </div>
+          </div>
+          <div>
+            <Label>Meta Description</Label>
+            <Textarea
+              value={sectionSettings.meta_description}
+              onChange={(e) => setSectionSettings({ ...sectionSettings, meta_description: e.target.value })}
+              rows={3}
+              placeholder="Expert advice and strategies to maximize your exam success"
+            />
           </div>
           
           <Button 

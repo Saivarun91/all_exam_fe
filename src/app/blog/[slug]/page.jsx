@@ -375,24 +375,79 @@
 
 
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import { ArrowLeft, Calendar, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import BlogJsonLd from "@/components/BlogJsonLd";
 import BreadcrumbJsonLd from "@/components/BreadcrumbJsonLd";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
 import { getOptimizedImageUrl } from "@/utils/imageUtils";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
+/** Prefer 127.0.0.1 on the server so Node does not resolve localhost to ::1 while Django listens on IPv4 only. */
+const API_BASE_URL = (
+  process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000"
+).replace(/\/\/localhost(?=[:/])/i, "//127.0.0.1");
+
+async function fetchRelatedBlogs(category, currentSlug) {
+  try {
+    const res = await fetch(
+      `${API_BASE_URL}/api/home/blog-posts/?category=${encodeURIComponent(category)}`,
+      { cache: "no-store" }
+    );
+
+    const data = await res.json();
+
+    if (data.success && data.data) {
+      return data.data
+        .filter(
+          (item) =>
+            item.category === category && // ✅ ensure same category
+            item.slug !== currentSlug     // ✅ remove current blog
+        )
+        .slice(0, 5);
+    }
+
+    return [];
+  } catch (err) {
+    console.error("Error fetching related blogs:", err);
+    return [];
+  }
+}
+
+function normalizeBlogPayload(data) {
+  if (!data || typeof data !== "object") return null;
+  if (data.success && data.data && typeof data.data === "object") return data.data;
+  if (data.title && data.slug) return data;
+  return null;
+}
 
 // Fetch single blog by slug
 async function fetchBlog(slug) {
+  if (!slug || typeof slug !== "string") {
+    return { blog: null, error: true };
+  }
+  const pathSlug = encodeURIComponent(slug);
+  const url = `${API_BASE_URL}/api/home/blog-posts/slug/${pathSlug}/`;
   try {
-    const res = await fetch(`${API_BASE_URL}/api/home/blog-posts/slug/${slug}/`, {
-      next: { revalidate: 60 },
+    const res = await fetch(url, {
+      cache: "no-store",
+      headers: { Accept: "application/json" },
     });
-    const data = await res.json();
-    if (data.success && data.data) {
-      return { blog: data.data, error: false };
+    let data = null;
+    try {
+      data = await res.json();
+    } catch {
+      return { blog: null, error: true };
     }
+    const blog = res.ok ? normalizeBlogPayload(data) : null;
+    if (blog) return { blog, error: false };
     return { blog: null, error: true };
   } catch (err) {
     console.error("Error fetching blog:", err);
@@ -487,32 +542,16 @@ export default async function BlogDetailPage({ params }) {
   const slug = resolvedParams?.slug;
 
   const { blog, error } = await fetchBlog(slug);
+  
 
   if (error || !blog) {
-    return (
-      <div className="min-h-screen bg-white">
-        <div className="container mx-auto px-4 py-20">
-          <div className="text-center max-w-2xl mx-auto">
-            <h1 className="text-3xl font-bold text-[#0C1A35] mb-4">Blog Post Not Found</h1>
-            <p className="text-[#0C1A35]/70 mb-6">
-              The blog post you're looking for doesn't exist or has been removed.
-            </p>
-            <Button asChild>
-              <Link href="/blog">
-                <ArrowLeft className="mr-2 w-4 h-4" />
-                Back to Blog
-              </Link>
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
+    notFound();
   }
+  const relatedBlogs = await fetchRelatedBlogs(blog.category, blog.slug);
 
   const breadcrumbItems = [
-    { name: "Home", url: "/" },
-    { name: "Blog", url: "/blog" },
-    { name: blog?.title || "Blog Post", url: `/blog/${slug}` },
+    { name: "Blogs", url: "/blog" },
+    { name: slug || "blog-post", url: `/blog/${slug || ""}` },
   ];
 
   return (
@@ -522,89 +561,169 @@ export default async function BlogDetailPage({ params }) {
       <BreadcrumbJsonLd items={breadcrumbItems} />
 
       {/* Header Back Button */}
-      <div className="bg-white py-6 px-4">
-        <div className="container mx-auto max-w-4xl">
-          <Button asChild variant="ghost">
-            <Link href="/blog">
-              <ArrowLeft className="mr-2 w-4 h-4" />
-              Back
+      <div className="bg-white py-6">
+        <div className="mx-auto w-full max-w-[1500px] px-2 sm:px-4 lg:px-6 flex flex-col items-start">
+          
+          {/* Back Button */}
+          <Button asChild variant="ghost" className="mb-4">
+            <Link href="/blog" className="flex items-center gap-2">
+              <ArrowLeft className="w-4 h-4" />
+              Back to All Posts
             </Link>
           </Button>
+
+          {/* Breadcrumb */}
+          <Breadcrumb className="w-full">
+            <BreadcrumbList>
+              <BreadcrumbItem>
+                <BreadcrumbLink asChild>
+                  <Link href="/blog">Blogs</Link>
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbPage className="text-[#0C1A35] break-all">
+                  {slug || "blog-post"}
+                </BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
+
         </div>
       </div>
 
       {/* Blog Content */}
-      <article className="container mx-auto px-4 py-12 max-w-4xl">
-        {/* Header */}
-        <header className="mb-8">
-          {blog.category && (
-            <div className="inline-block px-4 py-2 bg-[#1A73E8]/10 text-[#1A73E8] text-sm font-semibold rounded-full mb-4">
-              {blog.category}
-            </div>
-          )}
-          <h1 className="text-4xl md:text-5xl font-bold text-[#0C1A35] mb-6 leading-tight">
-            {blog.title}
-          </h1>
-          <div className="flex flex-wrap items-center gap-6 text-sm text-[#0C1A35]/60 mb-8">
-            <div className="flex items-center gap-2">
-              <Calendar className="w-4 h-4" />
-              <span>
-                {blog.created_at
-                  ? new Date(blog.created_at).toLocaleDateString("en-US", {
-                      year: "numeric",
-                      month: "long",
-                      day: "numeric",
-                    })
-                  : "Date not available"}
-              </span>
-            </div>
-            {blog.reading_time && (
-              <div className="flex items-center gap-2">
-                <Clock className="w-4 h-4" />
-                <span>{blog.reading_time}</span>
+      <div className="mx-auto w-full max-w-[1500px] px-2 sm:px-4 lg:px-6 py-10 sm:py-2 grid grid-cols-1 lg:grid-cols-3 gap-12">
+
+        {/* LEFT SIDE */}
+        <div className="lg:col-span-2">
+          <article>
+            {/* Header */}
+            <header className="mb-8">
+              {blog.category && (
+                <div className="inline-block px-4 py-2 bg-[#1A73E8]/10 text-[#1A73E8] text-sm font-semibold rounded-full mb-4">
+                  {blog.category}
+                </div>
+              )}
+              <h1 className="text-4xl md:text-5xl font-bold text-[#0C1A35] mb-6 leading-tight">
+                {blog.title}
+              </h1>
+              <div className="flex flex-wrap items-center gap-6 text-sm text-[#0C1A35]/60 mb-8">
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-4 h-4" />
+                  <span>
+                    {blog.created_at
+                      ? new Date(blog.created_at).toLocaleDateString("en-US", {
+                          year: "numeric",
+                          month: "long",
+                          day: "numeric",
+                        })
+                      : "Date not available"}
+                  </span>
+                </div>
+                {blog.reading_time && (
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-4 h-4" />
+                    <span>{blog.reading_time}</span>
+                  </div>
+                )}
               </div>
-            )}
+              {blog.image_url && (
+                <div className="relative w-full aspect-[16/9] mb-8 rounded-lg overflow-hidden bg-gray-100">
+                  <img
+                    src={getOptimizedImageUrl(blog.image_url, 1200, 675)}
+                    alt={blog.title || "Blog Image"}
+                    width={1200}
+                    height={675}
+                    className="w-full h-full object-contain"
+                    loading="lazy"
+                    sizes="(max-width: 768px) 100vw, (max-width: 1024px) 90vw, 1200px"
+                    decoding="async"
+                  />
+                </div>
+              )}
+            </header>
+
+            {/* Blog Content */}
+            <div className="prose prose-lg max-w-none w-full">
+              {blog.content && blog.content.trim() ? (
+                <div
+                  className="tiptap-editor-content text-[#0C1A35]/80 leading-relaxed"
+                  dangerouslySetInnerHTML={{ __html: blog.content }}
+                />
+              ) : (
+                <div className="text-[#0C1A35]/80 leading-relaxed whitespace-pre-wrap">
+                  {blog.excerpt || "No content available for this blog post."}
+                </div>
+              )}
+            </div>
+
+            {/* Back to Blog Button */}
+            {/* <div className="mt-12 pt-8 border-t border-gray-200">
+              <Button asChild variant="outline">
+                <Link href="/blog">
+                  <ArrowLeft className="mr-2 w-4 h-4" />
+                  Back to All Posts
+                </Link>
+              </Button>
+            </div> */}
+          </article>
           </div>
-          {blog.image_url && (
-            <div className="relative w-full aspect-[16/9] mb-8 rounded-lg overflow-hidden bg-gray-100">
-              <img
-                src={getOptimizedImageUrl(blog.image_url, 1200, 675)}
-                alt={blog.title || "Blog Image"}
-                width={1200}
-                height={675}
-                className="w-full h-full object-contain"
-                loading="lazy"
-                sizes="(max-width: 768px) 100vw, (max-width: 1024px) 90vw, 1200px"
-                decoding="async"
-              />
-            </div>
-          )}
-        </header>
+          {/* RIGHT SIDEBAR */}
+        <aside className="lg:col-span-1">
+          <div className="sticky top-24">
 
-        {/* Blog Content */}
-        <div className="prose prose-lg max-w-none">
-          {blog.content && blog.content.trim() ? (
-            <div
-              className="tiptap-editor-content text-[#0C1A35]/80 leading-relaxed"
-              dangerouslySetInnerHTML={{ __html: blog.content }}
-            />
-          ) : (
-            <div className="text-[#0C1A35]/80 leading-relaxed whitespace-pre-wrap">
-              {blog.excerpt || "No content available for this blog post."}
-            </div>
-          )}
-        </div>
+            <div className="bg-white border border-gray-200 rounded-2xl p-5">
+              
+              <h3 className="text-lg font-semibold text-[#0C1A35] mb-4">
+                Related Blogs
+              </h3>
 
-        {/* Back to Blog Button */}
-        <div className="mt-12 pt-8 border-t border-gray-200">
-          <Button asChild variant="outline">
-            <Link href="/blog">
-              <ArrowLeft className="mr-2 w-4 h-4" />
-              Back to All Posts
-            </Link>
-          </Button>
-        </div>
-      </article>
+              <div className="divide-y divide-gray-100">
+
+                {relatedBlogs.map((item) => (
+                  <Link
+                    key={item.id}
+                    href={`/blog/${item.slug}`}
+                    className="flex gap-3 py-3 group"
+                  >
+                    {/* Image */}
+                    <img
+                      src={getOptimizedImageUrl(item.image_url, 100, 100)}
+                      alt={item.title}
+                      className="w-16 h-16 object-cover rounded-lg flex-shrink-0"
+                    />
+
+                    {/* Text */}
+                    <div className="flex flex-col justify-between">
+                      <p className="text-sm font-medium text-[#0C1A35] leading-snug line-clamp-2 group-hover:text-[#1A73E8] transition">
+                        {item.title}
+                      </p>
+
+                      <span className="text-xs text-gray-500 mt-1">
+                        {item.created_at
+                          ? new Date(item.created_at).toLocaleDateString()
+                          : ""}
+                      </span>
+                    </div>
+                  </Link>
+                ))}
+
+                {relatedBlogs.length === 0 && (
+                  <p className="text-sm text-gray-500 py-3">
+                    No related blogs found.
+                  </p>
+                )}
+
+              </div>
+            </div>
+
+          </div>
+        </aside>
+      
+
+</div>
+          
     </div>
   );
 }

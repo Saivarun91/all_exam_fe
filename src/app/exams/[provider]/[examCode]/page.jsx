@@ -1184,9 +1184,32 @@ export default async function ExamDetailPage({ params }) {
     }
   }
 
-  const duration = totalPracticeMinutes ? `${totalPracticeMinutes} ` : null;
-  console.log("DURATION:", duration);
+  const adminDurationRaw = pick("duration");
+  const adminDurationTrim =
+    adminDurationRaw != null && String(adminDurationRaw).trim() !== ""
+      ? String(adminDurationRaw).trim()
+      : null;
+  const computedMinutesLabel =
+    totalPracticeMinutes > 0 ? `${totalPracticeMinutes} minutes` : null;
+  const durationMerged = adminDurationTrim || computedMinutesLabel || null;
 
+  const currencyRaw = pick("currency");
+  const currency =
+    currencyRaw != null && String(currencyRaw).trim() !== ""
+      ? String(currencyRaw).trim()
+      : "INR";
+  const offerNum = Number(pick("offer_price"));
+  const actualNum = Number(pick("actual_price"));
+  let examCostDisplay = null;
+  if (Number.isFinite(offerNum) && offerNum > 0) {
+    examCostDisplay = `${currency} ${offerNum.toLocaleString(undefined, {
+      maximumFractionDigits: 2,
+    })}`;
+  } else if (Number.isFinite(actualNum) && actualNum > 0) {
+    examCostDisplay = `${currency} ${actualNum.toLocaleString(undefined, {
+      maximumFractionDigits: 2,
+    })}`;
+  }
 
   
   /* ---------------- TOPICS PREPROCESSING ---------------- */
@@ -1216,15 +1239,36 @@ export default async function ExamDetailPage({ params }) {
     startPercentage = Math.min(Math.max(startPercentage, 0), 100);
     endPercentage = Math.min(Math.max(endPercentage, 0), 100);
 
+    const explanationRaw = t.explanation ?? t.description ?? "";
+    const explanation =
+      typeof explanationRaw === "string" ? explanationRaw.trim() : "";
+
     return {
       name,
       rawPercentage: rawPercentage + (rawPercentage.includes("%") ? "" : "%"), // display string
       startPercentage,
       endPercentage,
+      explanation,
     };
   });
 
   /* ---------------- FINAL DATA ---------------- */
+
+  const aboutContent = pick("about", "description") || "";
+  const examDetailsContent = pick("exam_details", "details") || "";
+
+  const passingPick = pick(
+    "passing_score",
+    "pass_score",
+    "cutoff",
+    "pass_mark"
+  );
+  const passingScoreResolved =
+    passingPick !== null &&
+    passingPick !== undefined &&
+    String(passingPick).trim() !== ""
+      ? String(passingPick).trim()
+      : "Not specified";
 
   const examData = {
 
@@ -1234,15 +1278,11 @@ export default async function ExamDetailPage({ params }) {
     code: pick("code", "exam_code") || examCode,
     title: pick("title", "name") || "",
 
-    duration: duration ? `${duration} minutes` : null,
+    duration: durationMerged,
 
-    passingScore:
-      pick(
-        "passing_score",
-        "pass_score",
-        "cutoff",
-        "pass_mark"
-      ) || "Not specified",
+    examCostDisplay,
+
+    passingScore: passingScoreResolved,
 
     difficulty:
       pick(
@@ -1261,8 +1301,33 @@ export default async function ExamDetailPage({ params }) {
     rating:
       Number(pick("rating")) || null,
 
-    about:
-      pick("about", "description", "details") || "",
+    about: aboutContent,
+
+    about_heading:
+      pick("about_heading") || null,
+
+    exam_details_heading:
+      pick("exam_details_heading") || null,
+
+    exam_details: examDetailsContent,
+
+    why_matters_heading:
+      pick("why_matters_heading") || null,
+
+    whats_included_heading:
+      pick("whats_included_heading") || null,
+
+    topics_heading:
+      pick("topics_heading") || null,
+
+    practice_tests_heading:
+      pick("practice_tests_heading") || null,
+
+    testimonials_heading:
+      pick("testimonials_heading") || null,
+
+    faqs_heading:
+      pick("faqs_heading") || null,
 
     whyMatters:
       pick("why_matters", "whyMatters") || "",

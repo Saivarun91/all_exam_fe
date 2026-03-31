@@ -471,8 +471,8 @@
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { ArrowRight } from "lucide-react";
-import { getOptimizedImageUrl } from "@/utils/imageUtils";
-import BlogCollectionJsonLd from "@/components/BlogCollectionJsonLd";
+import { getOptimizedImageUrl } from "../../utils/imageUtils";
+import BlogCollectionJsonLd from "../BlogCollectionJsonLd";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";

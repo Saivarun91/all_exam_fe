@@ -23,13 +23,24 @@ export default function AdminProvidersPage() {
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
   const [message, setMessage] = useState("");
+  const [seoLoading, setSeoLoading] = useState(false);
+  const [seoMessage, setSeoMessage] = useState("");
+  const [pageSeo, setPageSeo] = useState({
+    meta_title: "",
+    meta_description: "",
+    meta_keywords: "",
+  });
   
   const [formData, setFormData] = useState({
     name: "",
+    icon: "Building2",
     slug: "",
     description: "",
     logo_url: "",
     website_url: "",
+    meta_title: "",
+    meta_description: "",
+    meta_keywords: "",
     is_active: true
   });
 
@@ -39,20 +50,65 @@ export default function AdminProvidersPage() {
       return;
     }
     fetchProviders();
+    fetchProvidersPageSeo();
   }, []);
 
   const fetchProviders = async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/providers/`, {
+      const res = await fetch(`${API_BASE_URL}/api/providers/admin/list/`, {
         headers: getAuthHeaders()
       });
       const data = await res.json();
-      setProviders(Array.isArray(data) ? data : []);
+      setProviders(Array.isArray(data?.data) ? data.data : []);
       setLoading(false);
     } catch (error) {
       console.error("Error fetching providers:", error);
       setMessage("❌ Error loading providers");
       setLoading(false);
+    }
+  };
+
+  const fetchProvidersPageSeo = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/home/admin/providers-page-seo/`, {
+        headers: getAuthHeaders(),
+      });
+
+      if (!res.ok) return;
+      const data = await res.json();
+      setPageSeo({
+        meta_title: data?.data?.meta_title || "",
+        meta_description: data?.data?.meta_description || "",
+        meta_keywords: data?.data?.meta_keywords || "",
+      });
+    } catch (error) {
+      console.error("Error fetching providers page SEO:", error);
+    }
+  };
+
+  const handleSaveProvidersPageSeo = async () => {
+    setSeoLoading(true);
+    setSeoMessage("");
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/home/admin/providers-page-seo/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...getAuthHeaders(),
+        },
+        body: JSON.stringify(pageSeo),
+      });
+
+      if (!res.ok) throw new Error("Failed to save providers page SEO");
+
+      setSeoMessage("✅ Providers page SEO saved successfully!");
+      setTimeout(() => setSeoMessage(""), 3000);
+    } catch (error) {
+      console.error("Error saving providers page SEO:", error);
+      setSeoMessage("❌ Error saving providers page SEO");
+    } finally {
+      setSeoLoading(false);
     }
   };
 
@@ -65,9 +121,9 @@ export default function AdminProvidersPage() {
     }
 
     try {
-      const url = editing 
-        ? `${API_BASE_URL}/api/providers/${editing}/update/`
-        : `${API_BASE_URL}/api/providers/create/`;
+      const url = editing
+        ? `${API_BASE_URL}/api/providers/admin/${editing}/update/`
+        : `${API_BASE_URL}/api/providers/admin/create/`;
       
       const res = await fetch(url, {
         method: editing ? "PUT" : "POST",
@@ -87,10 +143,14 @@ export default function AdminProvidersPage() {
       setEditing(null);
       setFormData({
         name: "",
+        icon: "Building2",
         slug: "",
         description: "",
         logo_url: "",
         website_url: "",
+        meta_title: "",
+        meta_description: "",
+        meta_keywords: "",
         is_active: true
       });
       
@@ -105,10 +165,14 @@ export default function AdminProvidersPage() {
     setEditing(provider.id);
     setFormData({
       name: provider.name || "",
+      icon: provider.icon || "Building2",
       slug: provider.slug || "",
       description: provider.description || "",
       logo_url: provider.logo_url || "",
       website_url: provider.website_url || "",
+      meta_title: provider.meta_title || "",
+      meta_description: provider.meta_description || "",
+      meta_keywords: provider.meta_keywords || "",
       is_active: provider.is_active !== false
     });
     setShowModal(true);
@@ -118,7 +182,7 @@ export default function AdminProvidersPage() {
     if (!confirm("Are you sure you want to delete this provider?")) return;
 
     try {
-      const res = await fetch(`${API_BASE_URL}/api/providers/${id}/delete/`, {
+      const res = await fetch(`${API_BASE_URL}/api/providers/admin/${id}/delete/`, {
         method: "DELETE",
         headers: getAuthHeaders()
       });
@@ -170,10 +234,14 @@ export default function AdminProvidersPage() {
                   setEditing(null);
                   setFormData({
                     name: "",
+                    icon: "Building2",
                     slug: "",
                     description: "",
                     logo_url: "",
                     website_url: "",
+                    meta_title: "",
+                    meta_description: "",
+                    meta_keywords: "",
                     is_active: true
                   });
                 }}
@@ -246,6 +314,36 @@ export default function AdminProvidersPage() {
                     />
                   </div>
                 </div>
+                <div>
+                  <Label htmlFor="meta_title">Meta Title</Label>
+                  <Input
+                    id="meta_title"
+                    value={formData.meta_title}
+                    onChange={(e) => setFormData({ ...formData, meta_title: e.target.value })}
+                    placeholder="Provider page meta title..."
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="meta_description">Meta Description</Label>
+                  <Textarea
+                    id="meta_description"
+                    value={formData.meta_description}
+                    onChange={(e) =>
+                      setFormData({ ...formData, meta_description: e.target.value })
+                    }
+                    placeholder="Provider page meta description..."
+                    rows={3}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="meta_keywords">Meta Keywords</Label>
+                  <Input
+                    id="meta_keywords"
+                    value={formData.meta_keywords}
+                    onChange={(e) => setFormData({ ...formData, meta_keywords: e.target.value })}
+                    placeholder="keyword1, keyword2, keyword3"
+                  />
+                </div>
                 <div className="flex items-center space-x-2">
                   <input
                     type="checkbox"
@@ -286,6 +384,71 @@ export default function AdminProvidersPage() {
 
         {/* Search */}
         <Card className="mb-6">
+          <CardHeader>
+            <CardTitle>Providers Page SEO</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {seoMessage && (
+              <div
+                className={`p-3 rounded ${
+                  seoMessage.includes("✅")
+                    ? "bg-green-100 text-green-800"
+                    : "bg-red-100 text-red-800"
+                }`}
+              >
+                {seoMessage}
+              </div>
+            )}
+            <div>
+              <Label htmlFor="providers_page_meta_title">Meta Title</Label>
+              <Input
+                id="providers_page_meta_title"
+                value={pageSeo.meta_title}
+                onChange={(e) =>
+                  setPageSeo({ ...pageSeo, meta_title: e.target.value })
+                }
+                placeholder="All Providers | AllExamQuestions"
+              />
+            </div>
+            <div>
+              <Label htmlFor="providers_page_meta_description">
+                Meta Description
+              </Label>
+              <Textarea
+                id="providers_page_meta_description"
+                value={pageSeo.meta_description}
+                onChange={(e) =>
+                  setPageSeo({ ...pageSeo, meta_description: e.target.value })
+                }
+                placeholder="Browse all certification providers and available exams."
+                rows={3}
+              />
+            </div>
+            <div>
+              <Label htmlFor="providers_page_meta_keywords">Meta Keywords</Label>
+              <Input
+                id="providers_page_meta_keywords"
+                value={pageSeo.meta_keywords}
+                onChange={(e) =>
+                  setPageSeo({ ...pageSeo, meta_keywords: e.target.value })
+                }
+                placeholder="providers, certification exams, AWS, Azure, Cisco"
+              />
+            </div>
+            <div className="flex justify-end">
+              <Button
+                onClick={handleSaveProvidersPageSeo}
+                disabled={seoLoading}
+                className="bg-[#1A73E8] hover:bg-[#1557B0]"
+              >
+                {seoLoading ? "Saving..." : "Save Providers Page SEO"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Search */}
+        <Card className="mb-6">
           <CardContent className="pt-6">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
@@ -315,6 +478,7 @@ export default function AdminProvidersPage() {
                       <th className="text-left p-3 font-semibold text-gray-700">Name</th>
                       <th className="text-left p-3 font-semibold text-gray-700">Slug</th>
                       <th className="text-left p-3 font-semibold text-gray-700">Description</th>
+                      <th className="text-left p-3 font-semibold text-gray-700">Meta Title</th>
                       <th className="text-center p-3 font-semibold text-gray-700">Status</th>
                       <th className="text-center p-3 font-semibold text-gray-700">Actions</th>
                     </tr>
@@ -343,6 +507,9 @@ export default function AdminProvidersPage() {
                         <td className="p-3 text-gray-700">{provider.slug}</td>
                         <td className="p-3 text-gray-600 text-sm max-w-md truncate">
                           {provider.description || "-"}
+                        </td>
+                        <td className="p-3 text-gray-600 text-sm max-w-sm truncate">
+                          {provider.meta_title || "-"}
                         </td>
                         <td className="p-3 text-center">
                           <Badge className={provider.is_active !== false ? "bg-green-100 text-green-700 border-0" : "bg-gray-100 text-gray-700 border-0"}>

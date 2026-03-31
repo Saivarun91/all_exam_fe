@@ -14,7 +14,7 @@ async function getSectionData() {
 
     if (data.success && data.data) return data.data;
   } catch (err) {
-    console.error("Error fetching email subscribe section:", err);
+    // Fail silently and use static defaults when API is unavailable.
   }
 
   return null;

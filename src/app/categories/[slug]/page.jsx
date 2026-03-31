@@ -1,245 +1,146 @@
-"use client";
-
-import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
-import Link from "next/link";
-import { ArrowRight, Award, Filter } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { getExamUrl } from "@/lib/utils";
-import BreadcrumbJsonLd from "@/components/BreadcrumbJsonLd";
-// import { useRouter } from "next/navigation";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
+import CategoryDetail from "@/components/category/CategoryDetail";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
+const SITE_URL = "https://allexamquestions.com";
 
-export default function CategoryPage() {
-  const params = useParams();
-  const slug = params?.slug;
-
-  const [category, setCategory] = useState(null);
-  const [courses, setCourses] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
-  // const router = useRouter();
-
-  useEffect(() => {
-    if (!slug) return;
-
-    const fetchData = async () => {
-      try {
-        // Fetch category details
-        const categoryRes = await fetch(`${API_BASE_URL}/api/categories/${slug}/`);
-        
-        if (!categoryRes.ok) throw new Error("Category not found");
-        
-        const categoryData = await categoryRes.json();
-        setCategory(categoryData);
-
-        // Set dynamic page title
-        if (typeof window !== "undefined") {
-          const metaTitle = `${categoryData.title || categoryData.name || 'Category'} - Certification Exams | AllExamQuestions`;
-          document.title = metaTitle;
-        }
-
-        // Fetch courses for this category using the dedicated endpoint
-        const coursesRes = await fetch(`${API_BASE_URL}/api/courses/category/${slug}/`);
-        
-        if (coursesRes.ok) {
-          const coursesData = await coursesRes.json();
-          const filteredCourses = Array.isArray(coursesData) 
-            ? coursesData.filter(course => course.is_active !== false)
-            : [];
-          setCourses(filteredCourses);
-        } else {
-          console.error('Failed to fetch courses:', coursesRes.status);
-          setCourses([]);
-        }
-        
-        setLoading(false);
-      } catch (err) {
-        console.error("Error fetching data:", err);
-        setError(true);
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, [slug]);
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-white">
-        <div className="container mx-auto px-4 py-20 text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#1A73E8] mx-auto mb-4"></div>
-          <p className="text-[#0C1A35]/70">Loading category...</p>
-        </div>
-      </div>
-    );
+async function fetchCategoryData(slug) {
+  if (!slug) {
+    return { category: null, courses: [], error: true };
   }
 
-  if (error || !category) {
-    return (
-      <div className="min-h-screen bg-white">
-        <div className="container mx-auto px-4 py-20 text-center">
-          <h1 className="text-3xl font-bold text-[#0C1A35] mb-4">Category Not Found</h1>
-          <p className="text-[#0C1A35]/70 mb-6">
-            The category you're looking for doesn't exist.
-          </p>
-          <Button asChild className="bg-[#1A73E8] text-white hover:bg-[#1557B0]">
-            <Link href="/exams">Browse All Exams</Link>
-          </Button>
-        </div>
-      </div>
-    );
+  try {
+    const [categoryRes, coursesRes] = await Promise.all([
+      fetch(`${API_BASE_URL}/api/categories/${slug}/`, {
+        next: { revalidate: 60 },
+      }),
+      fetch(`${API_BASE_URL}/api/courses/category/${slug}/`, {
+        next: { revalidate: 60 },
+      }),
+    ]);
+
+    if (!categoryRes.ok) {
+      return { category: null, courses: [], error: true };
+    }
+
+    const category = await categoryRes.json();
+
+    let courses = [];
+    if (coursesRes.ok) {
+      const coursesData = await coursesRes.json();
+      courses = Array.isArray(coursesData)
+        ? coursesData.filter((course) => course.is_active !== false)
+        : [];
+    }
+
+    return { category, courses, error: false };
+  } catch (err) {
+    console.error("Error fetching category page data:", err);
+    return { category: null, courses: [], error: true };
   }
-
-  // Prepare breadcrumb items for schema
-  const breadcrumbItems = [
-    { name: "Home", url: "/" },
-    { name: "Exams", url: "/exams" },
-    { name: category?.title || "Category", url: `/categories/${slug}` },
-  ];
-
-  return (
-    <div className="min-h-screen bg-white">
-      {category && <BreadcrumbJsonLd items={breadcrumbItems} />}
-      <div className="container mx-auto px-4 py-8">
-        {/* Breadcrumb */}
-        <Breadcrumb className="mb-6">
-          <BreadcrumbList>
-            <BreadcrumbItem>
-              <BreadcrumbLink asChild>
-                <Link href="/" className="text-[#0C1A35]/60 hover:text-[#1A73E8]">Home</Link>
-              </BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator />
-            <BreadcrumbItem>
-              <BreadcrumbLink asChild>
-                <Link href="/categories" className="text-[#0C1A35]/60 hover:text-[#1A73E8]">
-                  Categories
-                </Link>
-              </BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator />
-            <BreadcrumbPage className="text-[#0C1A35] font-medium">{category.title}</BreadcrumbPage>
-          </BreadcrumbList>
-        </Breadcrumb>
-
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-[#0C1A35] mb-4">{category.title}</h1>
-          {category.description && (
-            <p className="text-lg text-[#0C1A35]/70 max-w-3xl">
-              {category.description}
-            </p>
-          )}
-        </div>
-
-        {/* Stats */}
-        <div className="flex items-center gap-6 mb-8 pb-6 border-b border-gray-200">
-          <div>
-            <div className="text-3xl font-bold text-[#1A73E8]">{courses.length}</div>
-            <div className="text-sm text-[#0C1A35]/60">Exams Available</div>
-          </div>
-        </div>
-
-        {/* Courses Grid */}
-        {courses.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {courses.map((course) => (
-              <Card
-                key={course.id}
-                className="hover:shadow-lg hover:-translate-y-1 transition-all border-[#DDE7FF] cursor-pointer"
-                onClick={() => {
-                  window.location.href = getExamUrl(course);
-                }}
-              >
-              
-                <CardContent className="p-6 space-y-4">
-                  {/* Icon + Badge */}
-                  <div className="flex items-center justify-between">
-                    <div className="w-12 h-12 rounded-lg bg-[#1A73E8]/10 flex items-center justify-center">
-                      <Award className="w-6 h-6 text-[#1A73E8]" />
-                    </div>
-                    {course.badge && (
-                      <Badge className="bg-[#1A73E8]/10 text-[#1A73E8] text-xs">
-                        {course.badge}
-                      </Badge>
-                    )}
-                  </div>
-
-                  {/* Course Info */}
-                  <div className="space-y-1">
-                    <p className="text-sm text-[#0C1A35]/60 font-medium">
-                      {course.provider}
-                    </p>
-                    <h3 className="text-xl font-bold text-[#0C1A35] leading-tight">
-                      {course.title}
-                    </h3>
-                    <p className="text-sm text-[#0C1A35]/60">{course.code}</p>
-                  </div>
-
-                  {/* Stats */}
-                  <div className="pt-2">
-                    <p className="text-sm text-[#0C1A35]/60">
-                      {(() => {
-                        // Use actual count from practice_tests_list if available
-                        if (course.practice_tests_list && Array.isArray(course.practice_tests_list) && course.practice_tests_list.length > 0) {
-                          return course.practice_tests_list.length;
-                        }
-                        return course.practice_exams || 0;
-                      })()} Practice Exams · {(() => {
-                        // Calculate total questions from practice tests list if available
-                        if (course.practice_tests_list && Array.isArray(course.practice_tests_list) && course.practice_tests_list.length > 0) {
-                          const totalQuestions = course.practice_tests_list.reduce((sum, test) => {
-                            const testQuestions = parseInt(test.questions) || 0;
-                            return sum + testQuestions;
-                          }, 0);
-                          return totalQuestions > 0 ? totalQuestions : (course.questions || 0);
-                        }
-                        return course.questions || 0;
-                      })()} Questions
-                    </p>
-                  </div>
-
-                  {/* Button */}
-                  <Button
-                    className="w-full bg-[#1A73E8] text-white hover:bg-[#1557B0]"
-                    asChild
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <Link href={getExamUrl(course)}>
-                      Start Practicing
-                      <ArrowRight className="ml-2 w-4 h-4" />
-                    </Link>
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        ) : (
-          <div className="text-center py-20">
-            <Filter className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-[#0C1A35] mb-2">No Exams Found</h3>
-            <p className="text-[#0C1A35]/60 mb-6">
-              No exams are currently available in this category.
-            </p>
-            <Button asChild className="bg-[#1A73E8] text-white hover:bg-[#1557B0]">
-              <Link href="/exams">Browse All Exams</Link>
-            </Button>
-          </div>
-        )}
-      </div>
-    </div>
-  );
 }
 
+export async function generateMetadata({ params }) {
+  const resolvedParams = await params;
+  const slug = resolvedParams?.slug;
+  const canonicalUrl = `${SITE_URL}/categories/${slug || ""}`.replace(/\/$/, "");
+
+  if (!slug) {
+    return {
+      title: "Category Not Found | AllExamQuestions",
+      description: "The requested category does not exist.",
+      alternates: {
+        canonical: `${SITE_URL}/categories`,
+      },
+      openGraph: {
+        title: "Category Not Found | AllExamQuestions",
+        description: "The requested category does not exist.",
+        url: `${SITE_URL}/categories`,
+        type: "website",
+      },
+      twitter: {
+        card: "summary_large_image",
+        title: "Category Not Found | AllExamQuestions",
+        description: "The requested category does not exist.",
+      },
+    };
+  }
+
+  const { category } = await fetchCategoryData(slug);
+
+  if (!category) {
+    return {
+      title: "Category Not Found | AllExamQuestions",
+      description: "The requested category does not exist.",
+      alternates: {
+        canonical: canonicalUrl,
+      },
+      openGraph: {
+        title: "Category Not Found | AllExamQuestions",
+        description: "The requested category does not exist.",
+        url: canonicalUrl,
+        type: "website",
+      },
+      twitter: {
+        card: "summary_large_image",
+        title: "Category Not Found | AllExamQuestions",
+        description: "The requested category does not exist.",
+      },
+    };
+  }
+
+  const categoryTitle = category?.title || category?.name || "Category";
+  const title =
+    category?.meta_title?.trim() ||
+    `${categoryTitle} - Certification Exams | AllExamQuestions`;
+  const description =
+    category?.meta_description?.trim() ||
+    category?.description?.trim() ||
+    `Practice ${categoryTitle} certification exams with updated questions and realistic mock tests.`;
+  const keywords =
+    category?.meta_keywords?.trim() ||
+    `${categoryTitle}, certification exams, practice tests, mock tests`;
+  const ogImage = category?.meta_image || `${SITE_URL}/logo.png`;
+
+  return {
+    title,
+    description,
+    keywords,
+    alternates: {
+      canonical: canonicalUrl,
+    },
+    openGraph: {
+      title,
+      description,
+      url: canonicalUrl,
+      type: "website",
+      images: [
+        {
+          url: ogImage,
+          width: 1200,
+          height: 630,
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [ogImage],
+    },
+  };
+}
+
+export default async function CategoryPage({ params }) {
+  const resolvedParams = await params;
+  const slug = resolvedParams?.slug;
+  const { category, courses, error } = await fetchCategoryData(slug);
+  return (
+    <CategoryDetail
+      slug={slug}
+      category={category}
+      courses={courses}
+      loading={false}
+      error={error}
+    />
+  );
+}
