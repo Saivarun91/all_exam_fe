@@ -310,7 +310,7 @@ export default async function HeroSection() {
                 <div className="text-3xl font-bold text-[#E7ECF6]">
                   {stat.value}
                 </div>
-                <div className="text-xs text-[#E7ECF6] border-b border-[#1A73E8]/40 pb-1">
+                <div className="text-xs text-[#EEF2FA] border-b border-[#4A8FFF]/55 pb-1">
                   {stat.label}
                 </div>
               </div>

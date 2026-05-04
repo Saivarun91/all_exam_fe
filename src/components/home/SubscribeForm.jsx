@@ -174,19 +174,26 @@ export default function SubscribeForm({ buttonText }) {
       <div className="flex flex-col sm:flex-row gap-4 max-w-xl mx-auto pt-4">
 
         <div className="relative flex-1">
-          <Mail className="absolute left-3 top-3 w-5 h-5 text-[#0C1A35]/60" />
+          <label htmlFor="footer-subscribe-email" className="sr-only">
+            Email address for newsletter
+          </label>
+          <Mail className="absolute left-3 top-3 w-5 h-5 text-[#0C1A35]/60 pointer-events-none" aria-hidden />
           <Input
+            id="footer-subscribe-email"
             type="email"
             placeholder="Enter your email address"
+            autoComplete="email"
+            aria-label="Email address for weekly exam updates"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="pl-10 h-12 bg-white/95 border-white/30 text-[#0C1A35]"
+            className="pl-10 h-12 min-h-[44px] bg-white/95 border-white/30 text-[#0C1A35]"
           />
         </div>
 
         <Button
+          type="button"
           size="lg"
-          className="bg-white text-[#1A73E8] hover:bg-white/90 h-12 px-8 shadow-[0_4px_14px_rgba(0,0,0,0.2)]"
+          className="bg-white text-[#1A73E8] hover:bg-white/90 h-12 min-h-[44px] px-8 shadow-[0_4px_14px_rgba(0,0,0,0.2)]"
           onClick={handleSubscribe}
           disabled={loading}
         >

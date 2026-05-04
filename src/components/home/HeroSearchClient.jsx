@@ -38,11 +38,19 @@ export default function HeroSearchClient({ providers }) {
   };
 
   return (
-    <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-3 md:p-4 max-w-3xl mx-auto">
+    <div
+      className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-3 md:p-4 max-w-3xl mx-auto"
+      role="search"
+      aria-label="Search certification exams"
+    >
       <div className="flex flex-col md:flex-row gap-3 items-center">
 
         <Select value={selectedProvider} onValueChange={setSelectedProvider}>
-          <SelectTrigger className="w-full md:w-[200px] bg-white/95 h-11 text-sm text-[#0C1A35]">
+          <SelectTrigger
+            id="hero-search-provider"
+            aria-label="Exam provider (optional)"
+            className="w-full md:w-[200px] bg-white/95 h-11 min-h-[44px] text-sm text-[#0C1A35]"
+          >
             <SelectValue placeholder="Select Provider" />
           </SelectTrigger>
 
@@ -56,16 +64,19 @@ export default function HeroSearchClient({ providers }) {
         </Select>
 
         <Input
+          id="hero-search-query"
           placeholder="Search exams, codes, or keywords..."
-          className="flex-1 bg-white/95 h-11 text-sm text-[#0C1A35]"
+          aria-label="Search by exam name, code, or keyword"
+          className="flex-1 bg-white/95 h-11 min-h-[44px] text-sm text-[#0C1A35]"
           value={searchKeyword}
           onChange={(e) => setSearchKeyword(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleSearch()}
         />
 
         <Button
+          type="button"
           onClick={handleSearch}
-          className="bg-[#1A73E8] text-white hover:bg-[#1557B0] px-6 h-11 text-sm"
+          className="bg-[#1A73E8] text-white hover:bg-[#1557B0] px-6 h-11 min-h-[44px] min-w-[44px] text-sm"
         >
           <Search className="w-4 h-4 mr-2" />
           Search

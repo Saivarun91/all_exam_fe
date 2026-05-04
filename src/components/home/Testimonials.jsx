@@ -7,8 +7,8 @@ const API_BASE_URL =
 async function getTestimonialsData() {
   try {
     const [sectionRes, testimonialsRes] = await Promise.all([
-      fetch(`${API_BASE_URL}/api/home/testimonials-section/`, { cache: "no-store" }),
-      fetch(`${API_BASE_URL}/api/home/testimonials/`, { cache: "no-store" }),
+      fetch(`${API_BASE_URL}/api/home/testimonials-section/`, { next: { revalidate: 300 } }),
+      fetch(`${API_BASE_URL}/api/home/testimonials/`, { next: { revalidate: 300 } }),
     ]);
 
     const sectionJson = await sectionRes.json();

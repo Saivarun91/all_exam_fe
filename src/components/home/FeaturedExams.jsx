@@ -9,13 +9,13 @@ async function getData() {
   try {
     const [sectionRes, coursesRes, providersRes] = await Promise.all([
       fetch(`${API_BASE_URL}/api/home/featured-exams-section/`, {
-        cache: "no-store",
+        next: { revalidate: 300 },
       }),
       fetch(`${API_BASE_URL}/api/courses/featured/`, {
-        cache: "no-store",
+        next: { revalidate: 300 },
       }),
       fetch(`${API_BASE_URL}/api/providers/`, {
-        cache: "no-store",
+        next: { revalidate: 300 },
       }),
     ]);
 

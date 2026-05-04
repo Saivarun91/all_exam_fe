@@ -15,7 +15,6 @@ const Header = () => {
   const router = useRouter();
   const siteName = useSiteName(); 
   const logoUrl = useLogoUrl();
-  console.log("logoUrl : ",logoUrl);
 
   // Don't show header on admin routes
   if (pathname?.startsWith("/admin")) {
@@ -142,8 +141,8 @@ const Header = () => {
         }
       });
     } else {
-      // Navigate to home page with hash, the page's useEffect will handle scrolling
-      window.location.href = `/#${anchorId}`;
+      // SPA navigation keeps the app on client routing path.
+      router.push(`/#${anchorId}`);
     }
   };
 
@@ -175,7 +174,11 @@ const Header = () => {
       <div className="container mx-auto px-4 h-16 md:h-20 flex items-center justify-between">
         
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+        <Link
+          href="/"
+          className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+          aria-label={siteName?.trim() ? `AllExamQuestions home — ${siteName}` : "AllExamQuestions home"}
+        >
           {logoUrl ? (
             <img 
               // src={getOptimizedImageUrl(logoUrl, 120, 32)} 
@@ -277,14 +280,14 @@ const Header = () => {
             <>
               <Button 
                 variant="ghost" 
-                className="text-[#0C1A35] hover:text-[#1A73E8] font-semibold"
+                className="text-[#0C1A35] hover:text-[#1A73E8] font-semibold min-h-[44px] px-4"
                 asChild
               >
                 <Link href="/login">Login</Link>
               </Button>
 
               <Button 
-                className="bg-[#1A73E8] text-white hover:bg-[#1557B0] shadow-[0_4px_14px_rgba(26,115,232,0.4)] font-semibold"
+                className="bg-[#1A73E8] text-white hover:bg-[#1557B0] shadow-[0_4px_14px_rgba(26,115,232,0.4)] font-semibold min-h-[44px] px-4"
                 asChild
               >
                 <Link href="/signup">Sign Up</Link>
@@ -294,10 +297,16 @@ const Header = () => {
             <div className="relative" ref={dropdownRef}>
               {/* Profile Avatar Button */}
               <button
+                type="button"
+                id="header-user-menu-button"
                 onClick={() => setShowDropdown(!showDropdown)}
-                className="flex items-center gap-2 hover:opacity-80 transition-opacity  p-2"
+                className="flex items-center gap-2 hover:opacity-80 transition-opacity p-2 rounded-lg min-h-[44px] min-w-[44px]"
+                aria-expanded={showDropdown}
+                aria-haspopup="true"
+                aria-controls="header-user-dropdown"
+                aria-label={`Open account menu for ${userName}`}
               >
-                <div className="w-10 h-10 p-6 min-w-[44px] min-h-[44px] rounded-full bg-gradient-to-br from-[#1A73E8] to-[#4A90E2] flex items-center justify-center text-white font-bold text-lg shadow-lg">
+                <div className="w-10 h-10 min-w-[44px] min-h-[44px] rounded-full bg-gradient-to-br from-[#1A73E8] to-[#4A90E2] flex items-center justify-center text-white font-bold text-lg shadow-lg">
                   {getInitial()}
                 </div>
                 <ChevronDown className={`w-4 h-4 text-[#0C1A35] transition-transform ${showDropdown ? 'rotate-180' : ''}`} />
@@ -305,7 +314,10 @@ const Header = () => {
 
               {/* Dropdown Menu */}
               {showDropdown && (
-                <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-50">
+                <div
+                  id="header-user-dropdown"
+                  className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-50"
+                >
                   {/* User Info */}
                   <div className="px-4 py-3 border-b border-gray-100">
                     <p className="text-sm font-semibold text-[#0C1A35]">{userName}</p>

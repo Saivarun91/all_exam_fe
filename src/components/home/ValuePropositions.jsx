@@ -8,10 +8,10 @@ async function getData() {
   try {
     const [sectionRes, propositionsRes] = await Promise.all([
       fetch(`${API_BASE_URL}/api/home/value-propositions-section/`, {
-        cache: "no-store",
+        next: { revalidate: 300 },
       }),
       fetch(`${API_BASE_URL}/api/home/value-propositions/`, {
-        cache: "no-store",
+        next: { revalidate: 300 },
       }),
     ]);
 

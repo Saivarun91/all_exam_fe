@@ -241,7 +241,7 @@ export default function TestimonialsClient({ testimonials, section }) {
           </h2>
 
           {section.subtitle && (
-            <p className="text-white/80 max-w-3xl mx-auto">
+            <p className="text-[#E4EAF8] max-w-3xl mx-auto">
               {section.subtitle}
             </p>
           )}
@@ -252,21 +252,25 @@ export default function TestimonialsClient({ testimonials, section }) {
           {testimonials.length > itemsPerView && (
             <>
               <Button
+                type="button"
                 onClick={() => setCurrentIndex((p) => Math.max(0, p - 1))}
                 disabled={currentIndex === 0}
-                className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 z-10 rounded-full w-12 h-12 bg-white text-[#1A73E8]"
+                className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 z-10 rounded-full w-12 h-12 min-h-[44px] min-w-[44px] bg-white text-[#1A73E8]"
                 size="icon"
+                aria-label="Show previous testimonials"
               >
-                <ChevronLeft />
+                <ChevronLeft aria-hidden />
               </Button>
 
               <Button
+                type="button"
                 onClick={() => setCurrentIndex((p) => Math.min(maxIndex, p + 1))}
                 disabled={currentIndex >= maxIndex}
-                className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 z-10 rounded-full w-12 h-12 bg-white text-[#1A73E8]"
+                className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 z-10 rounded-full w-12 h-12 min-h-[44px] min-w-[44px] bg-white text-[#1A73E8]"
                 size="icon"
+                aria-label="Show next testimonials"
               >
-                <ChevronRight />
+                <ChevronRight aria-hidden />
               </Button>
             </>
           )}

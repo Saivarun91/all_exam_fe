@@ -7,7 +7,7 @@ async function getSectionData() {
   try {
     const res = await fetch(
       `${API_BASE_URL}/api/home/email-subscribe-section/`,
-      { cache: "no-store" }
+      { next: { revalidate: 300 } }
     );
 
     const data = await res.json();
@@ -49,14 +49,14 @@ export default async function EmailSubscribe() {
             {title}
           </h2>
 
-          <p className="text-base sm:text-lg md:text-xl text-white/90 px-2">
+          <p className="text-base sm:text-lg md:text-xl text-[#F2F6FF] px-2">
             {subtitle}
           </p>
 
           {/* ONLY FORM IS CLIENT */}
           <SubscribeForm buttonText={buttonText} />
 
-          <p className="text-sm text-white/80">
+          <p className="text-sm text-[#E8EEF9]">
             {privacyText}
           </p>
 

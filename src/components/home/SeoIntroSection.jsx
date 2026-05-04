@@ -4,7 +4,7 @@ const API_BASE_URL =
 async function getSeoIntro() {
   try {
     const res = await fetch(`${API_BASE_URL}/api/home/seo-intro/`, {
-      cache: "no-store",
+      next: { revalidate: 300 },
     });
 
     if (!res.ok) return null;

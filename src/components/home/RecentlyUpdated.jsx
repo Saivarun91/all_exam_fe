@@ -183,7 +183,7 @@ async function getSectionSettings() {
   try {
     const res = await fetch(
       `${API_BASE_URL}/api/home/recently-updated-section/`,
-      { cache: "no-store" }
+      { next: { revalidate: 300 } }
     );
     const data = await res.json();
     if (data.success && data.data) return data.data;
@@ -201,7 +201,7 @@ async function getExams() {
   try {
     const res = await fetch(
       `${API_BASE_URL}/api/home/recently-updated-exams/`,
-      { cache: "no-store" }
+      { next: { revalidate: 300 } }
     );
     const data = await res.json();
     if (data.success && data.data) {

@@ -24,7 +24,6 @@ const Footer = () => {
   const pathname = usePathname();
   const router = useRouter();
   const siteName = useSiteName();
-  console.log(siteName);
   const contactDetails = useContactDetails();
   const logoUrl = useLogoUrl();
   const socialUrls = useSocialMediaUrls();
@@ -158,7 +157,7 @@ const Footer = () => {
                     <li key={index}>
                       <Link
                         href={getProviderUrl(provider)}
-                        className="text-[#F0F4FF] hover:text-[#1A73E8] transition-colors text-xs md:text-sm"
+                        className="text-[#F0F4FF] hover:text-[#1A73E8] transition-colors text-xs md:text-sm min-h-[44px] inline-flex items-center py-1"
                       >
                         {provider.name}
                       </Link>
@@ -184,14 +183,14 @@ const Footer = () => {
                         <button
                           type="button"
                           onClick={handleFooterFAQClick}
-                          className="text-left text-[#F0F4FF] hover:text-[#1A73E8] transition-colors text-xs md:text-sm"
+                          className="text-left text-[#F0F4FF] hover:text-[#1A73E8] transition-colors text-xs md:text-sm min-h-[44px] py-2 -my-1 inline-flex items-center"
                         >
                           {resource.name}
                         </button>
                       ) : (
                         <Link
                           href={resource.href}
-                          className="text-[#F0F4FF] hover:text-[#1A73E8] transition-colors text-xs md:text-sm"
+                          className="text-[#F0F4FF] hover:text-[#1A73E8] transition-colors text-xs md:text-sm min-h-[44px] inline-flex items-center py-1"
                         >
                           {resource.name}
                         </Link>
@@ -211,7 +210,7 @@ const Footer = () => {
                   <li key={index}>
                     <Link
                       href={page.href}
-                      className="text-[#F0F4FF] hover:text-[#1A73E8] transition-colors text-xs md:text-sm"
+                      className="text-[#F0F4FF] hover:text-[#1A73E8] transition-colors text-xs md:text-sm min-h-[44px] inline-flex items-center py-1"
                     >
                       {page.name}
                     </Link>
@@ -230,7 +229,7 @@ const Footer = () => {
                   <li key={index}>
                     <Link
                       href={page.href}
-                      className="text-[#F0F4FF] hover:text-[#1A73E8] transition-colors text-xs md:text-sm"
+                      className="text-[#F0F4FF] hover:text-[#1A73E8] transition-colors text-xs md:text-sm min-h-[44px] inline-flex items-center py-1"
                     >
                       {page.name}
                     </Link>
@@ -262,7 +261,7 @@ const Footer = () => {
                     <Mail className="w-3.5 h-3.5 md:w-4 md:h-4 text-[#1A73E8] mt-0.5 flex-shrink-0" />
                     <a
                       href={`mailto:${contactDetails.email.trim().replace("@", "[at]").replace(".", "[dot]")}`}
-                      className="text-[#F0F4FF] hover:text-[#1A73E8] transition-colors text-xs md:text-sm break-all"
+                      className="text-[#F0F4FF] hover:text-[#1A73E8] transition-colors text-xs md:text-sm break-all min-h-[44px] inline-flex items-center"
                     >
                       {contactDetails.email.trim().replace("@", " [at] ").replace(".", " [dot] ")}
                     </a>
@@ -275,7 +274,7 @@ const Footer = () => {
                     <Phone className="w-3.5 h-3.5 md:w-4 md:h-4 text-[#1A73E8] mt-0.5 flex-shrink-0" />
                     <a 
                       href={`tel:${contactDetails.phone.trim().replace(/\s+/g, '')}`}
-                      className="text-[#F0F4FF] hover:text-[#1A73E8] transition-colors text-xs md:text-sm"
+                      className="text-[#F0F4FF] hover:text-[#1A73E8] transition-colors text-xs md:text-sm min-h-[44px] inline-flex items-center"
                     >
                       {contactDetails.phone.trim()}
                     </a>
@@ -296,7 +295,7 @@ const Footer = () => {
                       href={contactDetails.website.trim().startsWith('http') ? contactDetails.website.trim() : `https://${contactDetails.website.trim()}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-[#F0F4FF] hover:text-[#1A73E8] transition-colors text-xs md:text-sm break-all"
+                      className="text-[#F0F4FF] hover:text-[#1A73E8] transition-colors text-xs md:text-sm break-all min-h-[44px] inline-flex items-center"
                     >
                       {contactDetails.website.trim().replace(/^https?:\/\//, '')}
                     </a>
@@ -351,8 +350,8 @@ const Footer = () => {
                   href={social.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-[#F0F4FF] hover:text-[#1A73E8] transition-colors"
-                  aria-label={social.label}
+                  className="text-[#F0F4FF] hover:text-[#1A73E8] transition-colors inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded-md"
+                  aria-label={`${social.label} (opens in a new tab)`}
                 >
                   {social.label === "Twitter" ? (
                     <Image
@@ -378,15 +377,15 @@ const Footer = () => {
           </div>
         </div>
 
-        <div className="text-center text-[#E7ECF6] text-xs md:text-sm mt-4 md:mt-5 space-y-0.5 md:space-y-1">
+        <div className="text-center text-[#E8EDF7] text-xs md:text-sm mt-4 md:mt-5 space-y-0.5 md:space-y-1">
           <p>© 2025 AllExamQuestions. All rights reserved.</p>
-          <p className="text-[10px] md:text-xs text-[#E7ECF6]/85">
+          <p className="text-[10px] md:text-xs text-[#D4DFF0]">
             A Brand of TutorKhoj Private Limited
           </p>
         </div>
 
         <div className="border-t border-[#1A73E8]/15 pt-4 md:pt-5 mt-4 md:mt-5">
-          <p className="text-[#E7ECF6] text-[10px] md:text-xs leading-relaxed max-w-4xl mx-auto text-left">
+          <p className="text-[#D8E3F5] text-[10px] md:text-xs leading-relaxed max-w-4xl mx-auto text-left">
             <strong className="text-[#F5F8FF]">Disclaimer:</strong> <br></br>All trademarks, certification names, course titles, and logos displayed on this website are the property of their respective owners and are used solely for identification and informational purposes.<br></br>AllExamQuestions is an independent exam preparation platform and is not affiliated with, endorsed by, authorized by, or sponsored by any exam provider, certification body, or brand mentioned on this website.<br></br>Any brand names, product names, or service names are used only to describe the corresponding exams or content. Some graphics used on this website are sourced from royalty-free or publicly available resources and are believed to be free for commercial use.
             
           </p>

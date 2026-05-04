@@ -546,6 +546,11 @@ export default async function BlogSection() {
                 key={article.id}
                 href={blogUrl}
                 className="min-w-[360px] max-w-[360px] flex-shrink-0"
+                aria-label={
+                  article.title
+                    ? `${article.title} — read full article`
+                    : "Read full blog article"
+                }
               >
 
                 <Card className="overflow-hidden bg-white border-[#DDE7FF] hover:shadow-xl hover:-translate-y-1 transition duration-300 h-full flex flex-col">

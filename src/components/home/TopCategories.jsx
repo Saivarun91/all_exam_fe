@@ -7,8 +7,8 @@ const API_BASE_URL =
 async function getData() {
   try {
     const [catRes, sectionRes] = await Promise.all([
-      fetch(`${API_BASE_URL}/api/categories/`, { cache: "no-store" }),
-      fetch(`${API_BASE_URL}/api/home/top-categories-section/`, { cache: "no-store" }),
+      fetch(`${API_BASE_URL}/api/categories/`, { next: { revalidate: 300 } }),
+      fetch(`${API_BASE_URL}/api/home/top-categories-section/`, { next: { revalidate: 300 } }),
     ]);
 
     const categories = await catRes.json();

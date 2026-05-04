@@ -333,21 +333,25 @@ export default function FeaturedExamsClient({
         {courses.length > itemsPerView && (
           <>
             <Button
+              type="button"
               onClick={handlePrev}
               disabled={currentIndex === 0}
-              className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 z-10 rounded-full w-12 h-12 bg-white hover:bg-gray-100 text-[#1A73E8] shadow-lg border"
+              className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 z-10 rounded-full w-12 h-12 min-h-[44px] min-w-[44px] bg-white hover:bg-gray-100 text-[#1A73E8] shadow-lg border"
               size="icon"
+              aria-label="Show previous featured exams"
             >
-              <ChevronLeft className="w-6 h-6" />
+              <ChevronLeft className="w-6 h-6" aria-hidden />
             </Button>
 
             <Button
+              type="button"
               onClick={handleNext}
               disabled={currentIndex >= maxIndex}
-              className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 z-10 rounded-full w-12 h-12 bg-white hover:bg-gray-100 text-[#1A73E8] shadow-lg border"
+              className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 z-10 rounded-full w-12 h-12 min-h-[44px] min-w-[44px] bg-white hover:bg-gray-100 text-[#1A73E8] shadow-lg border"
               size="icon"
+              aria-label="Show next featured exams"
             >
-              <ChevronRight className="w-6 h-6" />
+              <ChevronRight className="w-6 h-6" aria-hidden />
             </Button>
           </>
         )}
@@ -456,17 +460,27 @@ export default function FeaturedExamsClient({
         </div>
 
         {courses.length > itemsPerView && (
-          <div className="flex justify-center gap-2 mt-8">
+          <div
+            className="flex justify-center gap-2 mt-8"
+            aria-label="Featured exams carousel slides"
+          >
             {Array.from({ length: maxIndex + 1 }).map((_, idx) => (
               <button
+                type="button"
                 key={idx}
                 onClick={() => setCurrentIndex(idx)}
-                className={`w-2 h-2 rounded-full ${
-                  idx === currentIndex
-                    ? "bg-[#1A73E8] w-8"
-                    : "bg-gray-300"
-                }`} 
-              />
+                aria-label={`Go to featured exams slide ${idx + 1} of ${maxIndex + 1}`}
+                aria-current={idx === currentIndex ? "true" : "false"}
+                className="min-h-[44px] min-w-[11px] flex items-center justify-center px-1"
+              >
+                <span
+                  className={`block rounded-full transition-all ${
+                    idx === currentIndex
+                      ? "bg-[#1A73E8] h-2 w-8"
+                      : "bg-gray-300 w-2 h-2"
+                  }`}
+                />
+              </button>
             ))}
           </div>
         )}

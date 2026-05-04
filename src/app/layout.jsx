@@ -234,8 +234,9 @@ import Providers from "../components/providers";
 
 const poppins = Poppins({
   subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700", "800", "900"],
-  // weight: ["400", "600", "700"],
+  // Fewer weights than full 300–900 cuts download + main-thread work (Speed Index / TBT).
+  // Keep 800 for admin `font-extrabold`; public UI mostly uses 400–700.
+  weight: ["400", "500", "600", "700", "800"],
   display: "swap",
   preload: true,
   variable: "--font-poppins",

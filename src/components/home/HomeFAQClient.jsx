@@ -162,7 +162,7 @@ import {
           </h2>
 
           {section?.subtitle && (
-            <p className="text-[#0C1A35]/70 md:text-lg">
+            <p className="text-[#0C1A35]/80 md:text-lg">
               {section.subtitle}
             </p>
           )}
@@ -184,7 +184,7 @@ import {
                     {faq.question}
                   </AccordionTrigger>
 
-                  <AccordionContent className="text-[#0C1A35]/70 pb-4">
+                  <AccordionContent className="text-[#0C1A35]/80 pb-4">
                     {faq.answer}
                   </AccordionContent>
 

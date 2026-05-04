@@ -8,16 +8,16 @@ async function getFAQData() {
   try {
     const sectionRes = await fetch(
       `${API_BASE_URL}/api/home/faqs-section/`,
-      { cache: "no-store" }
+      { next: { revalidate: 300 } }
     );
     const contentRes = await fetch(
       `${API_BASE_URL}/api/home/section-content/`,
-      { cache: "no-store" }
+      { next: { revalidate: 300 } }
     );
 
     const faqRes = await fetch(
       `${API_BASE_URL}/api/home/faqs/`,
-      { cache: "no-store" }
+      { next: { revalidate: 300 } }
     );
 
     if (!faqRes.ok) {

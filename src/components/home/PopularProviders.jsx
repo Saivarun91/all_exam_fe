@@ -7,7 +7,7 @@ const API_BASE_URL =
 async function getProviders() {
   try {
     const res = await fetch(`${API_BASE_URL}/api/providers/`, {
-      cache: "no-store",
+      next: { revalidate: 300 },
     });
 
     if (!res.ok) return [];
@@ -25,7 +25,7 @@ async function getSectionSettings() {
   try {
     const res = await fetch(
       `${API_BASE_URL}/api/home/popular-providers-section/`,
-      { cache: "no-store" }
+      { next: { revalidate: 300 } }
     );
     const data = await res.json();
     return data?.data || {};
@@ -37,7 +37,7 @@ async function getSectionSettings() {
 async function getCarouselSettings() {
   try {
     const res = await fetch(`${API_BASE_URL}/api/settings/public/`, {
-      cache: "no-store",
+      next: { revalidate: 300 },
     });
     const data = await res.json();
     if (data.success) return data;

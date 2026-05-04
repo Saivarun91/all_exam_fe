@@ -223,7 +223,7 @@ import {
 } from "lucide-react";
 
 import { useEffect, useState, useRef } from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 const ICON_MAP = {
   Cloud,
@@ -239,7 +239,6 @@ export default function TopCategoriesClient({ categories = [], sectionSettings }
   const [currentIndex, setCurrentIndex] = useState(0);
   const [itemsPerView, setItemsPerView] = useState(3);
   const carouselRef = useRef(null);
-  const router = useRouter();
 
   // responsive items
   useEffect(() => {
@@ -302,24 +301,28 @@ export default function TopCategoriesClient({ categories = [], sectionSettings }
           {/* LEFT BUTTON */}
           {categories.length > itemsPerView && (
             <Button
+              type="button"
               onClick={handlePrev}
               disabled={currentIndex === 0}
-              className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 z-10 rounded-full w-12 h-12 bg-white shadow border"
+              className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 z-10 rounded-full w-12 h-12 min-h-[44px] min-w-[44px] bg-white shadow border"
               size="icon"
+              aria-label="Show previous categories"
             >
-              <ChevronLeft className="w-6 h-6 text-[#1A73E8]" />
+              <ChevronLeft className="w-6 h-6 text-[#1A73E8]" aria-hidden />
             </Button>
           )}
 
           {/* RIGHT BUTTON */}
           {categories.length > itemsPerView && (
             <Button
+              type="button"
               onClick={handleNext}
               disabled={currentIndex >= maxIndex}
-              className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 z-10 rounded-full w-12 h-12 bg-white shadow border"
+              className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 z-10 rounded-full w-12 h-12 min-h-[44px] min-w-[44px] bg-white shadow border"
               size="icon"
+              aria-label="Show next categories"
             >
-              <ChevronRight className="w-6 h-6 text-[#1A73E8]" />
+              <ChevronRight className="w-6 h-6 text-[#1A73E8]" aria-hidden />
             </Button>
           )}
 
@@ -347,10 +350,13 @@ export default function TopCategoriesClient({ categories = [], sectionSettings }
                     }}
                   >
 
+                    <Link
+                      href={`/${category.slug}`}
+                      className="block h-full rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1A73E8] focus-visible:ring-offset-2"
+                      aria-label={`Open ${category.name} certification category`}
+                    >
                     <Card
                       className="hover:shadow-[0_8px_24px_rgba(26,115,232,0.15)] hover:-translate-y-1 transition-all cursor-pointer border-[#DDE7FF] bg-white h-full"
-                      // onClick={() => router.push(`/categories/${category.slug}`)}
-                      onClick={() => router.push(`/${category.slug}`)}
                     >
 
                       <CardContent className="p-6 space-y-4">
@@ -370,6 +376,7 @@ export default function TopCategoriesClient({ categories = [], sectionSettings }
                       </CardContent>
 
                     </Card>
+                    </Link>
 
                   </div>
                 );
@@ -383,17 +390,27 @@ export default function TopCategoriesClient({ categories = [], sectionSettings }
 
           {/* DOTS */}
           {categories.length > itemsPerView && (
-            <div className="flex justify-center gap-2 mt-8">
+            <div
+              className="flex justify-center gap-2 mt-8"
+              aria-label="Top categories carousel slides"
+            >
               {Array.from({ length: maxIndex + 1 }).map((_, idx) => (
                 <button
+                  type="button"
                   key={idx}
                   onClick={() => setCurrentIndex(idx)}
-                  className={`w-2 h-2 rounded-full transition-all ${
-                    idx === currentIndex
-                      ? "bg-[#1A73E8] w-8"
-                      : "bg-gray-300"
-                  }`}
-                />
+                  aria-label={`Go to categories slide ${idx + 1} of ${maxIndex + 1}`}
+                  aria-current={idx === currentIndex ? "true" : "false"}
+                  className="min-h-[44px] min-w-[11px] flex items-center justify-center px-1"
+                >
+                  <span
+                    className={`block rounded-full transition-all ${
+                      idx === currentIndex
+                        ? "bg-[#1A73E8] h-2 w-8"
+                        : "bg-gray-300 w-2 h-2"
+                    }`}
+                  />
+                </button>
               ))}
             </div>
           )}
