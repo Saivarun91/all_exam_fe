@@ -1,5 +1,6 @@
 // app/providers/page.jsx
 import Link from "next/link";
+import { logServerFetchError } from "@/lib/serverFetchLog";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
@@ -24,7 +25,7 @@ async function fetchProvidersPageSeo() {
       meta_keywords: data?.meta_keywords || "",
     };
   } catch (error) {
-    console.error("Failed to fetch providers page SEO:", error);
+    logServerFetchError("Failed to fetch providers page SEO:", error);
     return {
       meta_title: "",
       meta_description: "",
@@ -83,7 +84,7 @@ export default async function ProvidersPage() {
     );
     if (res.ok) providers = await res.json();
   } catch (err) {
-    console.error("Failed to fetch providers:", err);
+    logServerFetchError("Failed to fetch providers:", err);
   }
 
   return (

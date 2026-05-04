@@ -145,6 +145,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Star, Quote, CheckCircle2 } from "lucide-react";
 import ReviewsJsonLd from "@/components/ReviewsJsonLd";
+import { logServerFetchError } from "@/lib/serverFetchLog";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
@@ -164,7 +165,7 @@ async function getTestimonials() {
       return data.data;
     }
   } catch (err) {
-    console.error("Error fetching testimonials:", err);
+    logServerFetchError("Error fetching testimonials:", err);
   }
 
   return [];

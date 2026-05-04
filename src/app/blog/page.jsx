@@ -286,6 +286,7 @@
 
 
 import BlogPageClient from "./BlogPageClient";
+import { logServerFetchError } from "@/lib/serverFetchLog";
 
 const API_BASE_URL = (
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000"
@@ -307,7 +308,7 @@ async function fetchBlogPageSeo() {
 
     return null;
   } catch (err) {
-    console.error("Error fetching blog page SEO:", err);
+    logServerFetchError("Error fetching blog page SEO:", err);
     return null;
   }
 }
@@ -372,7 +373,7 @@ async function fetchBlogs() {
     }
     return [];
   } catch (err) {
-    console.error("Error fetching blog posts:", err);
+    logServerFetchError("Error fetching blog posts:", err);
     return [];
   }
 }

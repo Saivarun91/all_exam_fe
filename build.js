@@ -6,13 +6,61 @@ console.log('Starting Next.js build...\n');
 
 const buildProcess = spawn('next', ['build'], {
   cwd: __dirname,
-  stdio: 'inherit',
+  stdio: ['inherit', 'pipe', 'pipe'],
   shell: true,
   env: {
     ...process.env,
     NODE_OPTIONS: '--max-old-space-size=4096'
   }
 });
+
+function createBuildOutputFilter(targetStream) {
+  let buffer = '';
+  let collectingFetchBlock = false;
+  let fetchBlock = [];
+
+  const flushLine = (line) => {
+    if (!collectingFetchBlock) {
+      if (line.includes('TypeError: fetch failed')) {
+        collectingFetchBlock = true;
+        fetchBlock = [line];
+        return;
+      }
+      targetStream.write(`${line}\n`);
+      return;
+    }
+
+    fetchBlock.push(line);
+    if (line.trim() === '}') {
+      const blockText = fetchBlock.join('\n');
+      const isLocalApiOfflineNoise =
+        blockText.includes('connect ECONNREFUSED 127.0.0.1:8000') ||
+        blockText.includes("code: 'ECONNREFUSED'");
+
+      if (!isLocalApiOfflineNoise) {
+        targetStream.write(`${blockText}\n`);
+      }
+
+      collectingFetchBlock = false;
+      fetchBlock = [];
+    }
+  };
+
+  return (chunk) => {
+    buffer += chunk.toString();
+    const lines = buffer.split(/\r?\n/);
+    buffer = lines.pop() ?? '';
+    for (const line of lines) {
+      flushLine(line);
+    }
+  };
+}
+
+const onStdout = createBuildOutputFilter(process.stdout);
+const onStderr = createBuildOutputFilter(process.stderr);
+
+buildProcess.stdout.on('data', onStdout);
+buildProcess.stderr.on('data', onStderr);
 
 buildProcess.on('error', (error) => {
   console.error('Build process error:', error);
