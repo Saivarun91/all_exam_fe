@@ -374,6 +374,12 @@ const iconMap = {
   Building,
 };
 
+function getProviderKey(provider, index, originalLength) {
+  const providerBase = provider?.id || provider?.slug || `provider-${index}`;
+  const copyIndex = originalLength > 0 ? Math.floor(index / originalLength) : 0;
+  return `${providerBase}-${copyIndex}-${index}`;
+}
+
 function AnimatedCarousel({
   providers,
   logoSize,
@@ -409,7 +415,7 @@ function AnimatedCarousel({
 
           return (
             <div
-              key={`${provider.id || provider.slug || index}`}
+              key={getProviderKey(provider, index, providers.length)}
               className="flex-shrink-0 flex items-center justify-center"
               style={{
                 width: "120px",
@@ -484,7 +490,7 @@ function AnimatedCarousel({
 
           return (
             <div
-              key={`${provider.id || provider.slug || index}`}
+              key={getProviderKey(provider, index, providers.length)}
               className="flex-shrink-0 flex items-center justify-center"
               style={{
                 width: "120px",

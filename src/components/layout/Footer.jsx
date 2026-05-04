@@ -147,7 +147,7 @@ const Footer = () => {
           {/* Providers Section - Only show if providers exist */}
           {hasProviders && (
             <div>
-              <h3 className="font-bold text-base md:text-lg mb-2 md:mb-3 text-[#F5F8FF]"> Exam Providers Covered</h3>
+              <h3 className="font-bold text-base md:text-lg mb-2 md:mb-3 text-[#F5F8FF]">Exam Providers Covered</h3>
               <ul className="space-y-1 md:space-y-1.5">
                 {loading ? (
                   <li className="text-[#F0F4FF] text-xs md:text-sm">Loading...</li>
@@ -156,7 +156,7 @@ const Footer = () => {
                     <li key={index}>
                       <Link
                         href={getProviderUrl(provider)}
-                        className="text-[#F0F4FF] hover:text-[#1A73E8] transition-colors text-xs md:text-sm min-h-[44px] inline-flex items-center py-1"
+                        className="text-[#F0F4FF] hover:text-[#1A73E8] transition-colors text-xs md:text-sm inline-flex items-center py-0.5"
                       >
                         {provider.name}
                       </Link>
@@ -182,14 +182,14 @@ const Footer = () => {
                         <button
                           type="button"
                           onClick={handleFooterFAQClick}
-                          className="text-left text-[#F0F4FF] hover:text-[#1A73E8] transition-colors text-xs md:text-sm min-h-[44px] py-2 -my-1 inline-flex items-center"
+                          className="text-left text-[#F0F4FF] hover:text-[#1A73E8] transition-colors text-xs md:text-sm py-0.5 inline-flex items-center"
                         >
                           {resource.name}
                         </button>
                       ) : (
                         <Link
                           href={resource.href}
-                          className="text-[#F0F4FF] hover:text-[#1A73E8] transition-colors text-xs md:text-sm min-h-[44px] inline-flex items-center py-1"
+                          className="text-[#F0F4FF] hover:text-[#1A73E8] transition-colors text-xs md:text-sm inline-flex items-center py-0.5"
                         >
                           {resource.name}
                         </Link>
@@ -209,7 +209,7 @@ const Footer = () => {
                   <li key={index}>
                     <Link
                       href={page.href}
-                      className="text-[#F0F4FF] hover:text-[#1A73E8] transition-colors text-xs md:text-sm min-h-[44px] inline-flex items-center py-1"
+                      className="text-[#F0F4FF] hover:text-[#1A73E8] transition-colors text-xs md:text-sm inline-flex items-center py-0.5"
                     >
                       {page.name}
                     </Link>
@@ -228,7 +228,7 @@ const Footer = () => {
                   <li key={index}>
                     <Link
                       href={page.href}
-                      className="text-[#F0F4FF] hover:text-[#1A73E8] transition-colors text-xs md:text-sm min-h-[44px] inline-flex items-center py-1"
+                      className="text-[#F0F4FF] hover:text-[#1A73E8] transition-colors text-xs md:text-sm inline-flex items-center py-0.5"
                     >
                       {page.name}
                     </Link>
@@ -260,7 +260,7 @@ const Footer = () => {
                     <Mail className="w-3.5 h-3.5 md:w-4 md:h-4 text-[#1A73E8] mt-0.5 flex-shrink-0" />
                     <a
                       href={`mailto:${contactDetails.email.trim().replace("@", "[at]").replace(".", "[dot]")}`}
-                      className="text-[#F0F4FF] hover:text-[#1A73E8] transition-colors text-xs md:text-sm break-all min-h-[44px] inline-flex items-center"
+                      className="text-[#F0F4FF] hover:text-[#1A73E8] transition-colors text-xs md:text-sm break-all inline-flex items-center py-0.5"
                     >
                       {contactDetails.email.trim().replace("@", " [at] ").replace(".", " [dot] ")}
                     </a>
@@ -273,7 +273,7 @@ const Footer = () => {
                     <Phone className="w-3.5 h-3.5 md:w-4 md:h-4 text-[#1A73E8] mt-0.5 flex-shrink-0" />
                     <a 
                       href={`tel:${contactDetails.phone.trim().replace(/\s+/g, '')}`}
-                      className="text-[#F0F4FF] hover:text-[#1A73E8] transition-colors text-xs md:text-sm min-h-[44px] inline-flex items-center"
+                      className="text-[#F0F4FF] hover:text-[#1A73E8] transition-colors text-xs md:text-sm inline-flex items-center py-0.5"
                     >
                       {contactDetails.phone.trim()}
                     </a>
@@ -294,7 +294,7 @@ const Footer = () => {
                       href={contactDetails.website.trim().startsWith('http') ? contactDetails.website.trim() : `https://${contactDetails.website.trim()}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-[#F0F4FF] hover:text-[#1A73E8] transition-colors text-xs md:text-sm break-all min-h-[44px] inline-flex items-center"
+                      className="text-[#F0F4FF] hover:text-[#1A73E8] transition-colors text-xs md:text-sm break-all inline-flex items-center py-0.5"
                     >
                       {contactDetails.website.trim().replace(/^https?:\/\//, '')}
                     </a>
