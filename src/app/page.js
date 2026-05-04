@@ -217,15 +217,15 @@
 
 
 
+import { Suspense } from "react";
 import dynamicImport from "next/dynamic";
+import HeroSection from "../components/home/HeroSection";
+import BlogSection from "../components/home/BlogSection";
+import ScrollHandler from "../components/home/ScrollHandler";
 
+const belowFoldFallback = <div className="py-20 bg-gray-50/40" aria-hidden />;
 
 // ================= DYNAMIC COMPONENTS =================
-
-const HeroSection = dynamicImport(() => import("../components/home/HeroSection"), {
-  ssr: true,
-  loading: () => <div className="min-h-[450px] md:min-h-[550px]" />,
-});
 
 const SeoIntroSection = dynamicImport(() => import("../components/home/SeoIntroSection"), {
   ssr: true,
@@ -273,10 +273,6 @@ const HomeFAQ = dynamicImport(() => import("../components/home/HomeFAQ"), {
   ssr: true,
   loading: () => <div className="py-20" />,
 });
-
-// Server component
-import BlogSection from "../components/home/BlogSection";
-import ScrollHandler from "../components/home/ScrollHandler";
 
 // ================= METADATA =================
 
@@ -393,16 +389,36 @@ export default function Page() {
 
       <main>
         <HeroSection />
-        <SeoIntroSection />
-        <TopCategories />
-        <FeaturedExams />
-        <ValuePrepositions />
-        <PopularProviders />
-        <RecentlyUpdated />
-        <Testimonials />
-        <BlogSection />
-        <EmailSubscribe />
-        <HomeFAQ />
+        <Suspense fallback={belowFoldFallback}>
+          <SeoIntroSection />
+        </Suspense>
+        <Suspense fallback={belowFoldFallback}>
+          <TopCategories />
+        </Suspense>
+        <Suspense fallback={belowFoldFallback}>
+          <FeaturedExams />
+        </Suspense>
+        <Suspense fallback={belowFoldFallback}>
+          <ValuePrepositions />
+        </Suspense>
+        <Suspense fallback={belowFoldFallback}>
+          <PopularProviders />
+        </Suspense>
+        <Suspense fallback={belowFoldFallback}>
+          <RecentlyUpdated />
+        </Suspense>
+        <Suspense fallback={belowFoldFallback}>
+          <Testimonials />
+        </Suspense>
+        <Suspense fallback={belowFoldFallback}>
+          <BlogSection />
+        </Suspense>
+        <Suspense fallback={belowFoldFallback}>
+          <EmailSubscribe />
+        </Suspense>
+        <Suspense fallback={belowFoldFallback}>
+          <HomeFAQ />
+        </Suspense>
       </main>
     </div>
   );

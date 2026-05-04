@@ -6,15 +6,15 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useSiteName } from "@/hooks/useSiteName";
-import { useLogoUrl } from "@/hooks/useLogoUrl";
-import { getOptimizedImageUrl } from "@/utils/imageUtils";
+import { useLogoUrl, getLogoUrl } from "@/hooks/useLogoUrl";
 
 
-const Header = () => {
+const Header = ({ initialLogoUrl = "", initialSiteName = "" }) => {
   const pathname = usePathname();
   const router = useRouter();
-  const siteName = useSiteName(); 
-  const logoUrl = useLogoUrl();
+  const siteName = useSiteName(initialSiteName);
+  const logoUrl = useLogoUrl(initialLogoUrl);
+  const displayLogoUrl = logoUrl || getLogoUrl();
 
   // Don't show header on admin routes
   if (pathname?.startsWith("/admin")) {
@@ -25,7 +25,6 @@ const Header = () => {
   const [userEmail, setUserEmail] = useState("");
   const [showDropdown, setShowDropdown] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [isLogoLoaded, setIsLogoLoaded] = useState(false);
   const dropdownRef = useRef(null);
   const mobileMenuRef = useRef(null);
 
@@ -46,37 +45,13 @@ const Header = () => {
     }
   };
 
-  // Track when logo URL has been loaded
+  // Notify listeners once the header shell is mounted (no artificial delay — improves LCP / Speed Index).
   useEffect(() => {
-    // The logoUrl hook fetches asynchronously from API or uses cache
-    // We wait for the fetch to complete before showing the header
-    let mounted = true;
-    
-    // Mark as loaded after a delay to allow the hook's fetch to complete
-    // This handles both cached (immediate) and API fetch (async) cases
-    // 500ms should be sufficient for most network conditions
-    const timer = setTimeout(() => {
-      if (mounted) {
-        setIsLogoLoaded(true);
-      }
-    }, 500);
-
-    return () => {
-      mounted = false;
-      clearTimeout(timer);
-    };
+    const id = requestAnimationFrame(() => {
+      window.dispatchEvent(new CustomEvent("headerLoaded"));
+    });
+    return () => cancelAnimationFrame(id);
   }, []);
-
-  // Dispatch event when header is fully loaded and displayed
-  useEffect(() => {
-    if (isLogoLoaded) {
-      // Small delay to ensure header is fully rendered in DOM
-      const timer = setTimeout(() => {
-        window.dispatchEvent(new CustomEvent("headerLoaded"));
-      }, 50);
-      return () => clearTimeout(timer);
-    }
-  }, [isLogoLoaded]);
 
   useEffect(() => {
     // Check initial login state
@@ -125,19 +100,10 @@ const Header = () => {
   const handleAnchorClick = (e, anchorId) => {
     e.preventDefault();
     if (pathname === "/") {
-      // Use requestAnimationFrame to avoid forced reflow
       requestAnimationFrame(() => {
         const element = document.getElementById(anchorId);
         if (element) {
-          // Account for fixed header height (64px mobile, 80px desktop)
-          const headerHeight = window.innerWidth >= 768 ? 80 : 64;
-          const elementPosition = element.getBoundingClientRect().top + window.pageYOffset;
-          const offsetPosition = elementPosition - headerHeight;
-          
-          window.scrollTo({
-            top: offsetPosition,
-            behavior: "smooth"
-          });
+          element.scrollIntoView({ behavior: "smooth", block: "start" });
         }
       });
     } else {
@@ -164,11 +130,6 @@ const Header = () => {
     return userName.charAt(0).toUpperCase() || "U";
   };
 
-  // Don't render header until logo URL has been loaded
-  if (!isLogoLoaded) {
-    return null;
-  }
-
   return (
     <header className="fixed top-0 left-0 right-0 z-50 w-full bg-white border-b border-gray-200 shadow-sm">
       <div className="container mx-auto px-4 h-16 md:h-20 flex items-center justify-between">
@@ -179,21 +140,24 @@ const Header = () => {
           className="flex items-center gap-2 hover:opacity-80 transition-opacity"
           aria-label={siteName?.trim() ? `AllExamQuestions home — ${siteName}` : "AllExamQuestions home"}
         >
-          {logoUrl ? (
-            <img 
-              // src={getOptimizedImageUrl(logoUrl, 120, 32)} 
-              src={logoUrl}
-              alt={siteName || "Logo"} 
+          {displayLogoUrl ? (
+            <img
+              src={displayLogoUrl}
+              alt={siteName || "Logo"}
               width={120}
               height={32}
-              className="h-8 w-auto  object-contain"
-              style={{  height: 'auto' }}
-              loading="lazy"
+              className="h-8 w-auto object-contain"
+              style={{ height: "auto" }}
+              loading="eager"
+              fetchPriority="low"
               sizes="(max-width: 768px) 80px, 120px"
               decoding="async"
             />
-          ) : (""
-          // <GraduationCap className="w-6 h-6 md:w-8 md:h-8 text-[#1A73E8]" />
+          ) : (
+            <GraduationCap
+              className="w-8 h-8 md:w-9 md:h-9 text-[#1A73E8]"
+              aria-hidden
+            />
           )}
           {/* {siteName && siteName.trim() && (
           <span className="text-lg md:text-xl font-bold text-[#0C1A35]">{siteName}</span>

@@ -1,75 +1,52 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 
 export default function BodyWrapper({ children }) {
   const pathname = usePathname();
   const [isHeaderLoaded, setIsHeaderLoaded] = useState(false);
-  const intervalRef = useRef(null);
 
-  // Check if we're on an admin route - header won't be shown, so don't wait for it
   const isAdminRoute = pathname?.startsWith("/admin");
 
   useEffect(() => {
-    // If on admin route, immediately allow rendering (header won't appear)
     if (isAdminRoute) {
       setIsHeaderLoaded(true);
-      return;
+      return undefined;
     }
 
-    // Check if header is already loaded (for cases where event was dispatched before this component mounted)
-    const checkHeaderLoaded = () => {
-      // If header exists in DOM and has height, it's loaded
-      const header = document.querySelector("header");
-      if (header && header.offsetHeight > 0) {
-        setIsHeaderLoaded(true);
-        return true;
-      }
-      return false;
+    const show = () => setIsHeaderLoaded(true);
+
+    const onHeaderLoaded = () => {
+      window.removeEventListener("headerLoaded", onHeaderLoaded);
+      show();
     };
 
-    // Check immediately
-    if (checkHeaderLoaded()) {
-      return;
-    }
+    window.addEventListener("headerLoaded", onHeaderLoaded);
 
-    // Listen for header loaded event
-    const handleHeaderLoaded = () => {
-      setIsHeaderLoaded(true);
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
+    // If the header node is already mounted (event may have fired early), show next frame without polling layout.
+    const raf = requestAnimationFrame(() => {
+      if (document.querySelector("header")) {
+        window.removeEventListener("headerLoaded", onHeaderLoaded);
+        show();
       }
-    };
+    });
 
-    window.addEventListener("headerLoaded", handleHeaderLoaded);
+    const fallback = window.setTimeout(() => {
+      window.removeEventListener("headerLoaded", onHeaderLoaded);
+      show();
+    }, 2500);
 
-    // Fallback: check periodically in case event was missed
-    intervalRef.current = setInterval(() => {
-      if (checkHeaderLoaded()) {
-        if (intervalRef.current) {
-          clearInterval(intervalRef.current);
-          intervalRef.current = null;
-        }
-      }
-    }, 100);
-
-    // Cleanup
     return () => {
-      window.removeEventListener("headerLoaded", handleHeaderLoaded);
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
+      window.removeEventListener("headerLoaded", onHeaderLoaded);
+      cancelAnimationFrame(raf);
+      window.clearTimeout(fallback);
     };
   }, [isAdminRoute]);
 
-  // Don't render children until header is loaded (or if on admin route)
   if (!isHeaderLoaded) {
     return null;
   }
 
   return <>{children}</>;
 }
-

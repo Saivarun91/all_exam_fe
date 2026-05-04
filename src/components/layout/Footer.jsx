@@ -10,7 +10,6 @@ import { useLogoUrl } from "@/hooks/useLogoUrl";
 import { useSocialMediaUrls } from "@/hooks/useSocialMediaUrls";
 import { getOptimizedImageUrl } from "@/utils/imageUtils";
 import Image from "next/image";
-import Script from "next/script";
 /**
  * Footer Component
  * 
@@ -391,19 +390,6 @@ const Footer = () => {
           </p>
         </div>
       </div>
-       {/* ================= GOOGLE ANALYTICS ================= */}
-       <Script
-          src="https://www.googletagmanager.com/gtag/js?id=G-4KCPVHB725"
-          strategy="lazyOnload"
-        />
-        <Script id="google-analytics" strategy="lazyOnload">
-          {`
-            window.dataLayer = window.dataLayer || [];
-            function gtag(){dataLayer.push(arguments);}
-            gtag('js', new Date());
-            gtag('config', 'G-4KCPVHB725', { anonymize_ip: true });
-          `}
-        </Script>
     </footer>
   );
 };

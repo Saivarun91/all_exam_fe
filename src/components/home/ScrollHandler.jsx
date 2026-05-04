@@ -21,14 +21,7 @@ export default function ScrollHandler() {
         if (!id) return;
         const element = document.getElementById(id);
         if (element) {
-          const headerHeight = window.innerWidth >= 768 ? 80 : 64;
-          const elementPosition =
-            element.getBoundingClientRect().top + window.pageYOffset;
-          const offsetPosition = elementPosition - headerHeight;
-          window.scrollTo({
-            top: offsetPosition,
-            behavior: "smooth",
-          });
+          element.scrollIntoView({ behavior: "smooth", block: "start" });
         } else {
           setTimeout(scrollToSection, 100);
         }

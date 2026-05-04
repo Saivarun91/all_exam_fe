@@ -9,8 +9,8 @@ let cachedLogoUrl = null;
 let cacheTimestamp = 0;
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
-export function useLogoUrl() {
-  const [logoUrl, setLogoUrl] = useState(""); // Default to empty (no logo)
+export function useLogoUrl(initialLogoFromServer = "") {
+  const [logoUrl, setLogoUrl] = useState(initialLogoFromServer || "");
 
   useEffect(() => {
     const fetchLogoUrl = async () => {
@@ -55,7 +55,7 @@ export function useLogoUrl() {
       window.removeEventListener('logoUpdated', handleLogoUpdate);
       window.removeEventListener('siteNameUpdated', handleLogoUpdate);
     };
-  }, []);
+  }, [initialLogoFromServer]);
 
   return logoUrl;
 }

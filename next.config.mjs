@@ -2,52 +2,17 @@
 const nextConfig = {
   /* config options here */
   reactCompiler: true,
-  // Optimize production builds (swcMinify is default in Next.js 16, no need to specify)
   compress: true,
-  // Optimize webpack to reduce HTTP requests (for production builds)
-  webpack: (config, { isServer, dev }) => {
-    if (!isServer && !dev) {
-      // Optimize chunk splitting to reduce HTTP requests in production
-      config.optimization = {
-        ...config.optimization,
-        splitChunks: {
-          chunks: 'all',
-          maxInitialRequests: 20, // Limit initial chunks
-          maxAsyncRequests: 20, // Limit async chunks
-          cacheGroups: {
-            default: false,
-            vendors: false,
-            // Combine all vendor chunks into one
-            vendor: {
-              name: 'vendor',
-              chunks: 'all',
-              test: /[\\/]node_modules[\\/]/,
-              priority: 20,
-              reuseExistingChunk: true,
-            },
-            // Combine common chunks
-            common: {
-              name: 'common',
-              minChunks: 2,
-              chunks: 'all',
-              priority: 10,
-              reuseExistingChunk: true,
-              enforce: true,
-            },
-            // Combine framework chunks
-            framework: {
-              name: 'framework',
-              test: /[\\/]node_modules[\\/](react|react-dom|next)[\\/]/,
-              chunks: 'all',
-              priority: 30,
-              reuseExistingChunk: true,
-            },
-          },
-        },
-      };
-    }
-    return config;
+  poweredByHeader: false,
+  compiler: {
+    // Keep warn/error logs while trimming other console calls in production bundles.
+    removeConsole:
+      process.env.NODE_ENV === "production"
+        ? { exclude: ["error", "warn"] }
+        : false,
   },
+  // Use Next.js default chunking (custom splitChunks with chunks:'all' was merging too much
+  // into the initial load → higher script eval time and worse TBT).
   // Enable experimental features for better optimization
   experimental: {
     optimizePackageImports: [
@@ -60,8 +25,6 @@ const nextConfig = {
       '@radix-ui/react-tabs',
       'framer-motion',
     ],
-    // Disable Turbopack to fix Google Fonts build issue - use webpack instead
-    turbo: false,
   },
   async rewrites() {
     return [

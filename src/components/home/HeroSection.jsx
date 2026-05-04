@@ -274,14 +274,20 @@ export default async function HeroSection() {
       }
     : {};
 
+  const bgUrl = heroData?.background_image_url;
+
   return (
-    <section
-      className="relative min-h-[450px] md:min-h-[550px] flex items-center overflow-hidden"
-      style={heroData?.background_image_url ? backgroundStyle : {}}
-    >
+    <>
+      {bgUrl ? (
+        <link rel="preload" as="image" href={bgUrl} fetchPriority="high" />
+      ) : null}
+      <section
+        className="relative min-h-[450px] md:min-h-[550px] flex items-center overflow-hidden"
+        style={bgUrl ? backgroundStyle : {}}
+      >
       <WebSiteJsonLd heroData={heroData} siteName="AllExamQuestions" />
 
-      {heroData?.background_image_url ? (
+      {bgUrl ? (
         <div className="absolute inset-0 bg-gradient-to-br from-[#0C1A35]/90 via-[#0F2847]/85 to-[#132A54]/90"></div>
       ) : (
         <div className="absolute inset-0 bg-gradient-to-br from-[#0C1A35] via-[#0F2847] to-[#132A54]"></div>
@@ -323,6 +329,7 @@ export default async function HeroSection() {
         </div>
       </div>
     </section>
+    </>
   );
   
 }

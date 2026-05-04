@@ -178,6 +178,23 @@ import { getExamUrl } from "@/lib/utils";
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
+const DEFAULT_SECTION_SETTINGS = {
+  heading: "Recently Updated Exams",
+  subtitle: "",
+};
+
+/** No console noise when Django isn’t running; still log unexpected failures. */
+function logRecentlyUpdatedFetchFallback(label, err) {
+  const code = err?.cause?.code ?? err?.code;
+  const backendLikelyDown =
+    code === "ECONNREFUSED" ||
+    code === "ENOTFOUND" ||
+    code === "ECONNRESET" ||
+    code === "ETIMEDOUT";
+  if (backendLikelyDown) return;
+  console.error(`Error fetching ${label}:`, err);
+}
+
 // ✅ fetch section settings (server)
 async function getSectionSettings() {
   try {
@@ -185,15 +202,13 @@ async function getSectionSettings() {
       `${API_BASE_URL}/api/home/recently-updated-section/`,
       { next: { revalidate: 300 } }
     );
+    if (!res.ok) return { ...DEFAULT_SECTION_SETTINGS };
     const data = await res.json();
     if (data.success && data.data) return data.data;
   } catch (err) {
-    console.error("Error fetching section settings:", err);
+    logRecentlyUpdatedFetchFallback("section settings", err);
   }
-  return {
-    heading: "Recently Updated Exams",
-    subtitle: "",
-  };
+  return { ...DEFAULT_SECTION_SETTINGS };
 }
 
 // ✅ fetch exams (server)
@@ -203,12 +218,13 @@ async function getExams() {
       `${API_BASE_URL}/api/home/recently-updated-exams/`,
       { next: { revalidate: 300 } }
     );
+    if (!res.ok) return [];
     const data = await res.json();
     if (data.success && data.data) {
       return data.data.filter((exam) => exam.is_active);
     }
   } catch (err) {
-    console.error("Error fetching recently updated exams:", err);
+    logRecentlyUpdatedFetchFallback("recently updated exams", err);
   }
   return [];
 }

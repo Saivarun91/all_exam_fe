@@ -3,6 +3,7 @@
 import { AuthProvider } from "@/contexts/AuthContext";
 import { TestProvider } from "@/contexts/TestContext";
 import FontSettingsProvider from "@/components/layout/FontSettingsProvider";
+import GoogleAnalyticsDeferred from "@/components/analytics/GoogleAnalyticsDeferred";
 import { Toaster } from "react-hot-toast";
 
 export default function Providers({ children }) {
@@ -10,6 +11,7 @@ export default function Providers({ children }) {
     <AuthProvider>
       <TestProvider>
         <FontSettingsProvider>
+          <GoogleAnalyticsDeferred />
           <Toaster position="top-right" />
           {children}
         </FontSettingsProvider>

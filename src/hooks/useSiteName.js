@@ -9,8 +9,8 @@ let cachedSiteName = null;
 let cacheTimestamp = 0;
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
-export function useSiteName() {
-  const [siteName, setSiteName] = useState(""); // Start with empty string
+export function useSiteName(initialSiteNameFromServer = "") {
+  const [siteName, setSiteName] = useState(initialSiteNameFromServer || "");
 
   useEffect(() => {
     const fetchSiteName = async () => {
@@ -64,7 +64,7 @@ export function useSiteName() {
     return () => {
       window.removeEventListener('siteNameUpdated', handleSiteNameUpdate);
     };
-  }, []);
+  }, [initialSiteNameFromServer]);
 
   return siteName;
 }

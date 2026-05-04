@@ -232,6 +232,33 @@ import Header from "../components/layout/Header";
 import Footer from "../components/layout/Footer";
 import Providers from "../components/providers";
 
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
+
+async function fetchPublicBrandSettings() {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/settings/public/`, {
+      next: { revalidate: 300 },
+      headers: { Accept: "application/json" },
+    });
+    if (!res.ok) return { logoUrl: "", siteName: "" };
+
+    const data = await res.json();
+    if (!data.success) return { logoUrl: "", siteName: "" };
+
+    const siteRaw = data.site_name;
+    const siteName =
+      siteRaw != null && String(siteRaw).trim() ? String(siteRaw).trim() : "";
+
+    return {
+      logoUrl: data.logo_url || "",
+      siteName,
+    };
+  } catch {
+    return { logoUrl: "", siteName: "" };
+  }
+}
+
 const poppins = Poppins({
   subsets: ["latin"],
   // Fewer weights than full 300–900 cuts download + main-thread work (Speed Index / TBT).
@@ -259,14 +286,20 @@ export const metadata = {
   },
 };
 
-export default function RootLayout({ children }) {
+export default async function RootLayout({ children }) {
+  const { logoUrl: initialLogoUrl, siteName: initialSiteName } =
+    await fetchPublicBrandSettings();
+
   return (
     <html lang="en" className={poppins.variable}>
       <body 
         className={`${poppins.className} flex flex-col min-h-screen bg-gray-50 text-gray-900` }
       >
         <Providers>
-        <Header />
+        <Header
+          initialLogoUrl={initialLogoUrl}
+          initialSiteName={initialSiteName}
+        />
         <div className="h-16 md:h-20" />
         <main className="flex-1">{children}</main>
         <Footer />

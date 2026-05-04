@@ -5,6 +5,16 @@
   * {
     font-display: swap;
   }
+
+  /* Fixed site header is h-16 (4rem) / md:h-20 (5rem) — hash & in-page scroll without JS geometry reads */
+  main [id] {
+    scroll-margin-top: 4rem;
+  }
+  @media (min-width: 768px) {
+    main [id] {
+      scroll-margin-top: 5rem;
+    }
+  }
 }
 
 @custom-variant dark (&:is(.dark *));

@@ -222,8 +222,9 @@ import {
   ChevronRight,
 } from "lucide-react";
 
-import { useEffect, useState, useRef } from "react";
+import { useState, useRef } from "react";
 import Link from "next/link";
+import { useCarouselItemsPerView } from "@/hooks/useCarouselItemsPerView";
 
 const ICON_MAP = {
   Cloud,
@@ -237,21 +238,8 @@ const ICON_MAP = {
 export default function TopCategoriesClient({ categories = [], sectionSettings }) {
 
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [itemsPerView, setItemsPerView] = useState(3);
+  const itemsPerView = useCarouselItemsPerView(3);
   const carouselRef = useRef(null);
-
-  // responsive items
-  useEffect(() => {
-    const handleResize = () => {
-      if (window.innerWidth < 768) setItemsPerView(1);
-      else if (window.innerWidth < 1024) setItemsPerView(2);
-      else setItemsPerView(3);
-    };
-
-    handleResize();
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
 
   const maxIndex = Math.max(0, categories.length - itemsPerView);
 
