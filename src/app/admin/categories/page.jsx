@@ -59,6 +59,7 @@ export default function AdminCategoriesPage() {
   const [selectedSlugs, setSelectedSlugs] = useState([]);
   const [categoryData, setCategoryData] = useState({
     title: "",
+    main_category: "",
     description: "",
     content: "",
     faqs: [],
@@ -82,6 +83,13 @@ export default function AdminCategoriesPage() {
   });
   const [seoLoading, setSeoLoading] = useState(false);
   const [seoMessage, setSeoMessage] = useState("");
+  const [saveMessage, setSaveMessage] = useState("");
+  const [pageMessage, setPageMessage] = useState("");
+  const [deleteConfirm, setDeleteConfirm] = useState({
+    open: false,
+    type: null, // "single" | "bulk"
+    slug: "",
+  });
 
   // Fetch categories and course counts
   useEffect(() => {
@@ -111,6 +119,7 @@ export default function AdminCategoriesPage() {
             
             return {
           title: c.title || c.name || "",
+          main_category: c.main_category || "",
           description: c.description || "",
           content: normalizeContentForEditor(c.content || ""),
           faqs: Array.isArray(c.faqs) ? c.faqs : [],
@@ -214,9 +223,10 @@ export default function AdminCategoriesPage() {
   // Save (create or update)
   const handleSaveCategory = async () => {
     if (!categoryData.title.trim()) {
-      alert("Please enter a category title");
+      setSaveMessage("❌ Please enter a category title.");
       return;
     }
+    setSaveMessage("");
 
     const url = editMode
       ? `${BASE_URL}/${encodeURIComponent(editSlug)}/update/`
@@ -229,6 +239,7 @@ export default function AdminCategoriesPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: categoryData.title,
+          main_category: categoryData.main_category,
           description: categoryData.description,
           content: categoryData.content,
           faqs: (categoryData.faqs || [])
@@ -250,52 +261,80 @@ export default function AdminCategoriesPage() {
       }
 
       const saved = await res.json();
+      const savedSlug = saved.slug || saved.id || "";
+      let updatedCourseCount = 0;
+      if (editMode) {
+        const existing = categories.find((c) => c.slug === editSlug);
+        updatedCourseCount = existing?.courseCount || 0;
+      }
+
+      // Recalculate course count for the saved category slug
+      if (savedSlug) {
+        try {
+          const coursesRes = await fetch(`${API_BASE_URL}/api/courses/category/${savedSlug}/`);
+          if (coursesRes.ok) {
+            const courses = await coursesRes.json();
+            updatedCourseCount = Array.isArray(courses) ? courses.length : 0;
+          }
+        } catch (err) {
+          console.error(`Error fetching courses for ${savedSlug}:`, err);
+        }
+      }
 
       // backend returns saved object with slug
       const normalized = {
         title: saved.title || categoryData.title,
+        main_category: saved.main_category || categoryData.main_category,
         description: saved.description || categoryData.description,
         content: saved.content || categoryData.content,
         faqs: Array.isArray(saved.faqs) ? saved.faqs : categoryData.faqs,
         icon: saved.icon || categoryData.icon,
-        slug: saved.slug || saved.id || "",
+        slug: savedSlug,
         meta_title: saved.meta_title || categoryData.meta_title,
         meta_keywords: saved.meta_keywords || categoryData.meta_keywords,
         meta_description: saved.meta_description || categoryData.meta_description,
+        courseCount: updatedCourseCount,
       };
 
       if (editMode) {
         setCategories((prev) => prev.map((p) => (p.slug === editSlug ? normalized : p)));
         setFilteredCategories((prev) => prev.map((p) => (p.slug === editSlug ? normalized : p)));
-        alert("✅ Category updated successfully!");
+        setSaveMessage("✅ Category updated successfully!");
+        setPageMessage("✅ Category updated successfully!");
       } else {
         setCategories((prev) => [...prev, normalized]);
         setFilteredCategories((prev) => [...prev, normalized]);
-        alert("✅ Category added successfully!");
+        setSaveMessage("✅ Category added successfully!");
+        setPageMessage("✅ Category added successfully!");
       }
 
-      setShowModal(false);
-      setEditMode(false);
-      setEditSlug(null);
-      setCategoryData({
-        title: "",
-        description: "",
-        content: "",
-        faqs: [],
-        icon: ICON_OPTIONS[0],
-        meta_title: "",
-        meta_keywords: "",
-        meta_description: "",
-      });
+      setTimeout(() => setPageMessage(""), 3000);
+
+      setTimeout(() => {
+        setShowModal(false);
+        setEditMode(false);
+        setEditSlug(null);
+        setCategoryData({
+          title: "",
+          main_category: "",
+          description: "",
+          content: "",
+          faqs: [],
+          icon: ICON_OPTIONS[0],
+          meta_title: "",
+          meta_keywords: "",
+          meta_description: "",
+        });
+        setSaveMessage("");
+      }, 900);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error";
-      alert(`❌ ${message}`);
+      setSaveMessage(`❌ ${message}`);
     }
   };
 
   // Delete single category by slug
   const handleDeleteCategory = async (slug) => {
-    if (!confirm("Are you sure you want to delete this category?")) return;
     try {
       const res = await fetch(`${BASE_URL}/${encodeURIComponent(slug)}/delete/`, {
         method: "DELETE",
@@ -306,9 +345,11 @@ export default function AdminCategoriesPage() {
       }
       setCategories((prev) => prev.filter((c) => c.slug !== slug));
       setFilteredCategories((prev) => prev.filter((c) => c.slug !== slug));
-      alert("✅ Category deleted successfully!");
+      setPageMessage("✅ Category deleted successfully!");
+      setTimeout(() => setPageMessage(""), 3000);
     } catch (err) {
-      alert(`❌ ${err instanceof Error ? err.message : "Unknown error"}`);
+      setPageMessage(`❌ ${err instanceof Error ? err.message : "Unknown error"}`);
+      setTimeout(() => setPageMessage(""), 3000);
     }
   };
 
@@ -316,6 +357,7 @@ export default function AdminCategoriesPage() {
   const handleEditCategory = (cat) => {
     setCategoryData({
       title: cat.title || "",
+      main_category: cat.main_category || "",
       description: cat.description || "",
       content: normalizeContentForEditor(cat.content || ""),
       faqs: Array.isArray(cat.faqs) ? cat.faqs : [],
@@ -339,10 +381,10 @@ export default function AdminCategoriesPage() {
   // Bulk delete (calls delete per slug)
   const handleBulkDelete = async () => {
     if (selectedSlugs.length === 0) {
-      alert("Please select at least one category to delete.");
+      setPageMessage("❌ Please select at least one category to delete.");
+      setTimeout(() => setPageMessage(""), 3000);
       return;
     }
-    if (!confirm(`Delete ${selectedSlugs.length} selected categories?`)) return;
 
     try {
       for (const slug of selectedSlugs) {
@@ -351,10 +393,29 @@ export default function AdminCategoriesPage() {
       setCategories((prev) => prev.filter((c) => !selectedSlugs.includes(c.slug)));
       setFilteredCategories((prev) => prev.filter((c) => !selectedSlugs.includes(c.slug)));
       setSelectedSlugs([]);
-      alert("✅ Selected categories deleted successfully!");
+      setPageMessage("✅ Selected categories deleted successfully!");
+      setTimeout(() => setPageMessage(""), 3000);
     } catch (err) {
-      alert(`❌ ${err instanceof Error ? err.message : "Unknown error"}`);
+      setPageMessage(`❌ ${err instanceof Error ? err.message : "Unknown error"}`);
+      setTimeout(() => setPageMessage(""), 3000);
     }
+  };
+
+  const openDeleteConfirmation = (type, slug = "") => {
+    setDeleteConfirm({ open: true, type, slug });
+  };
+
+  const closeDeleteConfirmation = () => {
+    setDeleteConfirm({ open: false, type: null, slug: "" });
+  };
+
+  const confirmDeleteAction = async () => {
+    if (deleteConfirm.type === "single" && deleteConfirm.slug) {
+      await handleDeleteCategory(deleteConfirm.slug);
+    } else if (deleteConfirm.type === "bulk") {
+      await handleBulkDelete();
+    }
+    closeDeleteConfirmation();
   };
 
   if (loading)
@@ -381,6 +442,17 @@ export default function AdminCategoriesPage() {
         >
           Manage Categories
         </motion.h2>
+        {pageMessage ? (
+          <div
+            className={`mb-6 rounded-lg border px-4 py-3 text-sm ${
+              pageMessage.startsWith("✅")
+                ? "border-green-200 bg-green-50 text-green-700"
+                : "border-red-200 bg-red-50 text-red-700"
+            }`}
+          >
+            {pageMessage}
+          </div>
+        ) : null}
 
         <div className="flex flex-col sm:flex-row justify-between gap-4 mb-6">
           <Input
@@ -395,8 +467,10 @@ export default function AdminCategoriesPage() {
               className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white"
               onClick={() => {
                 setEditMode(false);
+                setPageMessage("");
                 setCategoryData({
                   title: "",
+                  main_category: "",
                   description: "",
                   content: "",
                   faqs: [],
@@ -415,7 +489,7 @@ export default function AdminCategoriesPage() {
             {selectedSlugs.length > 0 && (
               <Button
                 className="flex items-center gap-2 bg-rose-600 hover:bg-rose-700 text-white"
-                onClick={handleBulkDelete}
+                onClick={() => openDeleteConfirmation("bulk")}
               >
                 <FiTrash2 /> Delete Selected ({selectedSlugs.length})
               </Button>
@@ -608,7 +682,7 @@ export default function AdminCategoriesPage() {
                               <FiEdit className="w-4 h-4" />
                             </Button>
                             <Button
-                              onClick={() => handleDeleteCategory(cat.slug)}
+                              onClick={() => openDeleteConfirmation("single", cat.slug)}
                               className="bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 text-sm"
                               size="sm"
                             >
@@ -644,6 +718,18 @@ export default function AdminCategoriesPage() {
 
             {/* Form Content */}
             <div className="p-6 space-y-6">
+              {saveMessage ? (
+                <div
+                  className={`rounded-lg border px-4 py-3 text-sm ${
+                    saveMessage.startsWith("✅")
+                      ? "border-green-200 bg-green-50 text-green-700"
+                      : "border-red-200 bg-red-50 text-red-700"
+                  }`}
+                >
+                  {saveMessage}
+                </div>
+              ) : null}
+
               {/* Basic Information Section */}
               <div className="space-y-4">
                 <h4 className="text-lg font-semibold text-gray-800 pb-2 border-b-2 border-indigo-100">
@@ -663,6 +749,23 @@ export default function AdminCategoriesPage() {
                     />
                     <p className="text-xs text-gray-500 mt-1">This will be displayed as the main category name</p>
               </div>
+
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Main Category Heading
+                    </label>
+                    <Input
+                      value={categoryData.main_category}
+                      onChange={(e) =>
+                        setCategoryData({ ...categoryData, main_category: e.target.value })
+                      }
+                      placeholder="e.g., IT, Banking, Healthcare"
+                      className="text-base"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Categories page will group cards using this heading.
+                    </p>
+                  </div>
 
                   <div className="md:col-span-2">
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -849,6 +952,35 @@ export default function AdminCategoriesPage() {
                   Cancel
                 </Button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteConfirm.open && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-xl bg-white shadow-2xl">
+            <div className="border-b border-gray-200 px-5 py-4">
+              <h4 className="text-lg font-bold text-[#0C1A35]">Confirm Delete</h4>
+              <p className="mt-1 text-sm text-gray-600">
+                {deleteConfirm.type === "bulk"
+                  ? `Are you sure you want to delete ${selectedSlugs.length} selected categories?`
+                  : "Are you sure you want to delete this category?"}
+              </p>
+            </div>
+            <div className="flex items-center justify-end gap-3 px-5 py-4">
+              <Button
+                onClick={closeDeleteConfirmation}
+                className="bg-gray-100 text-gray-700 hover:bg-gray-200"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={confirmDeleteAction}
+                className="bg-red-600 text-white hover:bg-red-700"
+              >
+                Delete
+              </Button>
             </div>
           </div>
         </div>

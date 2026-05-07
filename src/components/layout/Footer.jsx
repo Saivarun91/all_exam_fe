@@ -110,11 +110,11 @@ const Footer = () => {
   // Helper function to get provider URL
   const getProviderUrl = (provider) => {
     if (provider.slug) {
-      return `/${provider.slug}`;
+      return `/providers/${provider.slug}`;
     }
     if (provider.name) {
       const slug = provider.name.toLowerCase().replace(/\s+/g, '-');
-      return `/${slug}`;
+      return `/providers/${slug}`;
     }
     return "#";
   };

@@ -120,7 +120,7 @@ export default async function ProvidersPage() {
       {normalizedProviders.length === 0 ? (
         <p className="text-center">No providers found.</p>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
           {normalizedProviders.map((provider) => {
             const providerLogo =
               provider?.logo_url || provider?.logoUrl || provider?.logo || "";
@@ -138,27 +138,33 @@ export default async function ProvidersPage() {
             return (
               <div
                 key={provider.id}
-                className="border rounded-lg p-4 shadow-sm hover:shadow-lg bg-white"
+                className="border rounded-lg p-3 shadow-sm hover:shadow-md bg-white"
               >
                 {providerLogo && (
-                  <img
-                    src={providerLogo}
-                    alt={provider.name}
-                    className="w-full h-32 object-contain mb-4"
-                    loading="lazy"
-                    decoding="async"
-                  />
-                )}
-              <div className="mt-3 flex items-center justify-between gap-3">
-                <h2 className="text-lg font-semibold min-w-0">
                   <Link
-                    href={`/${provider.slug}`}
-                    className="inline-block text-[#1A73E8] hover:underline text-m font-medium truncate"
+                    href={`/providers/${provider.slug}`}
+                    className="block mb-2"
+                    aria-label={`View exams by ${provider.name}`}
+                  >
+                    <img
+                      src={providerLogo}
+                      alt={provider.name}
+                      className="w-full h-20 sm:h-24 object-contain"
+                      loading="lazy"
+                      decoding="async"
+                    />
+                  </Link>
+                )}
+              <div className="mt-1 flex items-center justify-between gap-2">
+                <h2 className="text-sm sm:text-base font-semibold min-w-0">
+                  <Link
+                    href={`/providers/${provider.slug}`}
+                    className="inline-block text-[#1A73E8] hover:underline font-medium truncate"
                   >
                     {provider.name}
                   </Link>
                 </h2>
-                <p className="text-sm text-[#0C1A35]/70 whitespace-nowrap">
+                <p className="text-xs sm:text-sm text-[#0C1A35]/70 whitespace-nowrap">
                   {examCount} Exam{examCount === 1 ? "" : "s"}
                 </p>
               </div>

@@ -729,7 +729,7 @@ export default async function PracticePage(props) {
   const breadcrumbItems = [
     { name: "Home", url: "/" },
     { name: "Exams", url: "/exams" },
-    { name: exam.provider, url: `/${provider}` },
+    { name: exam.provider, url: `/providers/${provider}` },
     { name: exam.title, url: `/exams/${provider}/${examCode}` },
     { name: "Practice Tests", url: `/exams/${provider}/${examCode}/practice` },
   ];

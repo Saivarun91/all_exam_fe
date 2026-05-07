@@ -643,7 +643,7 @@ export default function ExamDetailClient({ examData, provider, examCode }) {
   const breadcrumbItems = [
     { name: "Home", url: "/" },
     { name: "Exams", url: "/exams" },
-    { name: examData.provider, url: `/${provider}` },
+    { name: examData.provider, url: `/providers/${provider}` },
     { name: examData.title || examData.code, url: `/exams/${provider}/${examCode}` },
   ];
   const extractedFromHtml = extractExamInfo(
@@ -713,7 +713,7 @@ export default function ExamDetailClient({ examData, provider, examCode }) {
             <BreadcrumbSeparator />
             <BreadcrumbItem>
               <BreadcrumbLink asChild>
-                <Link href={`/${provider}`} className="text-[#0C1A35] hover:text-[#1A73E8]">
+                <Link href={`/providers/${provider}`} className="text-[#0C1A35] hover:text-[#1A73E8]">
                   {examData.provider}
                 </Link>
               </BreadcrumbLink>

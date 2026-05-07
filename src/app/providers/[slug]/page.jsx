@@ -7,6 +7,14 @@ const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 const SITE_URL = "https://allexamquestions.com";
 
+function normalizeName(value) {
+  return String(value || "")
+    .toLowerCase()
+    .trim()
+    .replace(/[\u2010\u2011\u2012\u2013\u2014\u2212]/g, "-")
+    .replace(/\s+/g, " ");
+}
+
 async function fetchProviderAndExams(slug) {
   // 1) Fetch provider info
   let provider = null;
@@ -37,7 +45,20 @@ async function fetchProviderAndExams(slug) {
     console.error("Failed to fetch exams:", err);
   }
 
-  exams = exams.filter((exam) => createSlug(exam.provider || "") === slug);
+  const normalizedSlug = String(slug || "").toLowerCase().trim();
+  const providerSlug = String(provider?.slug || normalizedSlug).toLowerCase().trim();
+  const providerNameKey = normalizeName(provider?.name || "");
+
+  exams = exams.filter((exam) => {
+    const examProviderSlug = String(exam?.provider_slug || "").toLowerCase().trim();
+    if (examProviderSlug && examProviderSlug === providerSlug) return true;
+
+    const examNameSlug = createSlug(exam?.provider || "");
+    if (examNameSlug && examNameSlug === providerSlug) return true;
+
+    const examNameKey = normalizeName(exam?.provider || "");
+    return providerNameKey && examNameKey === providerNameKey;
+  });
   return { provider, exams };
 }
 

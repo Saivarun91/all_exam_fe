@@ -387,7 +387,7 @@ export default function Page() {
     <div className="min-h-screen">
       <ScrollHandler />
 
-      <main>
+      <div>
         <HeroSection />
         <Suspense fallback={belowFoldFallback}>
           <SeoIntroSection />
@@ -419,7 +419,7 @@ export default function Page() {
         <Suspense fallback={belowFoldFallback}>
           <HomeFAQ />
         </Suspense>
-      </main>
+      </div>
     </div>
   );
 }

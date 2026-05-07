@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import { useMemo, useState } from "react";
 import { ArrowRight, Award, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import {
   Accordion,
   AccordionContent,
@@ -62,6 +64,19 @@ export default function CategoryDetail({
   }
 
   const safeCourses = Array.isArray(courses) ? courses : [];
+  const [searchTerm, setSearchTerm] = useState("");
+  const filteredCourses = useMemo(() => {
+    const query = searchTerm.trim().toLowerCase();
+    if (!query) return safeCourses;
+    return safeCourses.filter((course) => {
+      const title = String(course?.title || "").toLowerCase();
+      const code = String(course?.code || "").toLowerCase();
+      const provider = String(course?.provider || "").toLowerCase();
+      return (
+        title.includes(query) || code.includes(query) || provider.includes(query)
+      );
+    });
+  }, [safeCourses, searchTerm]);
   const categoryContent = (category?.content || "").trim();
   const hasRenderableContent = Boolean(
     categoryContent.replace(/<[^>]*>/g, "").replace(/&nbsp;/g, "").trim()
@@ -132,16 +147,25 @@ export default function CategoryDetail({
         <div className="flex items-center gap-6 mb-8 pb-6 border-b border-gray-200">
           <div>
             <div className="text-3xl font-bold text-[#1A73E8]">
-              {safeCourses.length}
+              {filteredCourses.length}
             </div>
             <div className="text-sm text-[#0C1A35]/60">Exams Available</div>
           </div>
         </div>
 
+        <div className="mb-8 max-w-lg">
+          <Input
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Search exams by title, code, or provider..."
+            className="border-[#DDE7FF] focus-visible:ring-[#1A73E8]"
+          />
+        </div>
+
         {/* Courses Grid */}
-        {safeCourses.length > 0 ? (
+        {filteredCourses.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {safeCourses.map((course) => (
+            {filteredCourses.map((course) => (
               <Card
                 key={course.id}
                 className="hover:shadow-lg hover:-translate-y-1 transition-all border-[#DDE7FF] cursor-pointer h-full"
@@ -235,7 +259,9 @@ export default function CategoryDetail({
               No Exams Found
             </h3>
             <p className="text-[#0C1A35]/60 mb-6">
-              No exams are currently available in this category.
+              {searchTerm.trim()
+                ? `No exams match "${searchTerm}".`
+                : "No exams are currently available in this category."}
             </p>
             <Button
               asChild

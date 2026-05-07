@@ -127,19 +127,10 @@ export async function middleware(request) {
 
     if (!reservedTopLevelSegment(slug) && !isStaticAssetSegment(slug)) {
       try {
-        const [categoryRes, providerRes, examRes] = await Promise.all([
-          fetch(`${API_BASE_URL}/api/categories/${slug}/`, { cache: "no-store" }),
-          fetch(`${API_BASE_URL}/api/providers/${slug}/`, { cache: "no-store" }),
-          fetch(`${API_BASE_URL}/api/courses/exams/${slug}/`, { cache: "no-store" }),
-        ]);
-
-        if (categoryRes.ok) {
-          return NextResponse.rewrite(new URL(`/categories/${slug}`, request.url));
-        }
-
-        if (providerRes.ok) {
-          return NextResponse.rewrite(new URL(`/providers/${slug}`, request.url));
-        }
+        // Check exam first to avoid unnecessary provider/category 404 calls for exam slugs.
+        const examRes = await fetch(`${API_BASE_URL}/api/courses/exams/${slug}/`, {
+          cache: "no-store",
+        });
 
         if (examRes.ok) {
           const exam = await examRes.json();
@@ -155,6 +146,20 @@ export async function middleware(request) {
               new URL(`/exams/${providerSlug}/${examCode}`, request.url)
             );
           }
+        }
+
+        const categoryRes = await fetch(`${API_BASE_URL}/api/categories/${slug}/`, {
+          cache: "no-store",
+        });
+        if (categoryRes.ok) {
+          return NextResponse.rewrite(new URL(`/categories/${slug}`, request.url));
+        }
+
+        const providerRes = await fetch(`${API_BASE_URL}/api/providers/${slug}/`, {
+          cache: "no-store",
+        });
+        if (providerRes.ok) {
+          return NextResponse.rewrite(new URL(`/providers/${slug}`, request.url));
         }
       } catch {
         // Fail open: allow normal routing if API is unavailable.
@@ -183,25 +188,6 @@ export async function middleware(request) {
               request.url
             )
           );
-        }
-      } catch {
-        // Fall through
-      }
-    }
-  }
-
-  // Canonical provider detail URL: /providers/:slug -> /:slug
-  if (segments.length === 2 && segments[0].toLowerCase() === "providers") {
-    const providerSlug = segments[1];
-    if (providerSlug && !isStaticAssetSegment(providerSlug)) {
-      try {
-        const providerRes = await fetch(
-          `${API_BASE_URL}/api/providers/${providerSlug}/`,
-          { cache: "no-store" }
-        );
-        if (providerRes.ok) {
-          url.pathname = `/${providerSlug}`;
-          return NextResponse.redirect(url, 308);
         }
       } catch {
         // Fall through

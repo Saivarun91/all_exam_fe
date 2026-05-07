@@ -718,6 +718,10 @@ export default function ExamsPageContent({
 
   // Helper function to update URL with current filters
   const updateURL = (newProviders, newCategories, newKeyword) => {
+    // Keep users on /exams page while filtering; do not route to provider/exam pages.
+    if (usePathBasedRouting) {
+      return;
+    }
     const newUrl = buildSEOUrl(newProviders, newCategories, newKeyword);
     router.replace(newUrl, { scroll: false });
   };
@@ -845,7 +849,7 @@ export default function ExamsPageContent({
     );
     const providerSlug =
       canonicalProvider?.slug || exam?.provider_slug || createSlug(exam?.provider || "");
-    return `/${providerSlug}`;
+    return `/providers/${providerSlug}`;
   };
 
   const getCategoryPageUrl = (exam) => {
