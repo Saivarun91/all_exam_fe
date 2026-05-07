@@ -76,13 +76,11 @@ const CustomBulletList = BulletList.extend({
         default: "disc",
         parseHTML: (element) => element.getAttribute("data-list-style") || element.style.listStyleType || "disc",
         renderHTML: (attributes) => {
-          if (!attributes.listStyleType || attributes.listStyleType === "disc") {
-            return {};
-          }
+          const styleType = attributes.listStyleType || "disc";
           return {
-            "data-list-style": attributes.listStyleType,
-            style: attributes.listStyleType === "disc" || attributes.listStyleType === "circle" || attributes.listStyleType === "square"
-              ? `list-style-type: ${attributes.listStyleType}`
+            "data-list-style": styleType,
+            style: styleType === "disc" || styleType === "circle" || styleType === "square"
+              ? `list-style-type: ${styleType}`
               : "list-style-type: none",
           };
         },
@@ -181,6 +179,52 @@ const getGradientCSS = (direction, color1, color2, color3 = null) => {
   }
   return `linear-gradient(${dir}, ${color1}, ${color2})`;
 };
+
+/**
+ * Normalize tiny pasted font sizes so content remains readable.
+ * Keeps larger pasted sizes intact and only bumps small values.
+ */
+function normalizePastedFontSizes(html, minPx = 14) {
+  if (!html || typeof window === "undefined") return html;
+
+  try {
+    const parser = new window.DOMParser();
+    const doc = parser.parseFromString(html, "text/html");
+    const nodes = doc.body.querySelectorAll("*");
+    const defaultSizeTargets = "p, div, ul, ol, li, td, th, span, a, blockquote";
+
+    nodes.forEach((el) => {
+      const raw = el.style?.fontSize;
+      if (!raw) return;
+
+      const value = parseFloat(raw);
+      if (!Number.isFinite(value) || Number.isNaN(value)) return;
+
+      const unit = (raw.match(/[a-z%]+$/i)?.[0] || "px").toLowerCase();
+      let px = value;
+      if (unit === "pt") px = value * (96 / 72);
+      else if (unit === "em" || unit === "rem") px = value * 16;
+
+      if (px < minPx) {
+        el.style.fontSize = `${minPx}px`;
+      }
+    });
+
+    // If pasted nodes don't carry explicit sizes, assign a readable baseline
+    // to text containers. This avoids tiny inherited sizes from source content.
+    doc.body.querySelectorAll(defaultSizeTargets).forEach((el) => {
+      const tag = (el.tagName || "").toLowerCase();
+      if (/^h[1-6]$/.test(tag) || tag === "sub" || tag === "sup") return;
+      if (el.style?.fontSize) return;
+      if (el.closest("pre, code")) return;
+      el.style.fontSize = `${minPx}px`;
+    });
+
+    return doc.body.innerHTML;
+  } catch {
+    return html;
+  }
+}
 
 /** Parse table size from toolbar inputs; clamp to sane bounds. */
 function clampTableDimension(raw, min, max, fallback) {
@@ -321,7 +365,7 @@ const TipTapEditor = ({
     editorProps: {
       attributes: {
         class: "tiptap-editor-content focus:outline-none min-h-[300px] p-4",
-        style: "font-family: Calibri, sans-serif; font-size: 11px;",
+        style: "font-family: Poppins, sans-serif; font-size: 11px;",
       },
       handlePaste(view, event) {
         // Get the clipboard data as plain text
@@ -410,8 +454,8 @@ const TipTapEditor = ({
         return false;
       },
       transformPastedHTML(html) {
-        // Ensure pasted content maintains font styling
-        return html;
+        // Keep pasted styles, but avoid unreadable tiny font sizes.
+        return normalizePastedFontSizes(html, 14);
       },
     },
   });
@@ -626,7 +670,7 @@ const TipTapEditor = ({
   };
 
   const getCurrentFontFamily = () => {
-    if (!editor) return "Calibri";
+    if (!editor) return "Poppins";
     const attrs = editor.getAttributes("textStyle");
     // Check if there's a font family in the current selection
     if (attrs.fontFamily) {
@@ -634,7 +678,7 @@ const TipTapEditor = ({
     }
     // Check the current node's style
     const { from, to } = editor.state.selection;
-    let fontFamily = "Calibri";
+    let fontFamily = "Poppins";
     editor.state.doc.nodesBetween(from, to, (node) => {
       if (node.marks) {
         node.marks.forEach((mark) => {
@@ -812,7 +856,7 @@ const TipTapEditor = ({
         >
           <SelectTrigger className="h-8 w-[140px] text-xs" style={{ fontFamily: getCurrentFontFamily() }}>
             <SelectValue>
-              {getCurrentFontFamily() === "Poppins" ? "Poppins (Website)" : getCurrentFontFamily()}
+              Poppins (Website)
             </SelectValue>
           </SelectTrigger>
           <SelectContent className="max-h-[300px] overflow-y-auto">
@@ -822,34 +866,6 @@ const TipTapEditor = ({
                 <span className="text-xs text-blue-600 font-semibold ml-auto">(Website Font)</span>
               </div>
             </SelectItem>
-            <SelectItem value="Calibri" style={{ fontFamily: "Calibri" }}>
-              <div className="flex items-center justify-between w-full">
-                <span style={{ fontFamily: "Calibri" }}>Calibri</span>
-                <span className="text-xs text-blue-600 font-semibold ml-auto">(Editor Default)</span>
-              </div>
-            </SelectItem>
-            <SelectItem value="Arial" style={{ fontFamily: "Arial" }}>Arial</SelectItem>
-            <SelectItem value="Times New Roman" style={{ fontFamily: "Times New Roman" }}>Times New Roman</SelectItem>
-            <SelectItem value="Courier New" style={{ fontFamily: "Courier New" }}>Courier New</SelectItem>
-            <SelectItem value="Verdana" style={{ fontFamily: "Verdana" }}>Verdana</SelectItem>
-            <SelectItem value="Georgia" style={{ fontFamily: "Georgia" }}>Georgia</SelectItem>
-            <SelectItem value="Comic Sans MS" style={{ fontFamily: "Comic Sans MS" }}>Comic Sans MS</SelectItem>
-            <SelectItem value="Trebuchet MS" style={{ fontFamily: "Trebuchet MS" }}>Trebuchet MS</SelectItem>
-            <SelectItem value="Helvetica" style={{ fontFamily: "Helvetica" }}>Helvetica</SelectItem>
-            <SelectItem value="Tahoma" style={{ fontFamily: "Tahoma" }}>Tahoma</SelectItem>
-            <SelectItem value="Impact" style={{ fontFamily: "Impact" }}>Impact</SelectItem>
-            <SelectItem value="Lucida Console" style={{ fontFamily: "Lucida Console" }}>Lucida Console</SelectItem>
-            <SelectItem value="Palatino" style={{ fontFamily: "Palatino" }}>Palatino</SelectItem>
-            <SelectItem value="Garamond" style={{ fontFamily: "Garamond" }}>Garamond</SelectItem>
-            <SelectItem value="Book Antiqua" style={{ fontFamily: "Book Antiqua" }}>Book Antiqua</SelectItem>
-            <SelectItem value="Arial Black" style={{ fontFamily: "Arial Black" }}>Arial Black</SelectItem>
-            <SelectItem value="Century Gothic" style={{ fontFamily: "Century Gothic" }}>Century Gothic</SelectItem>
-            <SelectItem value="Franklin Gothic Medium" style={{ fontFamily: "Franklin Gothic Medium" }}>Franklin Gothic Medium</SelectItem>
-            <SelectItem value="Lucida Sans Unicode" style={{ fontFamily: "Lucida Sans Unicode" }}>Lucida Sans Unicode</SelectItem>
-            <SelectItem value="MS Sans Serif" style={{ fontFamily: "MS Sans Serif" }}>MS Sans Serif</SelectItem>
-            <SelectItem value="MS Serif" style={{ fontFamily: "MS Serif" }}>MS Serif</SelectItem>
-            <SelectItem value="Symbol" style={{ fontFamily: "Symbol" }}>Symbol</SelectItem>
-            <SelectItem value="Wingdings" style={{ fontFamily: "Wingdings" }}>Wingdings</SelectItem>
           </SelectContent>
         </Select>
 
@@ -1537,7 +1553,9 @@ const TipTapEditor = ({
               const level = parseInt(value.replace("h", ""));
               // Use setHeading for deterministic behavior: selecting Heading 1/2/3
               // should always apply that heading level (not toggle it off).
-              editor.chain().focus().setHeading({ level }).run();
+              // Remove explicit text-size mark so heading levels render with
+              // their own visual hierarchy (h1 > h2 > h3, etc.).
+              editor.chain().focus().unsetFontSize().setHeading({ level }).run();
             }
           }}
         >

@@ -35,6 +35,7 @@ export default function TestPlayerClient({ exam, questions, test, provider, exam
   const [navigatorPage, setNavigatorPage] = useState(1);
   const [attemptId, setAttemptId] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
 
   // Get authentication token
   const getAuthToken = () => {
@@ -224,12 +225,7 @@ export default function TestPlayerClient({ exam, questions, test, provider, exam
     const answeredCount = getAnsweredCount();
     const totalAccessible = isEnrolled ? questions.length : Math.min(FREE_QUESTIONS_LIMIT, questions.length);
     
-    if (!autoSubmit) {
-      const confirmed = confirm(
-        `You have answered ${answeredCount} out of ${totalAccessible} questions. Are you sure you want to submit?`
-      );
-      if (!confirmed) return;
-    }
+    // Non-auto submits are confirmed via custom dialog UI.
 
     if (!attemptId) {
       console.error('[TestPlayer] No attempt_id found.');
@@ -840,7 +836,7 @@ const timeTaken = `${minutes}:${seconds.toString().padStart(2, '0')}`;
 
             <div className="flex items-center gap-3">
               <Button
-                onClick={() => handleSubmit(false)}
+              onClick={() => setShowSubmitConfirm(true)}
                 disabled={isSubmitting}
                 className="bg-green-600 text-white hover:bg-green-700 min-w-32"
               >
@@ -865,21 +861,62 @@ const timeTaken = `${minutes}:${seconds.toString().padStart(2, '0')}`;
           <DialogHeader>
             <DialogTitle>Unlock All Questions</DialogTitle>
             <DialogDescription>
-              <div className="py-4">
-                <p className="mb-4">
-                  You've reached the free question limit. Enroll to access all {questions.length} questions.
-                </p>
-                <div className="flex gap-3">
-                  <Button onClick={() => setShowUpgradeModal(false)} variant="outline" className="flex-1">
-                    Continue Free Test
-                  </Button>
-                  <Button onClick={handleUpgradeClick} className="flex-1 bg-[#1A73E8] text-white hover:bg-[#1557B0]">
-                    Enroll Now
-                  </Button>
-                </div>
-              </div>
+              You've reached the free question limit.
             </DialogDescription>
           </DialogHeader>
+          <div className="py-4">
+            <p className="mb-4 text-sm text-gray-700">
+              Enroll to access all {questions.length} questions.
+            </p>
+            <div className="flex gap-3">
+              <Button onClick={() => setShowUpgradeModal(false)} variant="outline" className="flex-1">
+                Continue Free Test
+              </Button>
+              <Button onClick={handleUpgradeClick} className="flex-1 bg-[#1A73E8] text-white hover:bg-[#1557B0]">
+                Enroll Now
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showSubmitConfirm} onOpenChange={setShowSubmitConfirm}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Submit Test?</DialogTitle>
+            <DialogDescription>
+              Please confirm before submitting your test.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-3">
+            <p className="text-sm text-gray-700">
+              You have answered <span className="font-semibold">{answeredCount}</span> out of{" "}
+              <span className="font-semibold">{accessibleQuestions}</span> questions that are available to you.
+            </p>
+            <p className="text-sm text-gray-700">
+              You can review your answers before submitting, or submit now to see your results.
+            </p>
+            <div className="flex gap-3 pt-2">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => setShowSubmitConfirm(false)}
+                disabled={isSubmitting}
+              >
+                Continue Test
+              </Button>
+              <Button
+                className="flex-1 bg-green-600 text-white hover:bg-green-700"
+                onClick={async () => {
+                  setShowSubmitConfirm(false);
+                  await handleSubmit(false);
+                }}
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? "Submitting..." : "Submit Now"}
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -888,28 +925,26 @@ const timeTaken = `${minutes}:${seconds.toString().padStart(2, '0')}`;
           <DialogHeader>
             <DialogTitle>Login Required</DialogTitle>
             <DialogDescription>
-              <div className="py-4">
-                <p className="mb-6 text-gray-700">
-                  You need to login to start taking tests.
-                </p>
-                <div className="flex gap-3">
-                  <Button 
-                    onClick={() => setShowLoginPrompt(false)} 
-                    variant="outline" 
-                    className="flex-1"
-                  >
-                    Cancel
-                  </Button>
-                  <Button 
-                    onClick={() => router.push(`/auth/login?redirect=/exams/${provider}/${examCode}/practice/${testId}`)} 
-                    className="flex-1 bg-[#1A73E8] text-white hover:bg-[#1557B0]"
-                  >
-                    Login / Sign Up
-                  </Button>
-                </div>
-              </div>
+              You need to login to start taking tests.
             </DialogDescription>
           </DialogHeader>
+          <div className="py-4">
+            <div className="flex gap-3">
+              <Button 
+                onClick={() => setShowLoginPrompt(false)} 
+                variant="outline" 
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={() => router.push(`/auth/login?redirect=/exams/${provider}/${examCode}/practice/${testId}`)} 
+                className="flex-1 bg-[#1A73E8] text-white hover:bg-[#1557B0]"
+              >
+                Login / Sign Up
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

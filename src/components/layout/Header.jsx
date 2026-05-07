@@ -177,12 +177,23 @@ const Header = ({ initialLogoUrl = "", initialSiteName = "" }) => {
             Home
           </Link>
 
-          <Link 
-            href="/#featured-exams"
-            onClick={(e) => handleAnchorClick(e, "featured-exams")}
+          {/* <Link 
+            href="/popular-exams"
+            // onClick={(e) => handleAnchorClick(e, "featured-exams")}
             className="text-[#0C1A35] hover:text-[#1A73E8] transition-colors font-semibold min-h-[44px] min-w-[44px] flex items-center px-2"
           >
             Popular Exams
+          </Link> */}
+
+          <Link
+            href="/categories"
+            className={`transition-colors font-semibold min-h-[44px] min-w-[44px] flex items-center px-2 ${
+              pathname === "/categories"
+                ? "text-[#1A73E8]"
+                : "text-[#0C1A35] hover:text-[#1A73E8]"
+            }`}
+          >
+            Categories
           </Link>
 
           <Link 

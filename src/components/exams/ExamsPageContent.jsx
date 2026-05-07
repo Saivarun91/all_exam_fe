@@ -658,6 +658,8 @@ export default function ExamsPageContent({
   initialTrustBarData = [],
   initialAboutData = {},
   initialPageHeading = "All Popular Exams",
+  showBrowseLinks = false,
+  linksOnly = false,
   usePathBasedRouting = false,
 }) {
   const router = useRouter();
@@ -856,6 +858,41 @@ export default function ExamsPageContent({
     return `/categories/${categorySlug}`;
   };
 
+  const categoryLinkItems = useMemo(() => {
+    if (!Array.isArray(categories)) return [];
+    return categories
+      .map((category) => {
+        const label = category?.name || category?.title || "";
+        const slug = category?.slug || createSlug(label);
+        return {
+          label: String(label || "").trim(),
+          href: `/categories/${slug}`,
+        };
+      })
+      .filter((item) => item.label && item.href !== "/categories/")
+      .slice(0, 40);
+  }, [categories]);
+
+  const examLinkItems = useMemo(() => {
+    if (!Array.isArray(allExams)) return [];
+    const seen = new Set();
+    const links = [];
+
+    for (const exam of allExams) {
+      const label = exam?.title || exam?.name || exam?.code || "";
+      const href = getExamUrl(exam);
+      if (!label || !href || href === "#") continue;
+
+      const key = `${String(label).toLowerCase()}::${href}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      links.push({ label, href });
+      if (links.length >= 60) break;
+    }
+
+    return links;
+  }, [allExams]);
+
   // const filteredExams = useMemo(() => {
   //   return allExams.filter((exam) => {
   //     // Filter by providers (multiple selection with checkboxes)
@@ -1024,6 +1061,80 @@ export default function ExamsPageContent({
     );
   }
 
+  if (linksOnly) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-[#F5F9FF] via-white to-white">
+        <section className="px-4 pt-8 pb-12 md:pt-12 md:pb-16">
+          <div className="container mx-auto max-w-7xl">
+            <div className="mb-8 md:mb-10 rounded-2xl border border-[#DDE7FF] bg-white p-6 md:p-8 shadow-sm">
+              <h1 className="text-3xl md:text-4xl font-bold text-[#0C1A35] mb-3">
+                {(pageHeading && String(pageHeading).trim()) || "All Popular Exams"}
+              </h1>
+              <p className="text-sm md:text-base text-[#0C1A35]/70 max-w-3xl">
+                Explore categories and exams quickly. Click any link below to open the
+                relevant page.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Card className="border border-[#DDE7FF] bg-white shadow-sm overflow-hidden">
+                <div className="px-5 md:px-6 py-4 border-b border-[#E8EEFF] bg-[#F8FBFF]">
+                  <h2 className="text-xl font-semibold text-[#0C1A35]">Categories</h2>
+                  <p className="text-xs text-[#0C1A35]/60 mt-1">
+                    {categoryLinkItems.length} available
+                  </p>
+                </div>
+                <div className="p-5 md:p-6">
+                {categoryLinkItems.length > 0 ? (
+                  <div className="space-y-2">
+                    {categoryLinkItems.map((item) => (
+                      <Link
+                        key={`${item.href}-${item.label}`}
+                        href={item.href}
+                        className="block w-full rounded-md border border-[#CFE0FF] bg-[#F5F9FF] px-3 py-2 text-sm text-[#1557B0] underline underline-offset-2 hover:bg-[#EAF2FF] hover:border-[#BBD3FF] transition-colors"
+                      >
+                        {item.label}
+                      </Link>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-[#0C1A35]/60">No categories available.</p>
+                )}
+                </div>
+              </Card>
+
+              <Card className="border border-[#DDE7FF] bg-white shadow-sm overflow-hidden">
+                <div className="px-5 md:px-6 py-4 border-b border-[#E8EEFF] bg-[#F8FBFF]">
+                  <h2 className="text-xl font-semibold text-[#0C1A35]">Popular Exams</h2>
+                  <p className="text-xs text-[#0C1A35]/60 mt-1">
+                    {examLinkItems.length} available
+                  </p>
+                </div>
+                <div className="p-5 md:p-6">
+                {examLinkItems.length > 0 ? (
+                  <div className="space-y-2">
+                    {examLinkItems.map((item) => (
+                      <Link
+                        key={`${item.href}-${item.label}`}
+                        href={item.href}
+                        className="block w-full rounded-md border border-[#CFE0FF] bg-[#F5F9FF] px-3 py-2 text-sm text-[#1557B0] underline underline-offset-2 hover:bg-[#EAF2FF] hover:border-[#BBD3FF] transition-colors"
+                      >
+                        {item.label}
+                      </Link>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-[#0C1A35]/60">No exams available.</p>
+                )}
+                </div>
+              </Card>
+            </div>
+          </div>
+        </section>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-white">
 
@@ -1092,6 +1203,52 @@ export default function ExamsPageContent({
       {/* MAIN CONTENT */}
       <section id="results-section" className="py-8 px-4 bg-white -mt-8">
         <div className="container mx-auto max-w-7xl">
+          {showBrowseLinks && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+              <Card className="p-5 md:p-6 border border-[#DDE7FF] bg-white shadow-sm">
+                <h2 className="text-xl font-semibold text-[#0C1A35] mb-3">
+                  Categories
+                </h2>
+                {categoryLinkItems.length > 0 ? (
+                  <div className="flex flex-wrap gap-x-4 gap-y-2">
+                    {categoryLinkItems.map((item) => (
+                      <Link
+                        key={`${item.href}-${item.label}`}
+                        href={item.href}
+                        className="text-sm text-[#1A73E8] hover:text-[#1557B0] underline-offset-2 hover:underline"
+                      >
+                        {item.label}
+                      </Link>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-[#0C1A35]/60">No categories available.</p>
+                )}
+              </Card>
+
+              <Card className="p-5 md:p-6 border border-[#DDE7FF] bg-white shadow-sm">
+                <h2 className="text-xl font-semibold text-[#0C1A35] mb-3">
+                  Popular Exams
+                </h2>
+                {examLinkItems.length > 0 ? (
+                  <div className="flex flex-wrap gap-x-4 gap-y-2">
+                    {examLinkItems.map((item) => (
+                      <Link
+                        key={`${item.href}-${item.label}`}
+                        href={item.href}
+                        className="text-sm text-[#1A73E8] hover:text-[#1557B0] underline-offset-2 hover:underline"
+                      >
+                        {item.label}
+                      </Link>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-[#0C1A35]/60">No exams available.</p>
+                )}
+              </Card>
+            </div>
+          )}
+
           {/* Intro Section */}
           <Card className="p-5 md:p-6 mb-6 border border-[#DDE7FF] bg-[#F8FBFF] shadow-sm">
             {aboutSection?.heading ? (
@@ -1260,7 +1417,7 @@ export default function ExamsPageContent({
                 {filteredExams.map((exam) => (
                   <Card
                     key={exam.id}
-                    className="p-6 border border-gray-200 hover:shadow-lg hover:-translate-y-1 transition-all bg-white shadow-sm"
+                    className="p-6 border border-gray-200 hover:shadow-lg hover:-translate-y-1 transition-all bg-white shadow-sm h-full flex flex-col"
                   >
                     <div className="flex gap-2 mb-3">
                       <Link
@@ -1337,7 +1494,7 @@ export default function ExamsPageContent({
                     </p>
 
                     <Button
-                      className="w-full bg-[#1A73E8] text-white hover:bg-[#1557B0] h-10 rounded-lg font-medium"
+                      className="w-full mt-auto bg-[#1A73E8] text-white hover:bg-[#1557B0] h-10 rounded-lg font-medium"
                       asChild
                     >
                       <Link href={getExamUrl(exam)}>

@@ -1277,6 +1277,8 @@ export default async function ExamDetailPage({ params }) {
     provider: pick("provider") || provider,
     code: pick("code", "exam_code") || examCode,
     title: pick("title", "name") || "",
+    page_heading:
+      pick("page_heading") || null,
 
     duration: durationMerged,
 

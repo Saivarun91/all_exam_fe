@@ -121,41 +121,40 @@ export default async function CategoriesPage() {
         {/* Categories Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {categories.map((category) => (
-            <Card
-              key={category.id}
-              className="hover:shadow-lg hover:-translate-y-1 transition-all border-[#DDE7FF]"
-            >
-              <CardContent className="p-6 space-y-4">
-                {/* Icon */}
-                <div className="w-12 h-12 rounded-lg bg-[#1A73E8]/10 flex items-center justify-center">
-                  <Folder className="w-6 h-6 text-[#1A73E8]" />
-                </div>
+            <Link key={category.id} href={`/${category.slug}`} className="block h-full group">
+              <Card className="h-full hover:shadow-lg hover:-translate-y-1 transition-all border-[#DDE7FF] cursor-pointer">
+                <CardContent className="p-6 h-full flex flex-col space-y-4">
+                  {/* Icon */}
+                  <div className="w-12 h-12 rounded-lg bg-[#1A73E8]/10 flex items-center justify-center">
+                    <Folder className="w-6 h-6 text-[#1A73E8]" />
+                  </div>
 
-                {/* Category Info */}
-                <div>
-                  <h3 className="text-xl font-bold text-[#0C1A35]">
-                    {category.title}
-                  </h3>
+                  {/* Category Info */}
+                  <div className="flex-1">
+                    <h3 className="text-xl font-bold text-[#0C1A35] group-hover:text-[#1A73E8] transition-colors">
+                      {category.title}
+                    </h3>
 
-                  {category.description && (
-                    <p className="text-sm text-[#0C1A35]/60 mt-1">
-                      {category.description}
-                    </p>
-                  )}
-                </div>
+                    {category.description && (
+                      <p className="text-sm text-[#0C1A35]/60 mt-1">
+                        {category.description}
+                      </p>
+                    )}
+                  </div>
 
-                {/* Button */}
-                <Button
-                  asChild
-                  className="w-full bg-[#1A73E8] text-white hover:bg-[#1557B0]"
-                >
-                  <Link href={`/${category.slug}`}>
-                    View Exams
-                    <ArrowRight className="ml-2 w-4 h-4" />
-                  </Link>
-                </Button>
-              </CardContent>
-            </Card>
+                  {/* Button */}
+                  <Button
+                    asChild
+                    className="w-full mt-auto bg-[#1A73E8] text-white hover:bg-[#1557B0]"
+                  >
+                    <span>
+                      View Exams
+                      <ArrowRight className="ml-2 w-4 h-4 inline-block" />
+                    </span>
+                  </Button>
+                </CardContent>
+              </Card>
+            </Link>
           ))}
         </div>
       </div>

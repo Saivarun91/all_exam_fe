@@ -644,7 +644,7 @@ export default function ExamDetailClient({ examData, provider, examCode }) {
     { name: "Home", url: "/" },
     { name: "Exams", url: "/exams" },
     { name: examData.provider, url: `/${provider}` },
-    { name: examData.code, url: `/exams/${provider}/${examCode}` },
+    { name: examData.title || examData.code, url: `/exams/${provider}/${examCode}` },
   ];
   const extractedFromHtml = extractExamInfo(
     examData?.exam_details ||
@@ -719,7 +719,7 @@ export default function ExamDetailClient({ examData, provider, examCode }) {
               </BreadcrumbLink>
             </BreadcrumbItem>
             <BreadcrumbSeparator />
-            <BreadcrumbPage className="text-[#0C1A35]">{examData.code}</BreadcrumbPage>
+            <BreadcrumbPage className="text-[#0C1A35]">{examData.title || examData.code}</BreadcrumbPage>
           </BreadcrumbList>
         </Breadcrumb>
 
@@ -733,7 +733,9 @@ export default function ExamDetailClient({ examData, provider, examCode }) {
             ))}
             <Badge className="bg-green-100 text-green-700 border-0">{examData.difficulty}</Badge>
           </div>
-          <h1 className="text-4xl font-bold text-[#0C1A35] mb-4">{examData.title}</h1>
+          <h1 className="text-4xl font-bold text-[#0C1A35] mb-4">
+            {getHeadingText(examData.page_heading, examData.title)}
+          </h1>
           <div className="flex flex-wrap items-center gap-6 text-sm text-[#0C1A35]/70">
             <div className="flex items-center gap-1">
               <Clock className="w-4 h-4 text-[#1A73E8]" />
@@ -1078,6 +1080,9 @@ export default function ExamDetailClient({ examData, provider, examCode }) {
           <div className="lg:col-span-1">
             <Card className="border-[#DDE7FF] sticky top-24">
               <CardHeader>
+                <CardTitle className="text-[#0C1A35]">
+                  Official Exam Information
+                </CardTitle>
                 {/* {examData.rating !== null && examData.rating !== undefined && (
                   <div className="flex items-center gap-2 mb-4">
                     <Star className="w-5 h-5 fill-yellow-400 text-yellow-400" />

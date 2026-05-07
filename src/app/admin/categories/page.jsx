@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FiPlus, FiX, FiTrash2, FiEdit } from "react-icons/fi";
 import { Cloud, Shield, Briefcase, Database, Code, TrendingUp, Eye } from "lucide-react";
+import TipTapEditor from "@/components/editor/TipTapEditor";
 
 const ICON_OPTIONS = [
   "Cloud",
@@ -27,6 +28,26 @@ const ICON_MAP = {
   TrendingUp,
 };
 
+const EMPTY_FAQ = { question: "", answer: "" };
+
+function normalizeContentForEditor(str) {
+  if (!str || !String(str).trim()) return "";
+  const s = String(str).trim();
+  if (s.startsWith("<")) return s;
+  return s
+    .split(/\n/)
+    .map(
+      (line) =>
+        "<p>" +
+        line
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;") +
+        "</p>"
+    )
+    .join("");
+}
+
 export default function AdminCategoriesPage() {
   const [categories, setCategories] = useState([]);
   const [filteredCategories, setFilteredCategories] = useState([]);
@@ -39,6 +60,8 @@ export default function AdminCategoriesPage() {
   const [categoryData, setCategoryData] = useState({
     title: "",
     description: "",
+    content: "",
+    faqs: [],
     icon: ICON_OPTIONS[0],
     meta_title: "",
     meta_keywords: "",
@@ -89,6 +112,8 @@ export default function AdminCategoriesPage() {
             return {
           title: c.title || c.name || "",
           description: c.description || "",
+          content: normalizeContentForEditor(c.content || ""),
+          faqs: Array.isArray(c.faqs) ? c.faqs : [],
           icon: c.icon || ICON_OPTIONS[0],
               slug: slug,
           meta_title: c.meta_title || "",
@@ -205,6 +230,13 @@ export default function AdminCategoriesPage() {
         body: JSON.stringify({
           title: categoryData.title,
           description: categoryData.description,
+          content: categoryData.content,
+          faqs: (categoryData.faqs || [])
+            .map((faq) => ({
+              question: (faq?.question || "").trim(),
+              answer: (faq?.answer || "").trim(),
+            }))
+            .filter((faq) => faq.question && faq.answer),
           icon: categoryData.icon,
           meta_title: categoryData.meta_title,
           meta_keywords: categoryData.meta_keywords,
@@ -223,6 +255,8 @@ export default function AdminCategoriesPage() {
       const normalized = {
         title: saved.title || categoryData.title,
         description: saved.description || categoryData.description,
+        content: saved.content || categoryData.content,
+        faqs: Array.isArray(saved.faqs) ? saved.faqs : categoryData.faqs,
         icon: saved.icon || categoryData.icon,
         slug: saved.slug || saved.id || "",
         meta_title: saved.meta_title || categoryData.meta_title,
@@ -246,6 +280,8 @@ export default function AdminCategoriesPage() {
       setCategoryData({
         title: "",
         description: "",
+        content: "",
+        faqs: [],
         icon: ICON_OPTIONS[0],
         meta_title: "",
         meta_keywords: "",
@@ -281,6 +317,8 @@ export default function AdminCategoriesPage() {
     setCategoryData({
       title: cat.title || "",
       description: cat.description || "",
+      content: normalizeContentForEditor(cat.content || ""),
+      faqs: Array.isArray(cat.faqs) ? cat.faqs : [],
       icon: cat.icon || ICON_OPTIONS[0],
       meta_title: cat.meta_title || "",
       meta_keywords: cat.meta_keywords || "",
@@ -360,6 +398,8 @@ export default function AdminCategoriesPage() {
                 setCategoryData({
                   title: "",
                   description: "",
+                  content: "",
+                  faqs: [],
                   icon: ICON_OPTIONS[0],
                   meta_title: "",
                   meta_keywords: "",
@@ -637,6 +677,92 @@ export default function AdminCategoriesPage() {
                     />
                     <p className="text-xs text-gray-500 mt-1">Brief description of the category</p>
               </div>
+
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Content
+                    </label>
+                    <TipTapEditor
+                      value={categoryData.content}
+                      onChange={(html) => setCategoryData({ ...categoryData, content: html })}
+                      placeholder="Detailed content shown on the category page under exam cards..."
+                      className="w-full"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Optional. If left empty, no extra content will be shown on the category page.
+                    </p>
+                  </div>
+
+                  <div className="md:col-span-2 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-sm font-semibold text-gray-700">
+                        FAQ Section
+                      </label>
+                      <Button
+                        type="button"
+                        onClick={() =>
+                          setCategoryData({
+                            ...categoryData,
+                            faqs: [...(categoryData.faqs || []), { ...EMPTY_FAQ }],
+                          })
+                        }
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 text-sm"
+                      >
+                        <FiPlus className="w-4 h-4 mr-1" /> Add FAQ
+                      </Button>
+                    </div>
+                    {(categoryData.faqs || []).length === 0 ? (
+                      <p className="text-xs text-gray-500">
+                        Optional. Add FAQs to show them on the category page.
+                      </p>
+                    ) : null}
+                    {(categoryData.faqs || []).map((faq, index) => (
+                      <div key={`faq-${index}`} className="border border-gray-200 rounded-lg p-4 bg-gray-50 space-y-3">
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-700 mb-1">
+                            Question {index + 1}
+                          </label>
+                          <Input
+                            value={faq.question || ""}
+                            onChange={(e) => {
+                              const updatedFaqs = [...(categoryData.faqs || [])];
+                              updatedFaqs[index] = { ...updatedFaqs[index], question: e.target.value };
+                              setCategoryData({ ...categoryData, faqs: updatedFaqs });
+                            }}
+                            placeholder="Enter FAQ question"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-700 mb-1">
+                            Answer {index + 1}
+                          </label>
+                          <textarea
+                            value={faq.answer || ""}
+                            onChange={(e) => {
+                              const updatedFaqs = [...(categoryData.faqs || [])];
+                              updatedFaqs[index] = { ...updatedFaqs[index], answer: e.target.value };
+                              setCategoryData({ ...categoryData, faqs: updatedFaqs });
+                            }}
+                            className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+                            rows={3}
+                            placeholder="Enter FAQ answer"
+                          />
+                        </div>
+                        <div className="flex justify-end">
+                          <Button
+                            type="button"
+                            onClick={() => {
+                              const updatedFaqs = (categoryData.faqs || []).filter((_, i) => i !== index);
+                              setCategoryData({ ...categoryData, faqs: updatedFaqs });
+                            }}
+                            className="bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 text-sm"
+                          >
+                            <FiTrash2 className="w-4 h-4 mr-1" /> Remove
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
 
               <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">

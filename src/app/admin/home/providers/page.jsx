@@ -10,10 +10,30 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { PlusCircle, Edit, Trash2, Search, ArrowLeft } from "lucide-react";
-import { checkAuth, getAuthHeaders } from "@/utils/authCheck";
+import { checkAuth, getAuthHeaders, getAuthHeadersForUpload } from "@/utils/authCheck";
 import { getOptimizedImageUrl } from "@/utils/imageUtils";
+import TipTapEditor from "@/components/editor/TipTapEditor";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
+const EMPTY_FAQ = { question: "", answer: "" };
+
+function normalizeContentForEditor(str) {
+  if (!str || !String(str).trim()) return "";
+  const s = String(str).trim();
+  if (s.startsWith("<")) return s;
+  return s
+    .split(/\n/)
+    .map(
+      (line) =>
+        "<p>" +
+        line
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;") +
+        "</p>"
+    )
+    .join("");
+}
 
 export default function AdminProvidersPage() {
   const router = useRouter();
@@ -35,14 +55,16 @@ export default function AdminProvidersPage() {
     name: "",
     icon: "Building2",
     slug: "",
-    description: "",
     logo_url: "",
-    website_url: "",
+    page_title: "",
+    content: "",
+    faqs: [],
     meta_title: "",
     meta_description: "",
     meta_keywords: "",
     is_active: true
   });
+  const [logoFile, setLogoFile] = useState(null);
 
   useEffect(() => {
     if (!checkAuth()) {
@@ -56,7 +78,8 @@ export default function AdminProvidersPage() {
   const fetchProviders = async () => {
     try {
       const res = await fetch(`${API_BASE_URL}/api/providers/admin/list/`, {
-        headers: getAuthHeaders()
+        headers: getAuthHeaders(),
+        cache: "no-store",
       });
       const data = await res.json();
       setProviders(Array.isArray(data?.data) ? data.data : []);
@@ -124,17 +147,66 @@ export default function AdminProvidersPage() {
       const url = editing
         ? `${API_BASE_URL}/api/providers/admin/${editing}/update/`
         : `${API_BASE_URL}/api/providers/admin/create/`;
-      
+
+      const normalizedFaqs = (formData.faqs || [])
+        .map((faq) => ({
+          question: (faq?.question || "").trim(),
+          answer: (faq?.answer || "").trim(),
+        }))
+        .filter((faq) => faq.question && faq.answer);
+
+      const basePayload = {
+        name: formData.name || "",
+        icon: formData.icon || "Building2",
+        slug: formData.slug || "",
+        page_title: formData.page_title || "",
+        content: formData.content || "",
+        faqs: normalizedFaqs,
+        meta_title: formData.meta_title || "",
+        meta_description: formData.meta_description || "",
+        meta_keywords: formData.meta_keywords || "",
+        is_active: !!formData.is_active,
+        logo_url: formData.logo_url || "",
+      };
+
+      let headers = {};
+      let body;
+      if (logoFile) {
+        const multipartPayload = new FormData();
+        Object.entries(basePayload).forEach(([key, value]) => {
+          if (key === "faqs") {
+            multipartPayload.append("faqs", JSON.stringify(value));
+          } else if (key === "is_active") {
+            multipartPayload.append("is_active", String(value));
+          } else {
+            multipartPayload.append(key, value ?? "");
+          }
+        });
+        multipartPayload.append("logo", logoFile);
+        headers = { ...getAuthHeadersForUpload() };
+        body = multipartPayload;
+      } else {
+        headers = { ...getAuthHeaders() };
+        body = JSON.stringify(basePayload);
+      }
+
       const res = await fetch(url, {
         method: editing ? "PUT" : "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...getAuthHeaders()
-        },
-        body: JSON.stringify(formData)
+        headers,
+        body,
       });
+      const result = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(result?.error || "Failed to save provider");
 
-      if (!res.ok) throw new Error("Failed to save provider");
+      const savedProvider = result?.data || null;
+      if (savedProvider?.id) {
+        setProviders((prev) => {
+          if (editing) {
+            return prev.map((p) => (p.id === savedProvider.id ? savedProvider : p));
+          }
+          return [savedProvider, ...prev];
+        });
+      }
 
       setMessage(`✅ Provider ${editing ? "updated" : "created"} successfully!`);
       setTimeout(() => setMessage(""), 3000);
@@ -145,14 +217,16 @@ export default function AdminProvidersPage() {
         name: "",
         icon: "Building2",
         slug: "",
-        description: "",
         logo_url: "",
-        website_url: "",
+        page_title: "",
+        content: "",
+        faqs: [],
         meta_title: "",
         meta_description: "",
         meta_keywords: "",
         is_active: true
       });
+      setLogoFile(null);
       
       fetchProviders();
     } catch (error) {
@@ -167,14 +241,16 @@ export default function AdminProvidersPage() {
       name: provider.name || "",
       icon: provider.icon || "Building2",
       slug: provider.slug || "",
-      description: provider.description || "",
       logo_url: provider.logo_url || "",
-      website_url: provider.website_url || "",
+      page_title: provider.page_title || "",
+      content: normalizeContentForEditor(provider.content || ""),
+      faqs: Array.isArray(provider.faqs) ? provider.faqs : [],
       meta_title: provider.meta_title || "",
       meta_description: provider.meta_description || "",
       meta_keywords: provider.meta_keywords || "",
       is_active: provider.is_active !== false
     });
+    setLogoFile(null);
     setShowModal(true);
   };
 
@@ -236,26 +312,28 @@ export default function AdminProvidersPage() {
                     name: "",
                     icon: "Building2",
                     slug: "",
-                    description: "",
                     logo_url: "",
-                    website_url: "",
+                    page_title: "",
+                    content: "",
+                    faqs: [],
                     meta_title: "",
                     meta_description: "",
                     meta_keywords: "",
                     is_active: true
                   });
+                  setLogoFile(null);
                 }}
               >
                 <PlusCircle className="h-4 w-4 mr-2" />
                 Add Provider
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-2xl">
+            <DialogContent className="!w-[96vw] !max-w-[1400px] max-h-[92vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>{editing ? "Edit" : "Add"} Provider</DialogTitle>
               </DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-4 py-4">
-                <div className="grid grid-cols-2 gap-4">
+              <form onSubmit={handleSubmit} className="space-y-5 py-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="name">Provider Name *</Label>
                     <Input
@@ -284,35 +362,102 @@ export default function AdminProvidersPage() {
                     />
                   </div>
                 </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="logo_file">Logo Image</Label>
+                    <Input
+                      id="logo_file"
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => setLogoFile(e.target.files?.[0] || null)}
+                    />
+                    {formData.logo_url && !logoFile ? (
+                      <p className="text-xs text-gray-500 mt-1">Current logo will be kept.</p>
+                    ) : null}
+                    {logoFile ? (
+                      <p className="text-xs text-green-600 mt-1">New logo selected: {logoFile.name}</p>
+                    ) : null}
+                  </div>
+                </div>
                 <div>
-                  <Label htmlFor="description">Description</Label>
-                  <Textarea
-                    id="description"
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    placeholder="Provider description..."
-                    rows={3}
+                  <Label htmlFor="page_title">Page Title</Label>
+                  <Input
+                    id="page_title"
+                    value={formData.page_title}
+                    onChange={(e) => setFormData({ ...formData, page_title: e.target.value })}
+                    placeholder="Provider detail page title..."
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="logo_url">Logo URL</Label>
-                    <Input
-                      id="logo_url"
-                      value={formData.logo_url}
-                      onChange={(e) => setFormData({ ...formData, logo_url: e.target.value })}
-                      placeholder="https://example.com/logo.png"
-                    />
+                <div>
+                  <Label>Content</Label>
+                  <TipTapEditor
+                    value={formData.content}
+                    onChange={(html) => setFormData({ ...formData, content: html })}
+                    placeholder="Provider page content..."
+                    className="w-full"
+                  />
+                </div>
+                <div className="space-y-3 border rounded-lg p-4 bg-gray-50/50">
+                  <div className="flex items-center justify-between">
+                    <Label>FAQ Section</Label>
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() =>
+                        setFormData({
+                          ...formData,
+                          faqs: [...(formData.faqs || []), { ...EMPTY_FAQ }],
+                        })
+                      }
+                    >
+                      <PlusCircle className="h-4 w-4 mr-1" /> Add FAQ
+                    </Button>
                   </div>
-                  <div>
-                    <Label htmlFor="website_url">Website URL</Label>
-                    <Input
-                      id="website_url"
-                      value={formData.website_url}
-                      onChange={(e) => setFormData({ ...formData, website_url: e.target.value })}
-                      placeholder="https://example.com"
-                    />
-                  </div>
+                  {(formData.faqs || []).map((faq, index) => (
+                    <div key={`faq-${index}`} className="border rounded-lg p-3 space-y-2 bg-gray-50">
+                      <div>
+                        <Label>Question {index + 1}</Label>
+                        <Input
+                          value={faq.question || ""}
+                          onChange={(e) => {
+                            const updatedFaqs = [...(formData.faqs || [])];
+                            updatedFaqs[index] = { ...updatedFaqs[index], question: e.target.value };
+                            setFormData({ ...formData, faqs: updatedFaqs });
+                          }}
+                          placeholder="Enter FAQ question"
+                        />
+                      </div>
+                      <div>
+                        <Label>Answer {index + 1}</Label>
+                        <Textarea
+                          value={faq.answer || ""}
+                          onChange={(e) => {
+                            const updatedFaqs = [...(formData.faqs || [])];
+                            updatedFaqs[index] = { ...updatedFaqs[index], answer: e.target.value };
+                            setFormData({ ...formData, faqs: updatedFaqs });
+                          }}
+                          rows={3}
+                          placeholder="Enter FAQ answer"
+                        />
+                      </div>
+                      <div className="flex justify-end">
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="sm"
+                          onClick={() =>
+                            setFormData({
+                              ...formData,
+                              faqs: (formData.faqs || []).filter((_, i) => i !== index),
+                            })
+                          }
+                        >
+                          <Trash2 className="h-4 w-4 mr-1" />
+                          Remove
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
                 <div>
                   <Label htmlFor="meta_title">Meta Title</Label>
@@ -477,7 +622,6 @@ export default function AdminProvidersPage() {
                     <tr className="border-b bg-gray-50">
                       <th className="text-left p-3 font-semibold text-gray-700">Name</th>
                       <th className="text-left p-3 font-semibold text-gray-700">Slug</th>
-                      <th className="text-left p-3 font-semibold text-gray-700">Description</th>
                       <th className="text-left p-3 font-semibold text-gray-700">Meta Title</th>
                       <th className="text-center p-3 font-semibold text-gray-700">Status</th>
                       <th className="text-center p-3 font-semibold text-gray-700">Actions</th>
@@ -505,9 +649,6 @@ export default function AdminProvidersPage() {
                           </div>
                         </td>
                         <td className="p-3 text-gray-700">{provider.slug}</td>
-                        <td className="p-3 text-gray-600 text-sm max-w-md truncate">
-                          {provider.description || "-"}
-                        </td>
                         <td className="p-3 text-gray-600 text-sm max-w-sm truncate">
                           {provider.meta_title || "-"}
                         </td>

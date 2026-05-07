@@ -77,15 +77,39 @@ export async function generateMetadata() {
 export default async function ProvidersPage() {
   // Fetch all providers
   let providers = [];
+  let courses = [];
   try {
-    const res = await fetch(
-      `${API_BASE_URL}/api/providers/`,
-      { cache: "no-store" }
-    );
-    if (res.ok) providers = await res.json();
+    const [providersRes, coursesRes] = await Promise.all([
+      fetch(`${API_BASE_URL}/api/providers/`, { cache: "no-store" }),
+      fetch(`${API_BASE_URL}/api/courses/`, { cache: "no-store" }),
+    ]);
+
+    if (providersRes.ok) providers = await providersRes.json();
+    if (coursesRes.ok) courses = await coursesRes.json();
   } catch (err) {
-    logServerFetchError("Failed to fetch providers:", err);
+    logServerFetchError("Failed to fetch providers/courses:", err);
   }
+
+  const normalizedProviders = Array.isArray(providers) ? providers : [];
+  const normalizedCourses = Array.isArray(courses) ? courses : [];
+
+  const providerExamCountMap = normalizedCourses.reduce((acc, course) => {
+    if (course?.is_active === false) return acc;
+
+    const providerSlugKey = String(course?.provider_slug || "")
+      .toLowerCase()
+      .trim();
+    const providerNameKey = String(course?.provider || "")
+      .toLowerCase()
+      .trim();
+
+    if (providerSlugKey) {
+      acc[providerSlugKey] = (acc[providerSlugKey] || 0) + 1;
+    } else if (providerNameKey) {
+      acc[providerNameKey] = (acc[providerNameKey] || 0) + 1;
+    }
+    return acc;
+  }, {});
 
   return (
     <div className="container mx-auto px-4 py-10">
@@ -93,30 +117,54 @@ export default async function ProvidersPage() {
         All Providers
       </h1>
 
-      {providers.length === 0 ? (
+      {normalizedProviders.length === 0 ? (
         <p className="text-center">No providers found.</p>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-          {providers.map((provider) => (
-            <div
-              key={provider.id}
-              className="border rounded-lg p-4 shadow-sm hover:shadow-lg bg-white"
-            >
-              {provider.logoUrl && (
-                <img
-                  src={provider.logoUrl}
-                  alt={provider.name}
-                  className="w-full h-32 object-contain mb-4"
-                />
-              )}
-              <h2 className="text-lg font-semibold">
-                <Link href={`/${provider.slug}`} className="mt-3 inline-block text-[#1A73E8] hover:underline text-m font-medium">
+          {normalizedProviders.map((provider) => {
+            const providerLogo =
+              provider?.logo_url || provider?.logoUrl || provider?.logo || "";
+            const providerSlugKey = String(provider?.slug || "")
+              .toLowerCase()
+              .trim();
+            const providerNameKey = String(provider?.name || "")
+              .toLowerCase()
+              .trim();
+            const examCount =
+              providerExamCountMap[providerSlugKey] ??
+              providerExamCountMap[providerNameKey] ??
+              0;
 
-                  {provider.name}
-                </Link>
-              </h2>
-            </div>
-          ))}
+            return (
+              <div
+                key={provider.id}
+                className="border rounded-lg p-4 shadow-sm hover:shadow-lg bg-white"
+              >
+                {providerLogo && (
+                  <img
+                    src={providerLogo}
+                    alt={provider.name}
+                    className="w-full h-32 object-contain mb-4"
+                    loading="lazy"
+                    decoding="async"
+                  />
+                )}
+              <div className="mt-3 flex items-center justify-between gap-3">
+                <h2 className="text-lg font-semibold min-w-0">
+                  <Link
+                    href={`/${provider.slug}`}
+                    className="inline-block text-[#1A73E8] hover:underline text-m font-medium truncate"
+                  >
+                    {provider.name}
+                  </Link>
+                </h2>
+                <p className="text-sm text-[#0C1A35]/70 whitespace-nowrap">
+                  {examCount} Exam{examCount === 1 ? "" : "s"}
+                </p>
+              </div>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

@@ -283,6 +283,10 @@
   @apply list-disc;
 }
 
+.tiptap-editor-content ul[data-list-style="disc"] {
+  list-style-type: disc;
+}
+
 .tiptap-editor-content ul[data-list-style="circle"] {
   list-style-type: circle;
 }

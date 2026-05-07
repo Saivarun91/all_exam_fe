@@ -1483,6 +1483,10 @@ export default function ExamDetailsManager() {
   const [aboutHeadingTag, setAboutHeadingTag] = useState("h2");
   const [aboutHeadingFontSize, setAboutHeadingFontSize] = useState("24");
   const [aboutHeadingFontWeight, setAboutHeadingFontWeight] = useState("700");
+  const [pageHeadingText, setPageHeadingText] = useState("");
+  const [pageHeadingTag, setPageHeadingTag] = useState("h1");
+  const [pageHeadingFontSize, setPageHeadingFontSize] = useState("40");
+  const [pageHeadingFontWeight, setPageHeadingFontWeight] = useState("700");
   const [examDetailsHeadingText, setExamDetailsHeadingText] = useState("");
   const [examDetailsHeadingTag, setExamDetailsHeadingTag] = useState("h2");
   const [examDetailsHeadingFontSize, setExamDetailsHeadingFontSize] = useState("24");
@@ -1915,6 +1919,16 @@ export default function ExamDetailsManager() {
     setAboutHeadingFontSize(aboutHeadingData.fontSize);
     setAboutHeadingFontWeight(aboutHeadingData.fontWeight);
 
+    // Load page H1 heading (shown at top of exam details page)
+    const pageHeadingData = parseHeadingHTML(
+      course.page_heading || "",
+      course.title || "Exam Details"
+    );
+    setPageHeadingText(pageHeadingData.text);
+    setPageHeadingTag(pageHeadingData.tag || "h1");
+    setPageHeadingFontSize(pageHeadingData.fontSize || "40");
+    setPageHeadingFontWeight(pageHeadingData.fontWeight);
+
     // Load Exam Details heading
     const examDetailsHeadingData = parseHeadingHTML(
       course.exam_details_heading || "",
@@ -2059,6 +2073,12 @@ export default function ExamDetailsManager() {
         aboutHeadingFontSize,
         aboutHeadingFontWeight
       );
+      const pageHeadingHTML = generateHeadingHTML(
+        pageHeadingText,
+        pageHeadingTag || "h1",
+        pageHeadingFontSize || "40",
+        pageHeadingFontWeight
+      );
 
       const examDetailsHeadingHTML = generateHeadingHTML(
         examDetailsHeadingText,
@@ -2133,6 +2153,7 @@ export default function ExamDetailsManager() {
         meta_title: metaTitle,
         meta_keywords: metaKeywords,
         meta_description: metaDescription,
+        page_heading: pageHeadingHTML || "",
         about_heading: aboutHeadingHTML || "",
         exam_details_heading: examDetailsHeadingHTML || "",
         why_matters_heading: whyMattersHeadingHTML || "",
@@ -2237,6 +2258,8 @@ export default function ExamDetailsManager() {
               const hydratedCourse = {
                 ...selectedCourse,
                 ...updatedCourse,
+                page_heading:
+                  updatedCourse.page_heading ?? payload.page_heading,
                 exam_details:
                   updatedCourse.exam_details ?? payload.exam_details ?? examDetails,
                 details: updatedCourse.details ?? payload.details ?? examDetails,
@@ -2601,6 +2624,19 @@ export default function ExamDetailsManager() {
                 </TabsContent>
 
                 <TabsContent value="basic" className="space-y-4">
+                  <HeadingInput
+                    label="Page Main Heading (H1)"
+                    text={pageHeadingText}
+                    setText={setPageHeadingText}
+                    tag={pageHeadingTag}
+                    setTag={setPageHeadingTag}
+                    fontSize={pageHeadingFontSize}
+                    setFontSize={setPageHeadingFontSize}
+                    fontWeight={pageHeadingFontWeight}
+                    setFontWeight={setPageHeadingFontWeight}
+                    placeholder="CEH 312-50 Certified Ethical Hacker Exam Questions & Practice Tests"
+                  />
+
                   <HeadingInput
                     label="About Section Heading"
                     text={aboutHeadingText}

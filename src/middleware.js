@@ -22,6 +22,7 @@ function toSlug(value) {
 
 const TOP_LEVEL_RESERVED_SEGMENTS = new Set([
   "exams",
+  "popular-exams",
   "categories",
   "providers",
   "blog",
@@ -137,7 +138,7 @@ export async function middleware(request) {
         }
 
         if (providerRes.ok) {
-          return NextResponse.rewrite(new URL(`/exams/${slug}`, request.url));
+          return NextResponse.rewrite(new URL(`/providers/${slug}`, request.url));
         }
 
         if (examRes.ok) {
@@ -182,6 +183,25 @@ export async function middleware(request) {
               request.url
             )
           );
+        }
+      } catch {
+        // Fall through
+      }
+    }
+  }
+
+  // Canonical provider detail URL: /providers/:slug -> /:slug
+  if (segments.length === 2 && segments[0].toLowerCase() === "providers") {
+    const providerSlug = segments[1];
+    if (providerSlug && !isStaticAssetSegment(providerSlug)) {
+      try {
+        const providerRes = await fetch(
+          `${API_BASE_URL}/api/providers/${providerSlug}/`,
+          { cache: "no-store" }
+        );
+        if (providerRes.ok) {
+          url.pathname = `/${providerSlug}`;
+          return NextResponse.redirect(url, 308);
         }
       } catch {
         // Fall through

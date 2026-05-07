@@ -5,6 +5,12 @@ import { ArrowRight, Award, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { getExamUrl } from "@/lib/utils";
 import BreadcrumbJsonLd from "@/components/BreadcrumbJsonLd";
 import {
@@ -56,6 +62,18 @@ export default function CategoryDetail({
   }
 
   const safeCourses = Array.isArray(courses) ? courses : [];
+  const categoryContent = (category?.content || "").trim();
+  const hasRenderableContent = Boolean(
+    categoryContent.replace(/<[^>]*>/g, "").replace(/&nbsp;/g, "").trim()
+  );
+  const safeFaqs = Array.isArray(category?.faqs)
+    ? category.faqs.filter(
+        (faq) =>
+          faq &&
+          String(faq.question || "").trim() &&
+          String(faq.answer || "").trim()
+      )
+    : [];
 
   const breadcrumbItems = [
     { name: "Home", url: "/" },
@@ -126,12 +144,12 @@ export default function CategoryDetail({
             {safeCourses.map((course) => (
               <Card
                 key={course.id}
-                className="hover:shadow-lg hover:-translate-y-1 transition-all border-[#DDE7FF] cursor-pointer"
+                className="hover:shadow-lg hover:-translate-y-1 transition-all border-[#DDE7FF] cursor-pointer h-full"
                 onClick={() => {
                   window.location.href = getExamUrl(course);
                 }}
               >
-                <CardContent className="p-6 space-y-4">
+                <CardContent className="p-6 h-full flex flex-col gap-4">
                   {/* Icon + Badge */}
                   <div className="flex items-center justify-between">
                     <div className="w-12 h-12 rounded-lg bg-[#1A73E8]/10 flex items-center justify-center">
@@ -145,7 +163,7 @@ export default function CategoryDetail({
                   </div>
 
                   {/* Course Info */}
-                  <div className="space-y-1">
+                  <div className="space-y-1 min-h-[88px]">
                     <p className="text-sm text-[#0C1A35]/60 font-medium">
                       {course.provider}
                     </p>
@@ -199,6 +217,7 @@ export default function CategoryDetail({
                     className="w-full bg-[#1A73E8] text-white hover:bg-[#1557B0]"
                     asChild
                     onClick={(e) => e.stopPropagation()}
+                    style={{ marginTop: "auto" }}
                   >
                     <Link href={getExamUrl(course)}>
                       Start Practicing
@@ -226,6 +245,37 @@ export default function CategoryDetail({
             </Button>
           </div>
         )}
+
+        {hasRenderableContent ? (
+          <section className="mt-10 pt-8 border-t border-gray-200">
+            <div className="prose prose-slate max-w-none">
+              <div
+                className="text-[#0C1A35]/80 leading-7"
+                dangerouslySetInnerHTML={{ __html: categoryContent }}
+              />
+            </div>
+          </section>
+        ) : null}
+
+        {safeFaqs.length > 0 ? (
+          <section className="mt-10 pt-8 border-t border-gray-200">
+            <h2 className="text-2xl font-bold text-[#0C1A35] mb-4">FAQs</h2>
+            <Accordion type="single" collapsible className="w-full">
+              {safeFaqs.map((faq, index) => (
+                <AccordionItem key={`faq-${index}`} value={`faq-${index}`}>
+                  <AccordionTrigger className="text-base text-[#0C1A35] no-underline hover:no-underline">
+                    {faq.question}
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <p className="text-sm text-[#0C1A35]/70 whitespace-pre-line break-words not-italic">
+                      {faq.answer}
+                    </p>
+                  </AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
+          </section>
+        ) : null}
       </div>
     </div>
   );

@@ -157,7 +157,7 @@ export default async function CleanPracticePage({ params }) {
   const breadcrumbItems = [
     { name: "Home", url: "/" },
     { name: "Exams", url: "/exams" },
-    { name: exam.code, url: `/exams/${provider}/${normalizedExamCode}` },
+    { name: exam.title || exam.code, url: `/exams/${provider}/${normalizedExamCode}` },
     { name: "Practice Tests", url: `/${normalizedExamCode}/practice` },
   ];
 

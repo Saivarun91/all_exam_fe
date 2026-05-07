@@ -1,5 +1,19 @@
 import Link from "next/link";
 import { getExamUrl } from "@/lib/utils";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 
 export default function ProviderDetail({ slug, provider, exams }) {
   if (!slug) {
@@ -25,9 +39,46 @@ export default function ProviderDetail({ slug, provider, exams }) {
   }
 
   const safeExams = Array.isArray(exams) ? exams : [];
+  const pageTitle = provider?.page_title?.trim() || provider?.name;
+  const providerContent = (provider?.content || "").trim();
+  const hasRenderableContent = Boolean(
+    providerContent.replace(/<[^>]*>/g, "").replace(/&nbsp;/g, "").trim()
+  );
+  const safeFaqs = Array.isArray(provider?.faqs)
+    ? provider.faqs.filter(
+        (faq) =>
+          faq &&
+          String(faq.question || "").trim() &&
+          String(faq.answer || "").trim()
+      )
+    : [];
 
   return (
     <div className="container mx-auto px-4 py-10">
+      <Breadcrumb className="mb-6">
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink asChild>
+              <Link href="/" className="text-[#0C1A35]/60 hover:text-[#1A73E8]">
+                Home
+              </Link>
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbLink asChild>
+              <Link href="/providers" className="text-[#0C1A35]/60 hover:text-[#1A73E8]">
+                Providers
+              </Link>
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbPage className="text-[#0C1A35] font-medium">
+            {provider.name}
+          </BreadcrumbPage>
+        </BreadcrumbList>
+      </Breadcrumb>
+
       <Link
         href="/providers"
         className="text-blue-600 hover:underline mb-6 inline-block"
@@ -37,15 +88,8 @@ export default function ProviderDetail({ slug, provider, exams }) {
 
       {/* Provider Info */}
       <div className="flex flex-col md:flex-row items-start md:items-center gap-6 mb-10">
-        {provider.logoUrl && (
-          <img
-            src={provider.logoUrl}
-            alt={provider.name}
-            className="w-32 h-32 object-contain rounded-md shadow-sm"
-          />
-        )}
         <div>
-          <h1 className="text-3xl font-bold mb-2">{provider.name}</h1>
+          <h1 className="text-3xl font-bold mb-2">{pageTitle}</h1>
           <p className="text-gray-700">{provider.description}</p>
         </div>
       </div>
@@ -103,6 +147,37 @@ export default function ProviderDetail({ slug, provider, exams }) {
           ))}
         </div>
       )}
+
+      {hasRenderableContent ? (
+        <section className="mt-10 pt-8 border-t border-gray-200">
+          <div className="prose prose-slate max-w-none">
+            <div
+              className="text-[#0C1A35]/80 leading-7"
+              dangerouslySetInnerHTML={{ __html: providerContent }}
+            />
+          </div>
+        </section>
+      ) : null}
+
+      {safeFaqs.length > 0 ? (
+        <section className="mt-10 pt-8 border-t border-gray-200">
+          <h2 className="text-2xl font-semibold mb-4">FAQs</h2>
+          <Accordion type="single" collapsible className="w-full">
+            {safeFaqs.map((faq, index) => (
+              <AccordionItem key={`provider-faq-${index}`} value={`provider-faq-${index}`}>
+                <AccordionTrigger className="text-base text-[#0C1A35] no-underline hover:no-underline">
+                  {faq.question}
+                </AccordionTrigger>
+                <AccordionContent>
+                  <p className="text-sm text-[#0C1A35]/70 whitespace-pre-line break-words">
+                    {faq.answer}
+                  </p>
+                </AccordionContent>
+              </AccordionItem>
+            ))}
+          </Accordion>
+        </section>
+      ) : null}
     </div>
   );
 }
