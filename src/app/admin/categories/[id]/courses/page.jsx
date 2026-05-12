@@ -32,6 +32,20 @@ function generateSlug(text) {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
 }
+
+/** Course API returns provider name as `provider` and id as `provider_id`; dropdowns need id. */
+function providerIdForAdminForm(course, providersList) {
+  const rawId = course?.provider_id;
+  if (rawId != null && String(rawId).trim() !== "") {
+    return rawId;
+  }
+  const name = String(course?.provider || "").trim().toLowerCase();
+  if (!name || !Array.isArray(providersList)) return "";
+  const match = providersList.find(
+    (p) => String(p.name || "").trim().toLowerCase() === name
+  );
+  return match?.id ?? "";
+}
 export default function AdminCategoryCoursesPage() {
   const params = useParams();
   const id = params?.id;
@@ -77,10 +91,14 @@ export default function AdminCategoryCoursesPage() {
         setCategorySlug(catData.slug || id);
 
         // Fetch all providers for dropdown
+        let providersList = [];
         const providersRes = await fetch(`${API_BASE_URL}/api/providers/`);
         if (providersRes.ok) {
           const providersData = await providersRes.json();
-          setProviders(Array.isArray(providersData) ? providersData.filter(p => p.is_active !== false) : []);
+          providersList = Array.isArray(providersData)
+            ? providersData.filter((p) => p.is_active !== false)
+            : [];
+          setProviders(providersList);
         }
 
         // Fetch courses in this category
@@ -92,6 +110,7 @@ export default function AdminCategoryCoursesPage() {
           ...course,
           name: course.title || course.name,
           description: course.short_description || course.description,
+          provider: providerIdForAdminForm(course, providersList),
         }));
         setCourses(mappedCourses);
       } catch (err) {
@@ -153,6 +172,7 @@ export default function AdminCategoryCoursesPage() {
         ...newCourseData,
         name: newCourseData.title || newCourseData.name,
         description: newCourseData.short_description || newCourseData.description,
+        provider: providerIdForAdminForm(newCourseData, providers),
       };
       setCourses((prev) => [...prev, mappedCourse]);
       setShowAddModal(false);
@@ -447,7 +467,9 @@ export default function AdminCategoryCoursesPage() {
                             className="w-full justify-between mt-1"
                           >
                             {newCourse.provider
-                              ? providers.find((provider) => provider.id === newCourse.provider)?.name
+                              ? providers.find(
+                                  (p) => String(p.id) === String(newCourse.provider)
+                                )?.name
                               : "Select a provider..."}
                             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                           </Button>
@@ -470,7 +492,9 @@ export default function AdminCategoryCoursesPage() {
                                     <Check
                                       className={cn(
                                         "mr-2 h-4 w-4",
-                                        newCourse.provider === provider.id ? "opacity-100" : "opacity-0"
+                                        String(newCourse.provider) === String(provider.id)
+                                          ? "opacity-100"
+                                          : "opacity-0"
                                       )}
                                     />
                                     {provider.name}

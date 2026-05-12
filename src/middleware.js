@@ -127,12 +127,19 @@ export async function middleware(request) {
 
     if (!reservedTopLevelSegment(slug) && !isStaticAssetSegment(slug)) {
       try {
-        // Check exam first to avoid unnecessary provider/category 404 calls for exam slugs.
-        const examRes = await fetch(`${API_BASE_URL}/api/courses/exams/${slug}/`, {
-          cache: "no-store",
-        });
+        // Resolve exam / category / provider in parallel (same outcome as sequential checks:
+        // exam wins, then category, then provider) — cuts middleware latency on every slug hit.
+        const examUrl = `${API_BASE_URL}/api/courses/exams/${slug}/`;
+        const categoryUrl = `${API_BASE_URL}/api/categories/${slug}/`;
+        const providerUrl = `${API_BASE_URL}/api/providers/${slug}/`;
 
-        if (examRes.ok) {
+        const [examRes, categoryRes, providerRes] = await Promise.all([
+          fetch(examUrl, { cache: "no-store" }).catch(() => null),
+          fetch(categoryUrl, { cache: "no-store" }).catch(() => null),
+          fetch(providerUrl, { cache: "no-store" }).catch(() => null),
+        ]);
+
+        if (examRes?.ok) {
           const exam = await examRes.json();
           const providerSlug =
             exam?.provider_slug || toSlug(exam?.provider || "");
@@ -148,17 +155,11 @@ export async function middleware(request) {
           }
         }
 
-        const categoryRes = await fetch(`${API_BASE_URL}/api/categories/${slug}/`, {
-          cache: "no-store",
-        });
-        if (categoryRes.ok) {
+        if (categoryRes?.ok) {
           return NextResponse.rewrite(new URL(`/categories/${slug}`, request.url));
         }
 
-        const providerRes = await fetch(`${API_BASE_URL}/api/providers/${slug}/`, {
-          cache: "no-store",
-        });
-        if (providerRes.ok) {
+        if (providerRes?.ok) {
           return NextResponse.rewrite(new URL(`/providers/${slug}`, request.url));
         }
       } catch {
