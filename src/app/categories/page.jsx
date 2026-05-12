@@ -148,11 +148,10 @@ export default async function CategoriesPage() {
   const topCertificationCategories = categoriesWithCounts.filter(
     (category) => parseBoolean(category?.is_top_certification)
   );
-  const nonTopCategories = categoriesWithCounts.filter(
-    (category) => !parseBoolean(category?.is_top_certification)
-  );
 
-  const groupedCategories = nonTopCategories.reduce((acc, category) => {
+  // Include all categories in main sections so "top certification" items still appear
+  // under their main category heading (they also appear in Top Certification Categories).
+  const groupedCategories = categoriesWithCounts.reduce((acc, category) => {
     const heading = getMainCategoryHeading(category);
     if (!acc[heading]) acc[heading] = [];
     acc[heading].push(category);
