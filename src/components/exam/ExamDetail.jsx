@@ -38,6 +38,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import BreadcrumbJsonLd from "@/components/BreadcrumbJsonLd";
+import { pickPracticeTestPathSegment } from "@/utils/practiceTestRouting";
 import RatingJsonLd from "@/components/RatingJsonLd";
 import ReviewsJsonLd from "@/components/ReviewsJsonLd";
 import {
@@ -58,14 +59,7 @@ export default function ExamDetail({ examData, provider, examCode }) {
     typeof window !== "undefined" && !!localStorage.getItem("token");
 
   const handleStartTest = (test, index = 0) => {
-    let testIdentifier = test && test.slug
-      ? test.slug
-      : test && test.id
-      ? test.id
-      : test || index + 1;
-    if (typeof testIdentifier === "string") {
-      testIdentifier = testIdentifier.replace(/-[a-f0-9]{8}$/i, "");
-    }
+    const testIdentifier = pickPracticeTestPathSegment(test, index);
     const testUrl = `/exams/${provider}/${examCode}/practice/${testIdentifier}`;
     if (!checkLogin()) {
       setPendingTestUrl(testUrl);

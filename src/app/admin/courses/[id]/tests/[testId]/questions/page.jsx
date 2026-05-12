@@ -41,10 +41,83 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8
 const CLOUD_NAME = "dhy0krkef";
 const UPLOAD_PRESET = "preptara";
 
+const toBackendQuestionType = (questionType) => {
+  if (questionType === "single") return "SINGLE";
+  if (questionType === "multiple") return "MCQ";
+  return questionType || "SINGLE";
+};
+
+const toUiQuestionType = (questionType) => {
+  const normalized = String(questionType || "").toUpperCase();
+  if (normalized === "SINGLE" || normalized === "TRUE_FALSE") return "single";
+  if (normalized === "MCQ" || normalized === "MULTIPLE") return "multiple";
+  return "single";
+};
+
+/** Next may pass dynamic segments as string | string[] */
+const segment = (value) => {
+  if (value === undefined || value === null) return undefined;
+  const v = Array.isArray(value) ? value[0] : value;
+  return v === undefined || v === null || v === "" ? undefined : String(v);
+};
+
+/** When useParams() is empty, recover id from query (?test_id= / ?category_id=) or path (.../tests/<id>/questions) */
+const readTestIdFromUrl = () => {
+  if (typeof window === "undefined") return undefined;
+  const sp = new URLSearchParams(window.location.search);
+  const fromQuery = sp.get("test_id") || sp.get("category_id");
+  if (fromQuery && fromQuery.trim()) return fromQuery.trim();
+  const m = window.location.pathname.match(/\/tests\/([^/]+)\/questions(?:\/|$)/);
+  return m?.[1];
+};
+
+/** Walk ProseMirror/TipTap-like JSON and return plain text (no [object Object] in UI). */
+const extractPlainFromProseMirrorLike = (node) => {
+  if (node == null) return "";
+  if (typeof node === "string") return node;
+  if (typeof node !== "object") return "";
+  let out = "";
+  if (typeof node.text === "string") out += node.text;
+  if (Array.isArray(node.content)) {
+    for (const child of node.content) {
+      const piece = extractPlainFromProseMirrorLike(child);
+      if (!piece) continue;
+      out = out ? `${out} ${piece}` : piece;
+    }
+  }
+  return out.replace(/\s+/g, " ").trim();
+};
+
+/** API may return `text` as string, TipTap doc object, or other shapes — always coerce for forms and .trim(). */
+const optionTextToString = (text) => {
+  if (text == null || text === "") return "";
+  if (typeof text === "string") return text;
+  if (typeof text !== "object") return "";
+  const fromRoot = extractPlainFromProseMirrorLike(text);
+  if (fromRoot) return fromRoot;
+  if (typeof text.text === "string") return text.text;
+  if (text.text && typeof text.text === "object") {
+    const inner = extractPlainFromProseMirrorLike(text.text);
+    if (inner) return inner;
+  }
+  return "";
+};
+
+const optionDisplayValue = (option) => {
+  const t = optionTextToString(option?.text);
+  const img = option?.image_url || option?.image || "";
+  return t || img || "";
+};
+
+const optionHasContent = (option) => {
+  const t = optionTextToString(option?.text);
+  return Boolean((t && t.trim()) || option?.image_url || option?.image);
+};
+
 export default function TestQuestionsManager() {
   const params = useParams();
-  const courseId = params?.id;
-  const testId = params?.testId;
+  const courseId = segment(params?.id);
+  const testId = segment(params?.testId) || readTestIdFromUrl();
   const router = useRouter();
 
   const [course, setCourse] = useState(null);
@@ -92,11 +165,15 @@ export default function TestQuestionsManager() {
 
       const data = await res.json();
       if (data.success) {
-        const foundCourse = data.data.find(c => c.id === courseId);
+        const foundCourse = data.data.find(
+          (c) => String(c.id) === String(courseId)
+        );
         if (foundCourse) {
           setCourse(foundCourse);
           // Find current test
-          const test = foundCourse.practice_tests_list?.find(t => t.id == testId);
+          const test = foundCourse.practice_tests_list?.find(
+            (t) => String(t.id) === String(testId)
+          );
           setCurrentTest(test);
         }
       }
@@ -120,7 +197,10 @@ export default function TestQuestionsManager() {
       const data = await res.json();
       if (data.success) {
         // Backend returns questions in 'questions' field, not 'data'
-        const questionsList = data.questions || data.data || [];
+        const questionsList = (data.questions || data.data || []).map((q) => ({
+          ...q,
+          question_type: toUiQuestionType(q.question_type),
+        }));
         setQuestions(questionsList);
         console.log(`✅ Fetched ${questionsList.length} questions for test ${testId}`);
       } else {
@@ -157,18 +237,32 @@ export default function TestQuestionsManager() {
     setEditing(question);
     // Ensure options have explanation and image_url fields
     const optionsWithFields = question.options.length > 0 
-      ? question.options.map(opt => ({ 
-          text: opt.text || opt, 
-          explanation: opt.explanation || "",
+      ? question.options.map((opt) => ({
+          text: optionTextToString(opt?.text),
+          explanation:
+            typeof opt?.explanation === "string"
+              ? opt.explanation
+              : optionTextToString(opt?.explanation),
           image_url: opt.image_url || opt.image || ""
         }))
       : [{ text: "", explanation: "", image_url: "" }, { text: "", explanation: "", image_url: "" }, { text: "", explanation: "", image_url: "" }, { text: "", explanation: "", image_url: "" }];
     
     setFormData({
       question_text: question.question_text || "",
-      question_type: question.question_type,
+      question_type: toUiQuestionType(question.question_type),
       options: optionsWithFields,
-      correct_answers: question.correct_answers,
+      correct_answers: (question.correct_answers || []).map((ans) => {
+        if (typeof ans === "string") return ans;
+        if (ans && typeof ans === "object") {
+          return (
+            optionTextToString(ans.text) ||
+            ans.image_url ||
+            ans.image ||
+            ""
+          );
+        }
+        return ans != null ? String(ans) : "";
+      }),
       explanation: question.explanation || "",
       question_image: question.question_image || "",
       marks: question.marks || 1,
@@ -276,11 +370,56 @@ export default function TestQuestionsManager() {
     }
   };
 
+  const isLikelyMongoObjectId = (s) =>
+    typeof s === "string" && /^[a-fA-F0-9]{24}$/.test(s.trim());
+
+  const resolvePracticeTestId = () => {
+    const tests = course?.practice_tests_list || [];
+    const fromQuestion = questions.find((q) => q?.category_id)?.category_id;
+    if (fromQuestion && isLikelyMongoObjectId(String(fromQuestion))) {
+      return String(fromQuestion).trim();
+    }
+    if (currentTest?.id != null && isLikelyMongoObjectId(String(currentTest.id))) {
+      return String(currentTest.id).trim();
+    }
+    const candidate = (segment(params?.testId) || readTestIdFromUrl() || "").trim();
+    if (candidate && isLikelyMongoObjectId(candidate)) return candidate;
+    if (candidate && tests.length) {
+      const bySlug = tests.find(
+        (t) => t?.slug != null && String(t.slug) === candidate
+      );
+      if (bySlug?.id && isLikelyMongoObjectId(String(bySlug.id))) {
+        return String(bySlug.id).trim();
+      }
+      const byId = tests.find((t) => String(t.id) === candidate);
+      if (byId?.id && isLikelyMongoObjectId(String(byId.id))) {
+        return String(byId.id).trim();
+      }
+    }
+    if (candidate) return candidate;
+    if (currentTest?.id != null && String(currentTest.id).trim() !== "") {
+      return String(currentTest.id).trim();
+    }
+    if (fromQuestion != null && String(fromQuestion).trim() !== "") {
+      return String(fromQuestion).trim();
+    }
+    return undefined;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
 
     try {
+      const practiceTestId = resolvePracticeTestId();
+      if (!practiceTestId) {
+        setMessage(
+          "❌ Practice test id is missing. Open this screen from the course’s practice tests list (View Questions), then try again."
+        );
+        setLoading(false);
+        return;
+      }
+
       // Validate: must have either question_text or question_image
       if (!formData.question_text.trim() && !formData.question_image) {
         setMessage("❌ Please provide either question text or question image");
@@ -302,8 +441,9 @@ export default function TestQuestionsManager() {
             finalImageUrl = await uploadImageToCloudinary(optionImageFiles[idx]);
           }
           
+          const textStr = optionTextToString(opt.text);
           // Validate: option must have either text or image
-          const hasText = opt.text && opt.text.trim() !== "";
+          const hasText = textStr.trim() !== "";
           const hasImage = finalImageUrl !== "";
           
           if (!hasText && !hasImage) {
@@ -311,8 +451,11 @@ export default function TestQuestionsManager() {
           }
 
           return {
-            text: opt.text ? opt.text.trim() : "",
-            explanation: opt.explanation ? opt.explanation.trim() : "",
+            text: textStr.trim(),
+            explanation:
+              typeof opt.explanation === "string"
+                ? opt.explanation.trim()
+                : optionTextToString(opt.explanation).trim(),
             image_url: finalImageUrl || undefined
           };
         })
@@ -333,12 +476,13 @@ export default function TestQuestionsManager() {
       let validIndex = 0;
       
       formData.options.forEach((opt, originalIndex) => {
-        const hasText = opt.text && opt.text.trim() !== "";
-        const hasImage = opt.image_url && opt.image_url.trim() !== "";
+        const textStr = optionTextToString(opt.text);
+        const hasText = textStr.trim() !== "";
+        const hasImage = opt.image_url && String(opt.image_url).trim() !== "";
         
         if (hasText || hasImage) {
           if (validIndex < validOptions.length) {
-            const originalIdentifier = opt.text || opt.image_url;
+            const originalIdentifier = textStr || opt.image_url;
             const finalOpt = validOptions[validIndex];
             const finalIdentifier = finalOpt.text || finalOpt.image_url;
             if (originalIdentifier && finalIdentifier) {
@@ -350,16 +494,31 @@ export default function TestQuestionsManager() {
       });
       
       // Map correct answers using the map
-      const mappedCorrectAnswers = formData.correct_answers.map(ans => {
+      const mappedCorrectAnswers = formData.correct_answers.map((rawAns) => {
+        const ans =
+          typeof rawAns === "string"
+            ? rawAns
+            : optionTextToString(rawAns) ||
+              (rawAns && typeof rawAns === "object"
+                ? rawAns.image_url || rawAns.image || ""
+                : rawAns != null
+                  ? String(rawAns)
+                  : "");
         // Try to find in the map first
         if (answerMap.has(ans)) {
           return answerMap.get(ans);
         }
         
         // Fallback: try to find by direct match in final options
-        const directMatch = validOptions.find(opt => 
-          opt.text === ans || opt.image_url === ans || (opt.text || opt.image_url) === ans
-        );
+        const directMatch = validOptions.find((opt) => {
+          const ot = optionTextToString(opt.text);
+          return (
+            ot === ans ||
+            opt.image_url === ans ||
+            (ot || opt.image_url) === ans ||
+            optionTextToString(rawAns) === ot
+          );
+        });
         if (directMatch) {
           return directMatch.text || directMatch.image_url;
         }
@@ -369,9 +528,11 @@ export default function TestQuestionsManager() {
       });
 
       const payload = {
-        course_id: courseId,
+        category_id: practiceTestId,
+        test_id: practiceTestId,
+        course_id: courseId || course?.id,
         question_text: formData.question_text.trim() || "",
-        question_type: formData.question_type,
+        question_type: toBackendQuestionType(formData.question_type),
         options: validOptions,
         correct_answers: mappedCorrectAnswers,
         explanation: formData.explanation || "",
@@ -381,8 +542,8 @@ export default function TestQuestionsManager() {
       };
 
       const url = editing
-        ? `${API_BASE_URL}/api/questions/admin/${editing.id}/update/`
-        : `${API_BASE_URL}/api/questions/admin/create/`;
+        ? `${API_BASE_URL}/api/exams/questions/update/${editing.id}/`
+        : `${API_BASE_URL}/api/exams/questions/create/`;
 
       const res = await fetch(url, {
         method: editing ? "PUT" : "POST",
@@ -402,7 +563,7 @@ export default function TestQuestionsManager() {
         fetchQuestions();
         setTimeout(() => setMessage(""), 3000);
       } else {
-        setMessage("❌ Error: " + (data.error || "Failed to save"));
+        setMessage("❌ Error: " + (data.message || data.error || "Failed to save"));
       }
     } catch (err) {
       setMessage("❌ Error: " + err.message);
@@ -415,7 +576,7 @@ export default function TestQuestionsManager() {
     if (!confirm("Are you sure you want to delete this question?")) return;
 
     try {
-      const res = await fetch(`${API_BASE_URL}/api/questions/admin/${questionId}/delete/`, {
+      const res = await fetch(`${API_BASE_URL}/api/exams/questions/delete/${questionId}/`, {
         method: "DELETE",
         headers: getAuthHeaders()
       });
@@ -441,7 +602,7 @@ export default function TestQuestionsManager() {
     if (!confirm(`Are you sure you want to delete ${selectedQuestions.length} question(s)?`)) return;
 
     try {
-      const res = await fetch(`${API_BASE_URL}/api/questions/admin/bulk-delete/`, {
+      const res = await fetch(`${API_BASE_URL}/api/exams/questions/bulk-delete/`, {
         method: "POST",
         headers: {
           ...getAuthHeaders(),
@@ -831,8 +992,8 @@ export default function TestQuestionsManager() {
                     onValueChange={(value) => toggleCorrectAnswer(value)}
                   >
                 {formData.options.map((option, index) => {
-                      const optionValue = option.text || option.image_url || "";
-                      const hasContent = option.text?.trim() || option.image_url;
+                      const optionValue = optionDisplayValue(option);
+                      const hasContent = optionHasContent(option);
                       return (
                       <div key={index} className="mb-4 p-3 border rounded-lg">
                         <div className="flex gap-2 mb-2 items-center">
@@ -842,7 +1003,7 @@ export default function TestQuestionsManager() {
                             disabled={!hasContent}
                           />
                           <Input
-                            value={option.text || ""}
+                            value={optionTextToString(option.text)}
                             onChange={(e) => updateOption(index, e.target.value, 'text')}
                             placeholder={`Option ${String.fromCharCode(65 + index)}`}
                             className="flex-1"
@@ -918,8 +1079,8 @@ export default function TestQuestionsManager() {
                   </RadioGroup>
                 ) : (
                   formData.options.map((option, index) => {
-                    const optionValue = option.text || option.image_url || "";
-                    const hasContent = option.text?.trim() || option.image_url;
+                    const optionValue = optionDisplayValue(option);
+                    const hasContent = optionHasContent(option);
                     return (
                     <div key={index} className="mb-4 p-3 border rounded-lg">
                       <div className="flex gap-2 mb-2 items-center">
@@ -929,7 +1090,7 @@ export default function TestQuestionsManager() {
                           disabled={!hasContent}
                     />
                     <Input
-                          value={option.text || ""}
+                          value={optionTextToString(option.text)}
                           onChange={(e) => updateOption(index, e.target.value, 'text')}
                           placeholder={`Option ${String.fromCharCode(65 + index)}`}
                       className="flex-1"

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Clock, Star, Compass, ChevronLeft, ChevronRight, FileText, Lock, ArrowLeft } from "lucide-react";
@@ -15,6 +15,89 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 const FREE_QUESTIONS_LIMIT = 10;
 const QUESTIONS_PER_PAGE = 20;
+
+const isGarbageImageRef = (url) =>
+  typeof url === "string" &&
+  (url.includes("GridFS") ||
+    url.includes("gridfs") ||
+    url.includes("ObjectId("));
+
+/** Absolute http(s) URL, or site-relative /media paths joined to API origin */
+const resolveMediaUrl = (url) => {
+  if (url == null || url === "") return null;
+  const s = typeof url === "string" ? url.trim() : String(url);
+  if (!s || isGarbageImageRef(s)) return null;
+  if (s.startsWith("http://") || s.startsWith("https://")) return s;
+  if (s.startsWith("//")) return `https:${s}`;
+  if (s.startsWith("/")) return `${API_BASE_URL}${s}`;
+  return s;
+};
+
+const hasHtmlContent = (value) =>
+  typeof value === "string" && /<\/?[a-z][\s\S]*>/i.test(value);
+
+/** TipTap / ProseMirror JSON → plain text for display (never "[object Object]"). */
+const extractPlainFromProseMirrorLike = (node, depth = 0) => {
+  if (depth > 50 || node == null) return "";
+  if (typeof node === "string") return node;
+  if (typeof node !== "object") return "";
+  let out = "";
+  if (typeof node.text === "string") out += node.text;
+  if (node.attrs && typeof node.attrs === "object") {
+    for (const key of ["label", "title", "name", "alt", "caption"]) {
+      const v = node.attrs[key];
+      if (typeof v === "string" && v.trim()) {
+        out = out ? `${out} ${v.trim()}` : v.trim();
+      }
+    }
+  }
+  if (Array.isArray(node.content)) {
+    for (const child of node.content) {
+      const piece = extractPlainFromProseMirrorLike(child, depth + 1);
+      if (piece) out = out ? `${out} ${piece}` : piece;
+    }
+  }
+  return out.replace(/\s+/g, " ").trim();
+};
+
+/** Coerce question/option content to a display string; objects are parsed, not Stringified. */
+const contentToDisplayString = (content) => {
+  if (content == null || content === "") return "";
+  if (typeof content === "string") return content;
+  if (typeof content === "object") {
+    const fromDoc = extractPlainFromProseMirrorLike(content);
+    if (fromDoc) return fromDoc;
+    if (typeof content.text === "string") return content.text;
+    if (content.text && typeof content.text === "object") {
+      const inner = extractPlainFromProseMirrorLike(content.text);
+      if (inner) return inner;
+    }
+    for (const key of ["label", "title", "name", "alt"]) {
+      const v = content[key];
+      if (typeof v === "string" && v.trim()) return v.trim();
+    }
+    return "";
+  }
+  return String(content);
+};
+
+const RichContent = ({ content, className = "" }) => {
+  const safeContent = contentToDisplayString(content);
+  if (!safeContent.trim()) return null;
+
+  if (hasHtmlContent(safeContent)) {
+    return (
+      <div
+        className={`tiptap-editor-content break-words ${className}`}
+        dangerouslySetInnerHTML={{ __html: safeContent }}
+      />
+    );
+  }
+
+  return (
+    <div className={`whitespace-pre-wrap break-words ${className}`}>{safeContent}</div>
+  );
+};
 
 export default function TestPlayerClient({ exam, questions, test, provider, examCode, testId }) {
   const router = useRouter();
@@ -36,6 +119,12 @@ export default function TestPlayerClient({ exam, questions, test, provider, exam
   const [attemptId, setAttemptId] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
+  const handleSubmitRef = useRef(null);
+  const timeRemainingRef = useRef(null);
+  /** Prevents double time-up submit (Strict Mode / duplicate ticks). */
+  const autoTimeExpiredSubmitRef = useRef(false);
+
+  timeRemainingRef.current = timeRemaining;
 
   // Get authentication token
   const getAuthToken = () => {
@@ -88,26 +177,6 @@ export default function TestPlayerClient({ exam, questions, test, provider, exam
       checkEnrollment();
     }
   }, [exam]);
-
-  
-
-  // Timer countdown
-  useEffect(() => {
-    if (!testStarted || timeRemaining === null || timeRemaining <= 0) return;
-
-    const timer = setInterval(() => {
-      setTimeRemaining((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          handleSubmit(true);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [timeRemaining, testStarted]);
 
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
@@ -256,23 +325,31 @@ export default function TestPlayerClient({ exam, questions, test, provider, exam
         
         let selectedAnswers = [];
 
-if (userAnswer && question.options) {
-  if (Array.isArray(userAnswer)) {
-    selectedAnswers = userAnswer.map(ans => {
-      const index = question.options.findIndex(
-        opt => (opt.text || opt) === ans
-      );
-      return index !== -1 ? String(index) : null;
-    }).filter(val => val !== null);
-  } else {
-    const index = question.options.findIndex(
-      opt => (opt.text || opt) === userAnswer
-    );
-    if (index !== -1) {
-      selectedAnswers = [String(index)];
-    }
-  }
-}
+        if (userAnswer && question.options) {
+          const resolveIndex = (ans) => {
+            const opts = question.options;
+            if (ans == null) return -1;
+            const s = String(ans);
+            if (/^\d+$/.test(s)) {
+              const i = parseInt(s, 10);
+              if (i >= 0 && i < opts.length) return i;
+            }
+            return opts.findIndex((opt) => (opt.text || opt) === ans);
+          };
+          if (Array.isArray(userAnswer)) {
+            selectedAnswers = userAnswer
+              .map((ans) => {
+                const index = resolveIndex(ans);
+                return index !== -1 ? String(index) : null;
+              })
+              .filter((val) => val !== null);
+          } else {
+            const index = resolveIndex(userAnswer);
+            if (index !== -1) {
+              selectedAnswers = [String(index)];
+            }
+          }
+        }
 
         userAnswers.push({
           question_id: String(questionId),
@@ -366,6 +443,41 @@ const timeTaken = `${minutes}:${seconds.toString().padStart(2, '0')}`;
     }
   };
 
+  handleSubmitRef.current = handleSubmit;
+
+  // Countdown: keep a fixed-size dependency array ([testStarted, timerActive]) so React never sees a changing hook arity (e.g. after Fast Refresh).
+  // `timerActive` only flips when the test starts (timer armed), not on every tick, so the interval is not recreated every second.
+  // Only auto-submit when the clock actually reaches the last second (prev === 1), not when time was already 0 (expired resume / bad state).
+  const timerActive = testStarted && timeRemaining != null;
+  useEffect(() => {
+    if (!timerActive) return;
+
+    const startSeconds = timeRemainingRef.current ?? 0;
+    if (startSeconds <= 0) return;
+
+    const timer = setInterval(() => {
+      setTimeRemaining((prev) => {
+        if (prev == null) return prev;
+        if (prev === 1) {
+          clearInterval(timer);
+          if (!autoTimeExpiredSubmitRef.current) {
+            autoTimeExpiredSubmitRef.current = true;
+            const submit = handleSubmitRef.current;
+            if (typeof submit === "function") void submit(true);
+          }
+          return 0;
+        }
+        if (prev <= 0) {
+          clearInterval(timer);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [testStarted, timerActive]);
+
   const handleUpgradeClick = () => {
     router.push(`/exams/${provider}/${examCode}/practice/pricing`);
   };
@@ -450,7 +562,29 @@ const timeTaken = `${minutes}:${seconds.toString().padStart(2, '0')}`;
       }
       
       if (attemptData.success && attemptData.attempt_id) {
+        const limitMinutes = Math.max(
+          1,
+          typeof attemptData.time_limit === "number" && attemptData.time_limit > 0
+            ? attemptData.time_limit
+            : parseDuration(test?.duration ?? exam?.duration ?? "30")
+        );
+        const totalSeconds = Math.floor(limitMinutes * 60);
+        let initialSeconds = totalSeconds;
+        if (attemptData.is_existing && attemptData.start_time) {
+          const started = Date.parse(attemptData.start_time);
+          if (!Number.isNaN(started)) {
+            const elapsed = Math.floor((Date.now() - started) / 1000);
+            initialSeconds = Math.max(0, totalSeconds - elapsed);
+          }
+        }
+        // Expired resume would leave 0s and used to fire submit on first tick — give full allowance for this session.
+        if (initialSeconds <= 0) {
+          initialSeconds = totalSeconds;
+        }
+
+        autoTimeExpiredSubmitRef.current = false;
         setAttemptId(attemptData.attempt_id);
+        setTimeRemaining(initialSeconds);
         setTestStarted(true);
       } else {
         const errorMsg = attemptData.message || 'Invalid response from server. Please try again.';
@@ -641,7 +775,11 @@ const timeTaken = `${minutes}:${seconds.toString().padStart(2, '0')}`;
           </div>
           <div className="flex items-center gap-2 bg-[#1A73E8]/20 px-4 py-2 rounded-full">
             <Clock className="w-4 h-4" />
-            <span className="font-semibold">Time Limit: {timeRemaining ? formatTimeLimit(timeRemaining) : "30 mins"}</span>
+            <span className="font-semibold font-mono">
+              {timeRemaining != null
+                ? `Time left: ${formatTime(timeRemaining)}`
+                : `Time limit: ${formatDurationDisplay(currentTest?.duration || exam?.duration)}`}
+            </span>
           </div>
         </div>
       </div>
@@ -755,8 +893,32 @@ const timeTaken = `${minutes}:${seconds.toString().padStart(2, '0')}`;
           <div className="flex-1 overflow-y-auto px-6 py-6">
             <div className="max-w-4xl">
               <h2 className="text-2xl font-bold text-[#0C1A35] mb-2">
-                Q{currentQuestion}. {currentQuestionData.question_text || currentQuestionData.question}
+                Q{currentQuestion}.
               </h2>
+              <RichContent
+                content={currentQuestionData.question_text || currentQuestionData.question}
+                className="text-[#0C1A35] text-base leading-relaxed mb-3"
+              />
+              {(() => {
+                const raw = currentQuestionData.question_image;
+                let src = resolveMediaUrl(raw);
+                if (
+                  !src &&
+                  currentQuestionData?.id &&
+                  /^[a-fA-F0-9]{24}$/.test(String(currentQuestionData.id)) &&
+                  raw &&
+                  isGarbageImageRef(String(raw))
+                ) {
+                  src = `${API_BASE_URL}/api/exams/questions/${currentQuestionData.id}/image/`;
+                }
+                return src ? (
+                  <img
+                    src={src}
+                    alt={`Question ${currentQuestion}`}
+                    className="mb-4 max-h-80 w-auto max-w-full rounded-md border border-gray-200 object-contain"
+                  />
+                ) : null;
+              })()}
               <div className="mb-6">
                 <span className="text-sm text-gray-600 bg-gray-100 px-3 py-1 rounded-full">
                   {currentQuestionData.marks || 1} Mark
@@ -770,8 +932,15 @@ const timeTaken = `${minutes}:${seconds.toString().padStart(2, '0')}`;
                     onValueChange={(value) => handleAnswerChange(value)}
                   >
                     {options.map((option, idx) => {
-                      const optionText = option.text || option;
-                      const optionValue = option.value || String.fromCharCode(65 + idx);
+                      const selectionValue = String(idx);
+                      const optionLetter =
+                        (typeof option === "object" && option?.value) ||
+                        String.fromCharCode(65 + idx);
+                      const displayContent =
+                        typeof option === "object" && option != null
+                          ? option.text
+                          : option;
+                      const optImg = resolveMediaUrl(option?.image_url || option?.image);
 
                       return (
                         <div
@@ -779,7 +948,7 @@ const timeTaken = `${minutes}:${seconds.toString().padStart(2, '0')}`;
                           className="flex items-start space-x-3 p-4 border border-gray-200 rounded-lg hover:border-[#1A73E8]/50 transition-colors bg-white"
                         >
                           <RadioGroupItem
-                            value={optionText}
+                            value={selectionValue}
                             id={`option-${idx}`}
                             className="mt-1"
                           />
@@ -787,7 +956,19 @@ const timeTaken = `${minutes}:${seconds.toString().padStart(2, '0')}`;
                             htmlFor={`option-${idx}`}
                             className="flex-1 cursor-pointer text-[#0C1A35] text-base leading-relaxed"
                           >
-                            {optionValue}) {optionText}
+                            <div className="flex items-start gap-2">
+                              <span>{optionLetter})</span>
+                              <div className="flex-1">
+                                <RichContent content={displayContent} />
+                                {optImg ? (
+                                  <img
+                                    src={optImg}
+                                    alt={`Option ${optionLetter}`}
+                                    className="mt-2 max-h-60 w-auto max-w-full rounded-md border border-gray-200 object-contain"
+                                  />
+                                ) : null}
+                              </div>
+                            </div>
                           </Label>
                         </div>
                       );
@@ -795,9 +976,18 @@ const timeTaken = `${minutes}:${seconds.toString().padStart(2, '0')}`;
                   </RadioGroup>
                 ) : (
                   options.map((option, idx) => {
-                    const optionText = option.text || option;
-                    const optionValue = option.value || String.fromCharCode(65 + idx);
-                    const isChecked = Array.isArray(currentAnswer) && currentAnswer.includes(optionText);
+                      const selectionValue = String(idx);
+                      const optionLetter =
+                        (typeof option === "object" && option?.value) ||
+                        String.fromCharCode(65 + idx);
+                      const displayContent =
+                        typeof option === "object" && option != null
+                          ? option.text
+                          : option;
+                      const isChecked =
+                        Array.isArray(currentAnswer) &&
+                        currentAnswer.includes(selectionValue);
+                      const optImgCb = resolveMediaUrl(option?.image_url || option?.image);
 
                     return (
                       <div
@@ -807,14 +997,28 @@ const timeTaken = `${minutes}:${seconds.toString().padStart(2, '0')}`;
                         <Checkbox
                           id={`option-${idx}`}
                           checked={isChecked}
-                          onCheckedChange={(checked) => handleAnswerChange(optionText, checked)}
+                          onCheckedChange={(checked) =>
+                            handleAnswerChange(selectionValue, checked)
+                          }
                           className="mt-1"
                         />
                         <Label
                           htmlFor={`option-${idx}`}
                           className="flex-1 cursor-pointer text-[#0C1A35] text-base leading-relaxed"
                         >
-                          {optionValue}) {optionText}
+                          <div className="flex items-start gap-2">
+                            <span>{optionLetter})</span>
+                            <div className="flex-1">
+                              <RichContent content={displayContent} />
+                              {optImgCb ? (
+                                <img
+                                  src={optImgCb}
+                                  alt={`Option ${optionLetter}`}
+                                  className="mt-2 max-h-60 w-auto max-w-full rounded-md border border-gray-200 object-contain"
+                                />
+                              ) : null}
+                            </div>
+                          </div>
                         </Label>
                       </div>
                     );

@@ -48,6 +48,16 @@ function normalizeContentForEditor(str) {
     .join("");
 }
 
+function parseBoolean(value) {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value !== 0;
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    return ["true", "1", "yes", "y", "on"].includes(normalized);
+  }
+  return false;
+}
+
 export default function AdminCategoriesPage() {
   const [categories, setCategories] = useState([]);
   const [filteredCategories, setFilteredCategories] = useState([]);
@@ -59,6 +69,7 @@ export default function AdminCategoriesPage() {
   const [selectedSlugs, setSelectedSlugs] = useState([]);
   const [categoryData, setCategoryData] = useState({
     title: "",
+    slug: "",
     main_category: "",
     description: "",
     content: "",
@@ -67,6 +78,7 @@ export default function AdminCategoriesPage() {
     meta_title: "",
     meta_keywords: "",
     meta_description: "",
+    is_top_certification: false,
   });
   const [editSlug, setEditSlug] = useState(null);
   const router = useRouter();
@@ -119,6 +131,7 @@ export default function AdminCategoriesPage() {
             
             return {
           title: c.title || c.name || "",
+          slug: c.slug || "",
           main_category: c.main_category || "",
           description: c.description || "",
           content: normalizeContentForEditor(c.content || ""),
@@ -128,6 +141,7 @@ export default function AdminCategoriesPage() {
           meta_title: c.meta_title || "",
           meta_keywords: c.meta_keywords || "",
           meta_description: c.meta_description || "",
+          is_top_certification: parseBoolean(c.is_top_certification),
               courseCount: courseCount,
             };
           })
@@ -239,6 +253,7 @@ export default function AdminCategoriesPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: categoryData.title,
+          slug: categoryData.slug,
           main_category: categoryData.main_category,
           description: categoryData.description,
           content: categoryData.content,
@@ -252,6 +267,7 @@ export default function AdminCategoriesPage() {
           meta_title: categoryData.meta_title,
           meta_keywords: categoryData.meta_keywords,
           meta_description: categoryData.meta_description,
+          is_top_certification: parseBoolean(categoryData.is_top_certification),
         }),
       });
 
@@ -293,6 +309,7 @@ export default function AdminCategoriesPage() {
         meta_title: saved.meta_title || categoryData.meta_title,
         meta_keywords: saved.meta_keywords || categoryData.meta_keywords,
         meta_description: saved.meta_description || categoryData.meta_description,
+        is_top_certification: parseBoolean(saved.is_top_certification),
         courseCount: updatedCourseCount,
       };
 
@@ -316,6 +333,7 @@ export default function AdminCategoriesPage() {
         setEditSlug(null);
         setCategoryData({
           title: "",
+          slug: "",
           main_category: "",
           description: "",
           content: "",
@@ -324,6 +342,7 @@ export default function AdminCategoriesPage() {
           meta_title: "",
           meta_keywords: "",
           meta_description: "",
+          is_top_certification: false,
         });
         setSaveMessage("");
       }, 900);
@@ -357,6 +376,7 @@ export default function AdminCategoriesPage() {
   const handleEditCategory = (cat) => {
     setCategoryData({
       title: cat.title || "",
+      slug: cat.slug || "",
       main_category: cat.main_category || "",
       description: cat.description || "",
       content: normalizeContentForEditor(cat.content || ""),
@@ -365,6 +385,7 @@ export default function AdminCategoriesPage() {
       meta_title: cat.meta_title || "",
       meta_keywords: cat.meta_keywords || "",
       meta_description: cat.meta_description || "",
+      is_top_certification: parseBoolean(cat.is_top_certification),
     });
     setEditSlug(cat.slug);
     setEditMode(true);
@@ -433,10 +454,9 @@ export default function AdminCategoriesPage() {
     );
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-indigo-50 via-white to-indigo-100 px-6 py-12">
-      <div className="max-w-6xl mx-auto">
+    <div className="w-full max-w-none space-y-6">
         <motion.h2
-          className="text-4xl font-extrabold text-center mb-8 bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600"
+          className="text-2xl font-semibold text-gray-900 tracking-tight"
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
         >
@@ -444,32 +464,34 @@ export default function AdminCategoriesPage() {
         </motion.h2>
         {pageMessage ? (
           <div
-            className={`mb-6 rounded-lg border px-4 py-3 text-sm ${
+            className={`rounded-md border px-4 py-3 text-sm ${
               pageMessage.startsWith("✅")
-                ? "border-green-200 bg-green-50 text-green-700"
-                : "border-red-200 bg-red-50 text-red-700"
+                ? "border-gray-200 bg-gray-50 text-gray-800"
+                : "border-red-200 bg-red-50 text-red-800"
             }`}
           >
             {pageMessage}
           </div>
         ) : null}
 
-        <div className="flex flex-col sm:flex-row justify-between gap-4 mb-6">
+        <div className="flex flex-col sm:flex-row justify-between gap-4 sm:items-center">
           <Input
-            placeholder="🔍 Search categories..."
+            placeholder="Search categories..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full sm:w-80 rounded-xl border border-indigo-200 px-4 py-2"
+            className="w-full sm:max-w-sm rounded-md border border-gray-200 bg-white shadow-none"
           />
 
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-2">
             <Button
-              className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white"
+              variant="default"
+              className="flex items-center gap-2 bg-gray-900 text-white hover:bg-gray-800"
               onClick={() => {
                 setEditMode(false);
                 setPageMessage("");
                 setCategoryData({
                   title: "",
+                  slug: "",
                   main_category: "",
                   description: "",
                   content: "",
@@ -478,6 +500,7 @@ export default function AdminCategoriesPage() {
                   meta_title: "",
                   meta_keywords: "",
                   meta_description: "",
+                  is_top_certification: false,
                 });
                 setEditSlug(null);
                 setShowModal(true);
@@ -488,7 +511,8 @@ export default function AdminCategoriesPage() {
 
             {selectedSlugs.length > 0 && (
               <Button
-                className="flex items-center gap-2 bg-rose-600 hover:bg-rose-700 text-white"
+                variant="outline"
+                className="flex items-center gap-2 border-red-300 text-red-700 hover:bg-red-50 hover:text-red-800"
                 onClick={() => openDeleteConfirmation("bulk")}
               >
                 <FiTrash2 /> Delete Selected ({selectedSlugs.length})
@@ -498,23 +522,24 @@ export default function AdminCategoriesPage() {
         </div>
 
         {/* SEO Settings for /categories page */}
-        <div className="mb-6">
-          <Card className="border-indigo-200 shadow-lg">
+        <div>
+          <Card className="border border-gray-200 bg-white shadow-sm">
             <CardContent className="p-6">
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
                 <div>
-                  <h3 className="text-xl font-bold text-indigo-700">
-                    🔍 SEO Settings ( /categories page )
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    SEO settings (/categories page)
                   </h3>
                   <p className="text-sm text-gray-600 mt-1">
-                    Meta Title / Description / Keywords for the main categories listing page.
+                    Meta title, description, and keywords for the main categories listing page.
                   </p>
                 </div>
 
                 <Button
                   onClick={handleSaveCategoriesPageSeo}
                   disabled={seoLoading}
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-6 py-2"
+                  variant="outline"
+                  className="shrink-0 border-gray-300 font-medium hover:bg-gray-50"
                 >
                   {seoLoading ? "Saving..." : "Save SEO"}
                 </Button>
@@ -524,7 +549,7 @@ export default function AdminCategoriesPage() {
                 <p
                   className={`text-sm mb-4 ${
                     seoMessage.startsWith("✅")
-                      ? "text-green-700"
+                      ? "text-gray-700"
                       : seoMessage.startsWith("❌")
                         ? "text-red-600"
                         : "text-gray-700"
@@ -586,7 +611,7 @@ export default function AdminCategoriesPage() {
                       meta_description: e.target.value,
                     })
                   }
-                  className="w-full border border-gray-300 rounded-lg p-3 text-base focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition bg-white"
+                  className="w-full rounded-md border border-gray-300 bg-white p-3 text-base transition focus-visible:border-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-300"
                   rows={3}
                   placeholder="Concise description shown in Google results (150-160 characters recommended)"
                 />
@@ -595,12 +620,12 @@ export default function AdminCategoriesPage() {
           </Card>
         </div>
 
-        <div className="bg-white rounded-2xl border border-indigo-200 shadow-lg overflow-hidden">
+        <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
           <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
-                <tr>
-                  <th className="px-6 py-4 text-left">
+            <table className="w-full border-collapse text-left text-sm">
+              <thead>
+                <tr className="border-b border-gray-200 bg-gray-50">
+                  <th className="w-10 px-4 py-3 align-middle">
                     <input
                       type="checkbox"
                       checked={filteredCategories.length > 0 && selectedSlugs.length === filteredCategories.length}
@@ -611,20 +636,21 @@ export default function AdminCategoriesPage() {
                           setSelectedSlugs([]);
                         }
                       }}
-                      className="w-4 h-4 rounded border-gray-300"
+                      className="h-4 w-4 rounded border-gray-300"
+                      aria-label="Select all categories"
                     />
                   </th>
-                  <th className="px-6 py-4 text-left font-semibold">Icon</th>
-                  <th className="px-6 py-4 text-left font-semibold">Title</th>
-                  <th className="px-6 py-4 text-left font-semibold">Description</th>
-                  <th className="px-6 py-4 text-left font-semibold">Exams</th>
-                  <th className="px-6 py-4 text-center font-semibold">Actions</th>
+                  <th className="px-4 py-3 text-xs font-medium uppercase tracking-wide text-gray-600">Icon</th>
+                  <th className="px-4 py-3 text-xs font-medium uppercase tracking-wide text-gray-600">Title</th>
+                  <th className="px-4 py-3 text-xs font-medium uppercase tracking-wide text-gray-600">Exams</th>
+                  <th className="px-4 py-3 text-xs font-medium uppercase tracking-wide text-gray-600">Top certification</th>
+                  <th className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wide text-gray-600">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200">
+              <tbody className="divide-y divide-gray-100">
                 {filteredCategories.length === 0 ? (
                   <tr>
-                    <td colSpan="6" className="px-6 py-12 text-center text-gray-500">
+                    <td colSpan="6" className="px-4 py-12 text-center text-gray-500">
                       No categories found. {searchTerm ? "Try a different search term." : "Add a category to get started."}
                     </td>
                   </tr>
@@ -637,56 +663,59 @@ export default function AdminCategoriesPage() {
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: idx * 0.03 }}
-                        className="hover:bg-indigo-50 transition-colors"
+                        className="transition-colors hover:bg-gray-50/80"
                       >
-                        <td className="px-6 py-4">
+                        <td className="px-4 py-3 align-middle">
                           <input
                             type="checkbox"
                             checked={selectedSlugs.includes(cat.slug)}
                             onChange={() => handleSelect(cat.slug)}
-                            className="w-4 h-4 rounded border-gray-300"
+                            className="h-4 w-4 rounded border-gray-300"
+                            aria-label={`Select ${cat.title}`}
                           />
                         </td>
-                        <td className="px-6 py-4">
-                          <div className="w-10 h-10 rounded-lg bg-indigo-50 flex items-center justify-center">
-                            <IconComp className="w-5 h-5 text-indigo-600" />
+                        <td className="px-4 py-3 align-middle">
+                          <div className="flex h-9 w-9 items-center justify-center rounded-md border border-gray-200 bg-gray-50">
+                            <IconComp className="h-4 w-4 text-gray-600" />
                           </div>
                         </td>
-                        <td className="px-6 py-4">
-                          <h3 className="text-lg font-semibold text-indigo-700">{cat.title}</h3>
+                        <td className="px-4 py-3 align-middle font-medium text-gray-900">{cat.title}</td>
+                        <td className="px-4 py-3 align-middle tabular-nums text-gray-700">
+                          {cat.courseCount > 0
+                            ? `${cat.courseCount} exam${cat.courseCount !== 1 ? "s" : ""}`
+                            : "0"}
                         </td>
-                        <td className="px-6 py-4">
-                          <p className="text-sm text-gray-600 max-w-md line-clamp-2">{cat.description || "No description."}</p>
+                        <td className="px-4 py-3 align-middle text-gray-700">
+                          {cat.is_top_certification ? "Yes" : "No"}
                         </td>
-                        <td className="px-6 py-4">
-                          <span className={`text-xs font-semibold px-3 py-1 rounded-full inline-block ${
-                            cat.courseCount > 0 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
-                          }`}>
-                            {cat.courseCount > 0 ? `${cat.courseCount} Exam${cat.courseCount !== 1 ? 's' : ''}` : 'No Exams'}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center justify-center gap-2">
+                        <td className="px-4 py-3 align-middle">
+                          <div className="flex flex-wrap items-center justify-end gap-1.5 sm:justify-center">
                             <Button
                               onClick={() => router.push(`/admin/categories/${cat.slug}/courses`)}
-                              className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 text-sm"
+                              variant="outline"
                               size="sm"
+                              className="h-9 border-gray-300 px-2.5 text-xs font-normal text-gray-800 hover:bg-gray-50 cursor-pointer"
                             >
-                              <Eye className="w-4 h-4 mr-1" /> View courses
+                              <Eye className="h-3.5 w-3.5" />
+                              <span className="hidden sm:inline">View courses</span>
                             </Button>
                             <Button
                               onClick={() => handleEditCategory(cat)}
-                              className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 text-sm"
+                              variant="outline"
                               size="sm"
+                              className="h-9 min-w-9 border-gray-300 px-0 text-gray-800 hover:bg-gray-50"
+                              aria-label={`Edit ${cat.title}`}
                             >
-                              <FiEdit className="w-4 h-4" />
+                              <FiEdit className="h-3.5 w-3.5" />
                             </Button>
                             <Button
                               onClick={() => openDeleteConfirmation("single", cat.slug)}
-                              className="bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 text-sm"
+                              variant="outline"
                               size="sm"
+                              className="h-9 min-w-9 border-gray-200 px-0 text-gray-600 hover:border-red-300 hover:bg-red-50 hover:text-red-700"
+                              aria-label={`Delete ${cat.title}`}
                             >
-                              <FiTrash2 className="w-4 h-4" />
+                              <FiTrash2 className="h-3.5 w-3.5" />
                             </Button>
                           </div>
                         </td>
@@ -698,12 +727,11 @@ export default function AdminCategoriesPage() {
             </table>
           </div>
         </div>
-      </div>
 
       {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-3xl max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-2xl relative">
+          <div className="w-full max-w-5xl max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-2xl relative">
             {/* Header */}
             <div className="sticky top-0 bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-6 rounded-t-2xl">
               <button 
@@ -748,8 +776,22 @@ export default function AdminCategoriesPage() {
                       className="text-base"
                     />
                     <p className="text-xs text-gray-500 mt-1">This will be displayed as the main category name</p>
-              </div>
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Category Slug *
+                    </label>
+                    <Input 
+                      value={categoryData.slug} 
+                      onChange={(e) => setCategoryData({ ...categoryData, slug: e.target.value })} 
+                      placeholder="e.g., cloud-certifications, it-security"
+                      className="text-base"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">This will be displayed as the main category slug</p>
+                  </div>
+               
 
+            
                   <div className="md:col-span-2">
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
                       Main Category Heading
@@ -765,6 +807,31 @@ export default function AdminCategoriesPage() {
                     <p className="text-xs text-gray-500 mt-1">
                       Categories page will group cards using this heading.
                     </p>
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <label className="flex items-center gap-3 rounded-lg border border-indigo-200 bg-indigo-50/40 px-4 py-3">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(categoryData.is_top_certification)}
+                        onChange={(e) =>
+                          setCategoryData({
+                            ...categoryData,
+                            is_top_certification: e.target.checked,
+                          })
+                        }
+                        className="h-4 w-4 rounded border-gray-300 accent-indigo-600"
+                      />
+                      <div>
+                        <p className="text-sm font-semibold text-gray-800">
+                          Show in Top Certification Categories
+                        </p>
+                        <p className="text-xs text-gray-600">
+                          If checked, this category appears in the Top Certification Categories
+                          section above IT categories.
+                        </p>
+                      </div>
+                    </label>
                   </div>
 
                   <div className="md:col-span-2">

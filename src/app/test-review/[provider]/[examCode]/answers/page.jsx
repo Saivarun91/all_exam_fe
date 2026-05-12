@@ -7,8 +7,37 @@ import { ArrowLeft, CheckCircle, XCircle, Clock, Shield, ChevronLeft, ChevronRig
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import {
+  contentToDisplayString,
+  optionTextFromApi,
+  optionImageFromApi,
+  optionRowHasContent,
+  resolveMediaUrl,
+  normalizeAnswersToIndexKey,
+} from "@/utils/testReviewDisplay";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
+
+const hasHtmlContent = (value) =>
+  typeof value === "string" && /<\/?[a-z][\s\S]*>/i.test(value);
+
+const RichContent = ({ content, className = "" }) => {
+  const safeContent = contentToDisplayString(content);
+  if (!safeContent.trim()) return null;
+
+  if (hasHtmlContent(safeContent)) {
+    return (
+      <div
+        className={`tiptap-editor-content break-words ${className}`}
+        dangerouslySetInnerHTML={{ __html: safeContent }}
+      />
+    );
+  }
+
+  return (
+    <div className={`whitespace-pre-wrap break-words ${className}`}>{safeContent}</div>
+  );
+};
 
 export default function ReviewAnswersPage() {
   const params = useParams();
@@ -105,17 +134,24 @@ export default function ReviewAnswersPage() {
           
           if (!isUnanswered) {
             const correctAnswers = q.correct_answers || (q.correct_answer ? [q.correct_answer] : []);
-            
+            const opts = q.options && Array.isArray(q.options) ? q.options : [];
+
             if (correctAnswers.length > 0) {
-              if (Array.isArray(userAnswerValue)) {
-                // Multiple choice - compare arrays of option texts
-                const userAnswersNormalized = userAnswerValue.map(a => String(a).trim()).sort();
-                const correctAnswersNormalized = correctAnswers.map(a => String(a).trim()).sort();
-                isCorrect = JSON.stringify(userAnswersNormalized) === JSON.stringify(correctAnswersNormalized);
+              if (opts.length > 0) {
+                const userKey = normalizeAnswersToIndexKey(userAnswerValue, opts);
+                const correctKey = normalizeAnswersToIndexKey(correctAnswers, opts);
+                isCorrect = userKey === correctKey && userKey !== "";
+              } else if (Array.isArray(userAnswerValue)) {
+                const userAnswersNormalized = userAnswerValue.map((a) => String(a).trim()).sort();
+                const correctAnswersNormalized = correctAnswers.map((a) => String(a).trim()).sort();
+                isCorrect =
+                  JSON.stringify(userAnswersNormalized) ===
+                  JSON.stringify(correctAnswersNormalized);
               } else {
-                // Single choice - compare option text
                 const userAnswerNormalized = String(userAnswerValue).trim();
-                isCorrect = correctAnswers.some(ca => String(ca).trim() === userAnswerNormalized);
+                isCorrect = correctAnswers.some(
+                  (ca) => String(ca).trim() === userAnswerNormalized
+                );
               }
             }
           }
@@ -278,43 +314,69 @@ export default function ReviewAnswersPage() {
                 </div>
                 
                 {/* Question Text */}
-                <p className="mb-6 text-[#0C1A35] text-base leading-relaxed">
-                  {currentQuestion.question_text || currentQuestion.text}
-                </p>
+                <RichContent
+                  content={currentQuestion.question_text || currentQuestion.text}
+                  className="mb-6 text-[#0C1A35] text-base leading-relaxed"
+                />
+                {(() => {
+                  const rawQImg = currentQuestion.question_image;
+                  let qSrc = resolveMediaUrl(rawQImg);
+                  if (
+                    !qSrc &&
+                    currentQuestion?.id &&
+                    /^[a-fA-F0-9]{24}$/.test(String(currentQuestion.id)) &&
+                    rawQImg &&
+                    typeof rawQImg === "string" &&
+                    (rawQImg.includes("GridFS") || rawQImg.includes("gridfs"))
+                  ) {
+                    qSrc = `${API_BASE_URL}/api/exams/questions/${currentQuestion.id}/image/`;
+                  }
+                  return qSrc ? (
+                    <img
+                      src={qSrc}
+                      alt={`Question ${currentQuestion.questionNumber}`}
+                      className="mb-6 max-h-80 w-auto max-w-full rounded-md border border-gray-200 object-contain"
+                    />
+                  ) : null;
+                })()}
                 
                 {/* Options */}
                 <div className="space-y-3 mb-6">
                   {(() => {
-                    // Handle both old format (option_a, option_b) and new format (options array)
+                    const rawOpts = currentQuestion.options;
                     let optionsList = [];
-                    
-                    if (currentQuestion.options && Array.isArray(currentQuestion.options) && currentQuestion.options.length > 0) {
-                      // New format: options is an array of objects
-                      optionsList = currentQuestion.options.map((opt, idx) => ({
-                        letter: String.fromCharCode(65 + idx), // A, B, C, D...
-                        text: typeof opt === 'string' ? opt : (opt.text || opt.label || opt.value || ''),
-                        image: typeof opt === 'object' ? (opt.image_url || opt.image) : null,
-                        explanation: typeof opt === 'object' ? (opt.explanation || '') : '',
-                        originalIndex: idx // Store original index for correct answer matching
-                      })).filter(opt => opt.text && opt.text.trim() !== '');
+
+                    if (rawOpts && Array.isArray(rawOpts) && rawOpts.length > 0) {
+                      optionsList = rawOpts.map((opt, idx) => ({
+                        letter: String.fromCharCode(65 + idx),
+                        text: optionTextFromApi(opt),
+                        image: resolveMediaUrl(optionImageFromApi(typeof opt === "object" ? opt : null)),
+                        explanation:
+                          typeof opt === "object"
+                            ? contentToDisplayString(opt.explanation)
+                            : "",
+                        originalIndex: idx,
+                      }));
                     } else {
-                      // Old format: option_a, option_b, etc.
-                      ['A', 'B', 'C', 'D', 'E', 'F'].forEach((option) => {
-                        const optionText = currentQuestion[`option_${option.toLowerCase()}`] || 
-                                         currentQuestion[`option${option}`] || 
-                                         currentQuestion[`option_${option}`] ||
-                                         currentQuestion[`option_${option.toUpperCase()}`];
-                        if (optionText && optionText.trim() !== '') {
+                      ["A", "B", "C", "D", "E", "F"].forEach((option) => {
+                        const raw =
+                          currentQuestion[`option_${option.toLowerCase()}`] ||
+                          currentQuestion[`option${option}`] ||
+                          currentQuestion[`option_${option}`] ||
+                          currentQuestion[`option_${option.toUpperCase()}`];
+                        const optionText = contentToDisplayString(raw);
+                        if (optionText.trim()) {
                           optionsList.push({
                             letter: option,
                             text: optionText,
-                            image: null
+                            image: null,
+                            explanation: "",
+                            originalIndex: optionsList.length,
                           });
                         }
                       });
                     }
-                    
-                    // If still no options found, show message
+
                     if (optionsList.length === 0) {
                       return (
                         <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
@@ -322,143 +384,89 @@ export default function ReviewAnswersPage() {
                         </div>
                       );
                     }
-                    
-                    // Build full options list with all metadata for normalization
-                    const fullOptionsList = currentQuestion.options && Array.isArray(currentQuestion.options) && currentQuestion.options.length > 0
-                      ? currentQuestion.options.map((opt, idx) => ({
-                          index: idx,
-                          letter: String.fromCharCode(65 + idx),
-                          text: typeof opt === 'string' ? opt : (opt.text || opt.label || opt.value || '')
-                        }))
-                      : [];
-                    
-                    // Helper function to normalize answer to option text
-                    const normalizeToOptionText = (answer) => {
-                      const answerStr = String(answer).trim();
-                      if (fullOptionsList.length > 0) {
-                        // Try to find matching option by text, index, or letter
-                        const matchedOpt = fullOptionsList.find(opt => {
-                          const optText = String(opt.text).trim();
-                          return optText === answerStr || 
-                                 optText.toLowerCase() === answerStr.toLowerCase() ||
-                                 String(opt.index) === answerStr ||
-                                 opt.letter.toUpperCase() === answerStr.toUpperCase();
-                        });
-                        return matchedOpt ? matchedOpt.text : answerStr;
-                      }
-                      return answerStr;
-                    };
-                    
-                    return optionsList.map((opt, optIdx) => {
+
+                    const correctAnswers =
+                      currentQuestion.correct_answers ||
+                      (currentQuestion.correct_answer ? [currentQuestion.correct_answer] : []);
+
+                    const userAns = currentQuestion.userAnswer;
+                    const userKey =
+                      userAns !== null &&
+                      userAns !== undefined &&
+                      !(Array.isArray(userAns) && userAns.length === 0)
+                        ? normalizeAnswersToIndexKey(
+                            Array.isArray(userAns) ? userAns : userAns,
+                            rawOpts && Array.isArray(rawOpts) ? rawOpts : []
+                          )
+                        : "";
+                    const userIdx = new Set(
+                      userKey.split(",").filter(Boolean).map((n) => parseInt(n, 10))
+                    );
+
+                    const correctKey =
+                      correctAnswers.length > 0 && rawOpts && Array.isArray(rawOpts) && rawOpts.length > 0
+                        ? normalizeAnswersToIndexKey(correctAnswers, rawOpts)
+                        : "";
+                    const correctIdx = new Set(
+                      correctKey.split(",").filter(Boolean).map((n) => parseInt(n, 10))
+                    );
+
+                    const legacyMode = !rawOpts || !Array.isArray(rawOpts) || rawOpts.length === 0;
+
+                    return optionsList.map((opt) => {
                       const option = opt.letter;
                       const optionText = opt.text;
-                      if (!optionText) return null;
-                      
-                      // Check if this is the user's answer
-                      // User answers are stored as option text strings
-                      const isUserAnswer = currentQuestion.userAnswer !== null && currentQuestion.userAnswer !== undefined
-                        ? (Array.isArray(currentQuestion.userAnswer) 
-                            ? currentQuestion.userAnswer.some(ua => {
-                                const uaStr = String(ua).trim();
-                                const optTextStr = String(optionText).trim();
-                                return uaStr === optTextStr || uaStr.toLowerCase() === optTextStr.toLowerCase();
-                              })
-                            : (() => {
-                                const uaStr = String(currentQuestion.userAnswer).trim();
-                                const optTextStr = String(optionText).trim();
-                                return uaStr === optTextStr || uaStr.toLowerCase() === optTextStr.toLowerCase();
-                              })())
-                        : false;
-                      
-                      // Check if this is the correct answer
-                      // correct_answers can be stored as option text strings OR option indices OR option letters
-                      const correctAnswers = currentQuestion.correct_answers || 
-                                           (currentQuestion.correct_answer ? [currentQuestion.correct_answer] : []);
-                      
+                      const optIdx = opt.originalIndex;
+                      const optTextStr = optionText.trim().toLowerCase();
+
+                      let isUserAnswer = false;
                       let isCorrectAnswer = false;
-                      
-                      if (correctAnswers.length > 0) {
-                        // Normalize current option text for comparison
-                        const normalizedOptionText = String(optionText).trim().toLowerCase();
-                        const currentOptionLetter = option.toUpperCase();
-                        const currentOptionIndex = optIdx;
-                        const currentLetterIndex = currentOptionLetter.charCodeAt(0) - 65; // A=0, B=1, etc.
-                        
-                        // Check each correct answer - try multiple matching strategies
-                        isCorrectAnswer = correctAnswers.some(ca => {
-                          const caStr = String(ca).trim();
-                          const caStrLower = caStr.toLowerCase();
-                          const normalizedCorrectAnswer = normalizeToOptionText(ca).toLowerCase().trim();
-                          
-                          // Strategy 1: Direct normalized comparison (most reliable)
-                          if (normalizedCorrectAnswer === normalizedOptionText) {
-                            return true;
-                          }
-                          
-                          // Strategy 2: Direct string comparison (case-insensitive)
-                          if (caStrLower === normalizedOptionText) {
-                            return true;
-                          }
-                          
-                          // Strategy 3: Match by letter (A, B, C, D, etc.)
-                          if (caStr.length === 1 && /^[A-Z]$/i.test(caStr)) {
-                            if (caStr.toUpperCase() === currentOptionLetter) {
-                              return true;
-                            }
-                          }
-                          
-                          // Strategy 4: Match by numeric index (0, 1, 2, 3, etc.)
-                          if (!isNaN(caStr) && !isNaN(parseInt(caStr))) {
-                            const caIndex = parseInt(caStr);
-                            // Match by option index
-                            if (caIndex === currentOptionIndex) {
-                              return true;
-                            }
-                            // Match by letter index (A=0, B=1, etc.)
-                            if (caIndex === currentLetterIndex) {
-                              return true;
-                            }
-                          }
-                          
-                          // Strategy 5: Partial text match (for cases where correct answer might be a substring)
-                          if (normalizedOptionText.includes(caStrLower) || caStrLower.includes(normalizedOptionText)) {
-                            // Only if both are substantial strings (not single characters)
-                            if (caStr.length > 3 && normalizedOptionText.length > 3) {
-                              return true;
-                            }
-                          }
-                          
-                          // Strategy 6: Match against full option text from options array
-                          if (fullOptionsList && fullOptionsList.length > 0) {
-                            const matchingOption = fullOptionsList.find(opt => {
-                              const optText = String(opt.text).trim().toLowerCase();
-                              return optText === caStrLower || optText === normalizedCorrectAnswer;
+                      const ua = currentQuestion.userAnswer;
+
+                      if (legacyMode) {
+                        if (ua !== null && ua !== undefined) {
+                          if (Array.isArray(ua)) {
+                            isUserAnswer = ua.some((x) => {
+                              const s = String(x).trim();
+                              return (
+                                s.toLowerCase() === optTextStr ||
+                                s === String(optIdx) ||
+                                s.toUpperCase() === String(option).toUpperCase()
+                              );
                             });
-                            if (matchingOption) {
-                              if (matchingOption.index === currentOptionIndex) {
-                                return true;
-                              }
-                              if (matchingOption.letter === currentOptionLetter) {
-                                return true;
-                              }
-                            }
+                          } else {
+                            const s = String(ua).trim();
+                            isUserAnswer =
+                              s.toLowerCase() === optTextStr ||
+                              s === String(optIdx) ||
+                              s.toUpperCase() === String(option).toUpperCase();
                           }
-                          
-                          // Strategy 7: Match against optionsList (current list being rendered)
-                          const matchingInCurrentList = optionsList.find(opt => {
-                            const optText = String(opt.text).trim().toLowerCase();
-                            return optText === caStrLower || optText === normalizedCorrectAnswer;
+                        }
+                        if (correctAnswers.length > 0) {
+                          isCorrectAnswer = correctAnswers.some((ca) => {
+                            const c = String(ca).trim();
+                            return (
+                              c.toLowerCase() === optTextStr ||
+                              c === String(optIdx) ||
+                              c.toUpperCase() === String(option).toUpperCase()
+                            );
                           });
-                          if (matchingInCurrentList && matchingInCurrentList.letter === currentOptionLetter) {
-                            return true;
-                          }
-                          
-                          return false;
-                        });
+                        }
+                      } else {
+                        isUserAnswer = userIdx.has(optIdx);
+                        if (correctAnswers.length > 0 && correctIdx.size > 0) {
+                          isCorrectAnswer = correctIdx.has(optIdx);
+                        } else if (correctAnswers.length > 0) {
+                          const t = optionTextFromApi(rawOpts[optIdx]).trim().toLowerCase();
+                          isCorrectAnswer = correctAnswers.some(
+                            (ca) =>
+                              String(ca).trim().toLowerCase() === t ||
+                              String(ca).trim() === String(optIdx)
+                          );
+                        }
                       }
-                      
-                      // Get option explanation if available
-                      const optionExplanation = opt.explanation || '';
+
+                      const optionExplanation = opt.explanation || "";
                     
                     // Determine styling
                     // Priority: Show correct answers in green, wrong user answers in red
@@ -517,7 +525,7 @@ export default function ReviewAnswersPage() {
                     
                       return (
                         <div 
-                          key={option}
+                          key={`q${currentQuestion.questionNumber}-opt-${opt.originalIndex}`}
                           className={`p-4 rounded-lg border-2 transition-all ${bgColor} ${borderColor} shadow-sm ${isCorrectAnswer ? 'ring-2 ring-green-300' : ''}`}
                         >
                           <div className="flex items-start gap-3">
@@ -525,13 +533,22 @@ export default function ReviewAnswersPage() {
                               {option}.
                             </span>
                             <div className="flex-1">
-                              <span className={`${textColor} font-medium`}>
-                                {optionText}
-                              </span>
+                              <RichContent
+                                content={optionText}
+                                className={`${textColor} font-medium`}
+                              />
+                              {opt.image ? (
+                                <img
+                                  src={opt.image}
+                                  alt={`Option ${option}`}
+                                  className="mt-2 max-h-60 w-auto max-w-full rounded-md border border-gray-200 object-contain"
+                                />
+                              ) : null}
                               {optionExplanation && optionExplanation.trim() !== '' && (
-                                <p className={`mt-2 text-sm ${isCorrectAnswer ? 'text-green-700 font-medium' : isUserAnswer && !isCorrectAnswer ? 'text-red-700' : 'text-gray-600'}`}>
-                                  {optionExplanation}
-                                </p>
+                                <RichContent
+                                  content={optionExplanation}
+                                  className={`mt-2 text-sm ${isCorrectAnswer ? 'text-green-700 font-medium' : isUserAnswer && !isCorrectAnswer ? 'text-red-700' : 'text-gray-600'}`}
+                                />
                               )}
                             </div>
                             {badge}
@@ -543,15 +560,16 @@ export default function ReviewAnswersPage() {
                 </div>
                 
                 {/* Overall Explanation */}
-                {currentQuestion.explanation && currentQuestion.explanation.trim() !== '' && (
+                {contentToDisplayString(currentQuestion.explanation).trim() !== "" && (
                   <div className="mt-6 p-4 bg-blue-50 border-l-4 border-blue-500 rounded-r-lg">
                     <p className="font-semibold text-blue-900 mb-2 flex items-center gap-2">
                       <Shield className="w-4 h-4" />
                       Explanation:
                     </p>
-                    <p className="text-blue-800 leading-relaxed">
-                      {currentQuestion.explanation}
-                    </p>
+                    <RichContent
+                      content={currentQuestion.explanation}
+                      className="text-blue-800 leading-relaxed"
+                    />
                   </div>
                 )}
 

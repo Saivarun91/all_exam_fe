@@ -259,10 +259,10 @@ const Footer = () => {
                   <li className="flex items-start gap-2">
                     <Mail className="w-3.5 h-3.5 md:w-4 md:h-4 text-[#1A73E8] mt-0.5 flex-shrink-0" />
                     <a
-                      href={`mailto:${contactDetails.email.trim().replace("@", "[at]").replace(".", "[dot]")}`}
+                      href={`mailto:${contactDetails.email.trim()}`}
                       className="text-[#F0F4FF] hover:text-[#1A73E8] transition-colors text-xs md:text-sm break-all inline-flex items-center py-0.5"
                     >
-                      {contactDetails.email.trim().replace("@", " [at] ").replace(".", " [dot] ")}
+                      {contactDetails.email.trim()}
                     </a>
                   </li>
                 )}

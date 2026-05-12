@@ -15,6 +15,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { normalizeAnswersToIndexKey } from "@/utils/testReviewDisplay";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
@@ -135,46 +136,26 @@ export default function TestReview() {
                 const correctAnswers = q.correct_answers || (q.correct_answer ? [q.correct_answer] : []);
                 
                 if (correctAnswers.length > 0) {
-                  // Normalize both user answer and correct answers to option text for comparison
-                  // Get options list to help with normalization
-                  let optionsList = [];
-                  if (q.options && Array.isArray(q.options) && q.options.length > 0) {
-                    optionsList = q.options.map((opt, optIdx) => ({
-                      index: optIdx,
-                      letter: String.fromCharCode(65 + optIdx),
-                      text: typeof opt === 'string' ? opt : (opt.text || opt.label || opt.value || '')
-                    }));
-                  }
-                  
-                  // Helper function to normalize answer to option text
-                  const normalizeToOptionText = (answer) => {
-                    const answerStr = String(answer).trim();
-                    if (optionsList.length > 0) {
-                      // Try to find matching option by text, index, or letter
-                      const matchedOpt = optionsList.find(opt => {
-                        const optText = String(opt.text).trim();
-                        return optText === answerStr || 
-                               optText.toLowerCase() === answerStr.toLowerCase() ||
-                               String(opt.index) === answerStr ||
-                               opt.letter.toUpperCase() === answerStr.toUpperCase();
-                      });
-                      return matchedOpt ? matchedOpt.text : answerStr;
-                    }
-                    return answerStr;
-                  };
-                  
-                  if (Array.isArray(userAnswerValue)) {
-                    // Multiple choice - normalize both arrays to option texts and compare
-                    const userAnswerTexts = userAnswerValue.map(normalizeToOptionText).map(a => String(a).trim().toLowerCase()).sort();
-                    const correctAnswerTexts = correctAnswers.map(normalizeToOptionText).map(a => String(a).trim().toLowerCase()).sort();
-                    isCorrect = JSON.stringify(userAnswerTexts) === JSON.stringify(correctAnswerTexts);
+                  const opts = q.options && Array.isArray(q.options) ? q.options : [];
+                  if (opts.length > 0) {
+                    const userKey = normalizeAnswersToIndexKey(userAnswerValue, opts);
+                    const correctKey = normalizeAnswersToIndexKey(correctAnswers, opts);
+                    isCorrect = userKey === correctKey && userKey !== "";
+                  } else if (Array.isArray(userAnswerValue)) {
+                    const userAnswerTexts = userAnswerValue
+                      .map((a) => String(a).trim().toLowerCase())
+                      .sort();
+                    const correctAnswerTexts = correctAnswers
+                      .map((a) => String(a).trim().toLowerCase())
+                      .sort();
+                    isCorrect =
+                      JSON.stringify(userAnswerTexts) ===
+                      JSON.stringify(correctAnswerTexts);
                   } else {
-                    // Single choice - normalize both to option text and compare (case-insensitive)
-                    const userAnswerText = normalizeToOptionText(userAnswerValue).toLowerCase().trim();
-                    isCorrect = correctAnswers.some(ca => {
-                      const correctAnswerText = normalizeToOptionText(ca).toLowerCase().trim();
-                      return correctAnswerText === userAnswerText;
-                    });
+                    const userAnswerText = String(userAnswerValue).trim().toLowerCase();
+                    isCorrect = correctAnswers.some(
+                      (ca) => String(ca).trim().toLowerCase() === userAnswerText
+                    );
                   }
                 }
               }

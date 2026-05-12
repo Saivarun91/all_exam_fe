@@ -27,9 +27,15 @@ import { checkAuth, getAuthHeaders } from "@/utils/authCheck";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
+const segment = (value) => {
+  if (value === undefined || value === null) return undefined;
+  const v = Array.isArray(value) ? value[0] : value;
+  return v === undefined || v === null || v === "" ? undefined : String(v);
+};
+
 export default function CourseTestsPage() {
   const params = useParams();
-  const courseId = params?.id;
+  const courseId = segment(params?.id);
   const router = useRouter();
 
   const [course, setCourse] = useState(null);
@@ -65,7 +71,9 @@ export default function CourseTestsPage() {
 
       const data = await res.json();
         if (data.success) {
-          const foundCourse = data.data.find(c => c.id === courseId);
+          const foundCourse = data.data.find(
+            (c) => String(c.id) === String(courseId)
+          );
           if (foundCourse) {
             setCourse(foundCourse);
             // Fetch question counts for each test
@@ -166,7 +174,7 @@ export default function CourseTestsPage() {
 
   const handleAddTest = async () => {
     try {
-      const updatedTests = [...practiceTests, { ...testForm, id: Date.now().toString() }];
+      const updatedTests = [...practiceTests, { ...testForm }];
       const res = await fetch(`${API_BASE_URL}/api/courses/admin/${courseId}/update/`, {
         method: "PUT",
         headers: {
@@ -179,7 +187,10 @@ export default function CourseTestsPage() {
       });
 
       if (res.ok) {
-        setCourse({ ...course, practice_tests_list: updatedTests });
+        const responseData = await res.json().catch(() => null);
+        const nextCourse = responseData?.data || { ...course, practice_tests_list: updatedTests };
+        setCourse(nextCourse);
+        fetchTestQuestionCounts(nextCourse.practice_tests_list || updatedTests);
         setShowAddDialog(false);
         setTestForm({
           name: "",
@@ -217,12 +228,14 @@ export default function CourseTestsPage() {
       });
 
       if (res.ok) {
-        setCourse({ ...course, practice_tests_list: updatedTests });
+        const responseData = await res.json().catch(() => null);
+        const nextCourse = responseData?.data || { ...course, practice_tests_list: updatedTests };
+        setCourse(nextCourse);
         setShowEditDialog(false);
         setEditingTest(null);
         setMessage("✅ Practice test updated successfully!");
         // Refresh question counts after updating test
-        fetchTestQuestionCounts(updatedTests);
+        fetchTestQuestionCounts(nextCourse.practice_tests_list || updatedTests);
         setTimeout(() => setMessage(""), 3000);
       }
     } catch (err) {
@@ -248,10 +261,12 @@ export default function CourseTestsPage() {
       });
 
       if (res.ok) {
-        setCourse({ ...course, practice_tests_list: updatedTests });
+        const responseData = await res.json().catch(() => null);
+        const nextCourse = responseData?.data || { ...course, practice_tests_list: updatedTests };
+        setCourse(nextCourse);
         setMessage("✅ Practice test deleted successfully!");
         // Refresh question counts after deleting test
-        fetchTestQuestionCounts(updatedTests);
+        fetchTestQuestionCounts(nextCourse.practice_tests_list || updatedTests);
         setTimeout(() => setMessage(""), 3000);
       }
     } catch (err) {
@@ -436,7 +451,18 @@ export default function CourseTestsPage() {
                 <div className="border-t pt-3 space-y-2">
                   <Button
                     className="w-full bg-[#1A73E8] hover:bg-[#1557B0]"
-                    onClick={() => router.push(`/admin/courses/${courseId}/tests/${test.id || index + 1}/questions`)}
+                    onClick={() => {
+                      if (!test?.id) {
+                        setMessage(
+                          "❌ This practice test has no server id yet. Refresh the page after saving tests in the exam manager, or re-create the test."
+                        );
+                        setTimeout(() => setMessage(""), 5000);
+                        return;
+                      }
+                      router.push(
+                        `/admin/courses/${courseId}/tests/${test.id}/questions`
+                      );
+                    }}
                   >
                     <Eye className="w-4 h-4 mr-2" />
                     View Questions

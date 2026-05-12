@@ -2,12 +2,13 @@ import CategoriesListClient from "@/components/category/CategoriesListClient";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
+export const dynamic = "force-dynamic";
 
 // Fetch categories on server
 async function getCategories() {
   try {
     const res = await fetch(`${API_BASE_URL}/api/categories/`, {
-      next: { revalidate: 60 },
+      cache: "no-store",
     });
     if (!res.ok) throw new Error("Failed to fetch categories");
     const data = await res.json();
@@ -26,7 +27,7 @@ async function getExamCountByCategorySlug(slug) {
     const res = await fetch(
       `${API_BASE_URL}/api/courses/category/${encodeURIComponent(slug)}/`,
       {
-        next: { revalidate: 60 },
+        cache: "no-store",
       }
     );
     if (!res.ok) return 0;
@@ -41,7 +42,7 @@ async function getCategoriesPageSeo() {
   try {
     const res = await fetch(
       `${API_BASE_URL}/api/home/categories-page-seo/`,
-      { next: { revalidate: 60 } }
+      { cache: "no-store" }
     );
     if (!res.ok) return null;
     const data = await res.json();
@@ -60,6 +61,16 @@ function getMainCategoryHeading(category) {
     "";
   const heading = String(rawHeading || "").trim();
   return heading || "Other Categories";
+}
+
+function parseBoolean(value) {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value !== 0;
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    return ["true", "1", "yes", "y", "on"].includes(normalized);
+  }
+  return false;
 }
 
 // Generate dynamic SEO metadata
@@ -134,7 +145,14 @@ export default async function CategoriesPage() {
       examCount: await getExamCountByCategorySlug(category.slug),
     }))
   );
-  const groupedCategories = categoriesWithCounts.reduce((acc, category) => {
+  const topCertificationCategories = categoriesWithCounts.filter(
+    (category) => parseBoolean(category?.is_top_certification)
+  );
+  const nonTopCategories = categoriesWithCounts.filter(
+    (category) => !parseBoolean(category?.is_top_certification)
+  );
+
+  const groupedCategories = nonTopCategories.reduce((acc, category) => {
     const heading = getMainCategoryHeading(category);
     if (!acc[heading]) acc[heading] = [];
     acc[heading].push(category);
@@ -155,7 +173,10 @@ export default async function CategoriesPage() {
           </p>
         </div>
 
-        <CategoriesListClient groupedCategories={groupedCategories} />
+        <CategoriesListClient
+          groupedCategories={groupedCategories}
+          topCertificationCategories={topCertificationCategories}
+        />
       </div>
     </div>
   );

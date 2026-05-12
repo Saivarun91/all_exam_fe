@@ -100,23 +100,59 @@ export default function QuestionsManager() {
     }
   };
 
-  const fetchQuestions = async (courseId) => {
+  const fetchQuestions = async (courseRef) => {
     try {
       setLoading(true);
-      const res = await fetch(`${API_BASE_URL}/api/questions/admin/course/${courseId}/`, {
-        headers: getAuthHeaders()
-      });
+      const candidates = [];
+      if (courseRef && typeof courseRef === "object") {
+        if (courseRef.id !== undefined && courseRef.id !== null) {
+          candidates.push(String(courseRef.id));
+        }
+        if (courseRef.slug) {
+          candidates.push(String(courseRef.slug));
+        }
+      } else if (courseRef !== undefined && courseRef !== null) {
+        candidates.push(String(courseRef));
+      }
 
-      if (res.status === 401) {
-        setMessage("❌ Authentication failed. Please log in again.");
-        setTimeout(() => router.push("/admin/auth"), 2000);
+      const uniqueCandidates = [...new Set(candidates.filter(Boolean))];
+      if (uniqueCandidates.length === 0) {
+        setQuestions([]);
         return;
       }
 
-      const data = await res.json();
-      if (data.success) {
-        setQuestions(data.data);
+      let lastErrorMessage = "";
+
+      for (const courseIdentifier of uniqueCandidates) {
+        const res = await fetch(
+          `${API_BASE_URL}/api/questions/admin/course/${encodeURIComponent(courseIdentifier)}/`,
+          {
+            headers: getAuthHeaders(),
+          }
+        );
+
+        if (res.status === 401) {
+          setMessage("❌ Authentication failed. Please log in again.");
+          setTimeout(() => router.push("/admin/auth"), 2000);
+          return;
+        }
+
+        if (!res.ok) {
+          lastErrorMessage = `HTTP error! status: ${res.status}`;
+          continue;
+        }
+
+        const data = await res.json();
+        if (data.success) {
+          setQuestions(data.data);
+          return;
+        }
+
+        lastErrorMessage = data.error || "Failed to load questions";
       }
+
+      setQuestions([]);
+      setMessage(`❌ Error loading questions. ${lastErrorMessage}`.trim());
     } catch (error) {
       console.error("Error fetching questions:", error);
       setMessage("❌ Error loading questions.");
@@ -129,7 +165,7 @@ export default function QuestionsManager() {
     setSelectedCourse(course);
     setQuestions([]);
     setSelectedQuestions([]);
-    fetchQuestions(course.id);
+    fetchQuestions(course);
   };
 
   const resetForm = () => {
@@ -397,7 +433,7 @@ export default function QuestionsManager() {
         setMessage(`✅ Question ${editing ? 'updated' : 'created'} successfully!`);
         setDialogOpen(false);
         resetForm();
-        fetchQuestions(selectedCourse.id);
+        fetchQuestions(selectedCourse);
         setTimeout(() => setMessage(""), 3000);
       } else {
         setMessage("❌ Error: " + (data.error || "Failed to save"));
@@ -422,7 +458,7 @@ export default function QuestionsManager() {
 
       if (data.success) {
         setMessage("✅ Question deleted successfully!");
-        fetchQuestions(selectedCourse.id);
+        fetchQuestions(selectedCourse);
         setTimeout(() => setMessage(""), 3000);
       }
     } catch (error) {
@@ -453,7 +489,7 @@ export default function QuestionsManager() {
       if (data.success) {
         setMessage(`✅ ${data.deleted_count} questions deleted successfully!`);
         setSelectedQuestions([]);
-        fetchQuestions(selectedCourse.id);
+        fetchQuestions(selectedCourse);
         setTimeout(() => setMessage(""), 3000);
       }
     } catch (error) {
@@ -496,7 +532,7 @@ export default function QuestionsManager() {
         }
         setMessage(message);
         setCsvFile(null);
-        fetchQuestions(selectedCourse.id);
+        fetchQuestions(selectedCourse);
         setTimeout(() => setMessage(""), 8000);
       } else {
         let errorMsg = data.error || data.message || "Failed to upload";

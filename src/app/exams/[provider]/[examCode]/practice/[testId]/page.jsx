@@ -1042,6 +1042,7 @@
 
 import TestPlayerClient from "@/components/TestPlayerClient";
 import { notFound } from "next/navigation";
+import { normalizePracticeTestUrlSegment } from "@/utils/practiceTestRouting";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
@@ -1108,8 +1109,18 @@ async function getExamData(provider, examCode, testId) {
 
     const exam = await examRes.json();
 
+    const rawSegment = String(testId ?? "").trim();
+    let resolvedTestId = normalizePracticeTestUrlSegment(testId, exam);
+    if (!resolvedTestId) resolvedTestId = rawSegment;
+    if (
+      resolvedTestId.includes("GridFS") ||
+      resolvedTestId.includes("gridfs")
+    ) {
+      return null;
+    }
+
     const questionsRes = await fetch(
-      `${API_BASE_URL}/api/questions/test/${exam.id}/${testId}/`,
+      `${API_BASE_URL}/api/questions/test/${exam.id}/${encodeURIComponent(resolvedTestId)}/`,
       { cache: "no-store" }
     );
 
@@ -1122,7 +1133,7 @@ async function getExamData(provider, examCode, testId) {
       test = data.test || null;
     }
 
-    return { exam, questions, test };
+    return { exam, questions, test, resolvedTestId };
   } catch (error) {
     return null;
   }
@@ -1144,7 +1155,7 @@ export default async function Page({ params }) {
       test={data.test}
       provider={provider}
       examCode={examCode}
-      testId={testId}
+      testId={data.resolvedTestId ?? testId}
     />
   );
 }

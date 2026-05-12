@@ -24,6 +24,14 @@ import {
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 
+
+function generateSlug(text) {
+  return text
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
 export default function AdminCategoryCoursesPage() {
   const params = useParams();
   const id = params?.id;
@@ -43,6 +51,7 @@ export default function AdminCategoryCoursesPage() {
 
   const [newCourse, setNewCourse] = useState({
     name: "",
+    slug: "",
     description: "",
     code: "",
     provider: "",
@@ -148,7 +157,7 @@ export default function AdminCategoryCoursesPage() {
       setCourses((prev) => [...prev, mappedCourse]);
       setShowAddModal(false);
       setProviderDropdownOpen(false);
-      setNewCourse({ name: "", description: "", code: "", provider: "", price: 0, offer_price: null, badge: "", meta_title: "", meta_keywords: "", meta_description: "" });
+      setNewCourse({ name: "", slug: "", description: "", code: "", provider: "", price: 0, offer_price: null, badge: "", meta_title: "", meta_keywords: "", meta_description: "" });
       setMessage("✅ Course added successfully!");
       setTimeout(() => setMessage(""), 3000);
     } catch (err) {
@@ -177,7 +186,9 @@ export default function AdminCategoryCoursesPage() {
         },
         body: JSON.stringify({
           title: editingCourse.name || editingCourse.title,  // Backend expects 'title'
+          slug: editingCourse.slug,
           code: editingCourse.code || "",
+          provider: editingCourse.provider,
           short_description: editingCourse.short_description || "",  // Backend expects 'short_description'
           badge: editingCourse.badge || "",
           actual_price: editingCourse.actual_price || 0,
@@ -273,85 +284,96 @@ export default function AdminCategoryCoursesPage() {
         </Button>
       </div>
 
-      {/* Courses List */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredCourses.map((course) => (
-          <Card key={course.id} className="hover:shadow-lg transition-shadow">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>{course.name}</CardTitle>
-                {course.code && (
-                  <Badge className="bg-blue-100 text-blue-800 font-semibold">
-                    {course.code}
-                  </Badge>
-                )}
-              </div>
-            </CardHeader>
-            <CardContent>
-              <p className="text-gray-600 text-sm mb-4 line-clamp-3">
-                {course.description || "No description"}
-              </p>
-              
-              {/* Price Display */}
-              {((course.price !== undefined && course.price !== null) || course.offer_price) && (
-                <div className="mb-4 pb-4 border-b">
-                  {course.offer_price ? (
-                    <div>
-                      <div className="text-sm text-gray-400 line-through">
-                        ₹{course.price?.toFixed(2) || "0.00"}
+      {/* Courses Table */}
+      <div className="mt-4 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-left text-sm">
+            <thead>
+              <tr className="border-b border-gray-200 bg-gray-50">
+                <th className="px-4 py-3 text-xs font-medium uppercase tracking-wide text-gray-600">
+                  Course Name
+                </th>
+                <th className="px-4 py-3 text-xs font-medium uppercase tracking-wide text-gray-600">
+                  Course Slug
+                </th>
+                <th className="px-4 py-3 text-xs font-medium uppercase tracking-wide text-gray-600">
+                  Exam Code
+                </th>
+                <th className="px-4 py-3 text-xs font-medium uppercase tracking-wide text-gray-600">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {filteredCourses.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={3}
+                    className="px-4 py-10 text-center text-gray-500 text-sm"
+                  >
+                    No courses found
+                  </td>
+                </tr>
+              ) : (
+                filteredCourses.map((course) => (
+                  <tr
+                    key={course.id}
+                    className="transition-colors hover:bg-gray-50/80"
+                  >
+                    <td className="px-4 py-3 align-middle font-medium text-gray-900">
+                      {course.name}
+                    </td>
+                    <td className="px-4 py-3 align-middle">
+                      {course.slug}
+                    </td>
+                    <td className="px-4 py-3 align-middle">
+                      {course.code ? (
+                        <Badge className="bg-blue-100 text-blue-800 font-semibold">
+                          {course.code}
+                        </Badge>
+                      ) : (
+                        <span className="text-gray-400 text-xs">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 align-middle">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Button
+                          size="sm"
+                          className="bg-blue-500 hover:bg-blue-600 text-white"
+                          onClick={() =>
+                            router.push(`/admin/courses/${course.id}/tests`)
+                          }
+                        >
+                          <Eye className="h-4 w-4 mr-1" /> Practice Tests
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleEditClick(course)}
+                        >
+                          <Edit className="h-4 w-4 mr-1" /> Edit
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => handleDeleteCourse(course.id)}
+                        >
+                          <Trash2 className="h-4 w-4 mr-1" /> Delete
+                        </Button>
                       </div>
-                      <div className="text-lg font-bold text-green-600">
-                        ₹{course.offer_price.toFixed(2)}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="text-lg font-bold text-green-600">
-                      ₹{course.price?.toFixed(2) || "0.00"}
-                    </div>
-                  )}
-                </div>
+                    </td>
+                  </tr>
+                ))
               )}
-
-              <div className="flex flex-col gap-2">
-                <Button
-                  size="sm"
-                  className="w-full bg-blue-500 hover:bg-blue-600"
-                  onClick={() => router.push(`/admin/courses/${course.id}/tests`)}
-                >
-                  <Eye className="h-4 w-4 mr-1" /> View Practice Tests
-                </Button>
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleEditClick(course)}
-                    className="flex-1"
-                  >
-                    <Edit className="h-4 w-4 mr-1" /> Edit
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    onClick={() => handleDeleteCourse(course.id)}
-                    className="flex-1"
-                  >
-                    <Trash2 className="h-4 w-4 mr-1" /> Delete
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+            </tbody>
+          </table>
+        </div>
       </div>
-
-      {filteredCourses.length === 0 && (
-        <p className="text-center py-20 text-gray-500">No courses found</p>
-      )}
 
       {/* Add Course Modal */}
       {showAddModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <Card className="w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+          <Card className="w-full max-w-5xl max-h-[90vh] overflow-y-auto">
             <CardHeader className="bg-gradient-to-r from-[#1A73E8]/5 to-[#1A73E8]/10">
               <CardTitle className="text-2xl text-[#0C1A35]">Add New Course</CardTitle>
               <p className="text-sm text-[#0C1A35]/60 mt-1">Fill in the course details below</p>
@@ -369,14 +391,23 @@ export default function AdminCategoryCoursesPage() {
                         id="name"
                         value={newCourse.name}
                         onChange={(e) =>
-                          setNewCourse({ ...newCourse, name: e.target.value })
+                          setNewCourse({ ...newCourse, name: e.target.value ,slug: generateSlug(e.target.value) })
                         }
                         placeholder="AWS Solutions Architect Associate"
                         required
                         className="mt-1"
                       />
                     </div>
-                    
+                    <div>
+                      <Label htmlFor="slug">Course Slug *</Label>
+                      <Input
+                        id="slug"
+                        value={newCourse.slug}
+                        onChange={(e) =>
+                          setNewCourse({ ...newCourse, slug: e.target.value })
+                        }
+                      />
+                    </div>
                     <div>
                       <Label htmlFor="code">Course Code <span className="text-gray-500 text-sm">(Optional)</span></Label>
                       <Input
@@ -390,6 +421,7 @@ export default function AdminCategoryCoursesPage() {
                       />
                     </div>
                   </div>
+                  
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
@@ -592,7 +624,7 @@ export default function AdminCategoryCoursesPage() {
                     onClick={() => {
                       setShowAddModal(false);
                       setProviderDropdownOpen(false);
-                      setNewCourse({ name: "", description: "", code: "", provider: "", price: 0, offer_price: null, badge: "", meta_title: "", meta_keywords: "", meta_description: "" });
+                      setNewCourse({ name: "", slug: "", description: "", code: "", provider: "", price: 0, offer_price: null, badge: "", meta_title: "", meta_keywords: "", meta_description: "" });
                     }}
                     className="px-6"
                   >
@@ -608,7 +640,7 @@ export default function AdminCategoryCoursesPage() {
       {/* Edit Course Modal */}
       {showEditModal && editingCourse && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <Card className="w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+          <Card className="w-full max-w-5xl max-h-[90vh] overflow-y-auto">
             <CardHeader className="bg-gradient-to-r from-[#1A73E8]/5 to-[#1A73E8]/10">
               <CardTitle className="text-2xl text-[#0C1A35]">Edit Course</CardTitle>
               <p className="text-sm text-[#0C1A35]/60 mt-1">Update course information</p>
@@ -626,14 +658,24 @@ export default function AdminCategoryCoursesPage() {
                         id="edit_name"
                     value={editingCourse.name}
                     onChange={(e) =>
-                      setEditingCourse({ ...editingCourse, name: e.target.value })
+                      setEditingCourse({ ...editingCourse, name: e.target.value , slug: generateSlug(e.target.value) })
                     }
                     placeholder="Enter course name"
                     required
                         className="mt-1"
                   />
                 </div>
-                    
+                <div>
+                      <Label htmlFor="edit_slug">Course Slug *</Label>
+                      <Input
+                        id="edit_slug"
+                        value={editingCourse.slug}
+                        onChange={(e) =>
+                          setEditingCourse({ ...editingCourse, slug: e.target.value })
+                        }
+                      />
+                </div>
+
                 <div>
                       <Label htmlFor="edit_code">Course Code <span className="text-gray-500 text-sm">(Optional)</span></Label>
                   <Input
@@ -647,7 +689,67 @@ export default function AdminCategoryCoursesPage() {
                   />
                 </div>
                   </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div></div>
+                  </div>
+                  <div>
+                    <Label htmlFor="edit_provider">Provider *</Label>
 
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          className="w-full justify-between mt-1"
+                        >
+                          {editingCourse.provider
+                            ? providers.find(
+                                (provider) =>
+                                  String(provider.id) === String(editingCourse.provider)
+                              )?.name || "Select provider..."
+                            : "Select provider..."}
+
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+
+                      <PopoverContent className="w-full p-0">
+                        <Command>
+                          <CommandInput placeholder="Search provider..." />
+
+                          <CommandList>
+                            <CommandEmpty>No provider found.</CommandEmpty>
+
+                            <CommandGroup>
+                              {providers.map((provider) => (
+                                <CommandItem
+                                  key={provider.id}
+                                  value={provider.name}
+                                  onSelect={() => {
+                                    setEditingCourse({
+                                      ...editingCourse,
+                                      provider: provider.id,
+                                    });
+                                  }}
+                                >
+                                  <Check
+                                    className={cn(
+                                      "mr-2 h-4 w-4",
+                                      String(editingCourse.provider) === String(provider.id)
+                                        ? "opacity-100"
+                                        : "opacity-0"
+                                    )}
+                                  />
+
+                                  {provider.name}
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
                   <div>
                     <Label htmlFor="edit_badge">Badge</Label>
                     <Input
@@ -683,7 +785,6 @@ export default function AdminCategoryCoursesPage() {
                         className="mt-1"
                       />
                     </div>
-
                     <div>
                       <Label htmlFor="edit_meta_keywords">Meta Keywords</Label>
                       <Input

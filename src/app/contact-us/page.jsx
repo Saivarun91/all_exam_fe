@@ -464,15 +464,11 @@ export default async function ContactUsPage() {
                 <Mail className="w-6 h-6 text-blue-600 mt-1 flex-shrink-0" />
                 <div>
                   <h3 className="font-semibold text-foreground mb-1">Email</h3>
-                  {/* <a href={`mailto:${contact.email}`} className="text-blue-600 hover:text-blue-800">
-                    {contact.email}
-                  </a> */}
-
                   <a
-                    href={`mailto:${contact.email.replace("@", "%40")}`}
+                    href={`mailto:${contact.email.trim()}`}
                     className="text-blue-600 hover:text-blue-800"
                   >
-                    {contact.email.replace("@", " [at] ").replace(".", " [dot] ")}
+                    {contact.email.trim()}
                   </a>
                 </div>
               </div>

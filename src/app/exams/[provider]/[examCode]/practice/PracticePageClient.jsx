@@ -927,6 +927,7 @@ import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/
 
 // Icons
 import { CheckCircle2, Clock, BookOpen, Target, Award, Star, TrendingUp } from "lucide-react";
+import { pickPracticeTestPathSegment } from "@/utils/practiceTestRouting";
 
 function richTextMeaningful(html) {
   if (html == null || typeof html !== "string") return false;
@@ -955,10 +956,8 @@ export default function PracticePageClient({
   const checkLogin = () => typeof window !== "undefined" && !!localStorage.getItem("token");
 
   // Handle starting a test
-  const handleStartTest = (test) => {
-    const testIdentifier = test?.slug || test?.id || test;
-    const cleanSlug =
-      typeof testIdentifier === "string" ? testIdentifier.replace(/-[a-f0-9]{8}$/i, "") : testIdentifier;
+  const handleStartTest = (test, index = 0) => {
+    const cleanSlug = pickPracticeTestPathSegment(test, index);
     const url = `/exams/${provider}/${examCode}/practice/${cleanSlug}`;
 
     if (!checkLogin()) {
@@ -1005,7 +1004,7 @@ export default function PracticePageClient({
                 <h3 className="font-semibold text-[#0C1A35] mb-2">{test?.title || `Practice Test ${idx + 1}`}</h3>
                 <p className="text-sm text-[#0C1A35]/70 mb-2">{test?.questions || 0} Questions</p>
                 <Button
-                  onClick={() => handleStartTest(test)}
+                  onClick={() => handleStartTest(test, idx)}
                   className="w-full bg-[#1A73E8] hover:bg-[#1557B0] text-white"
                 >
                   Start Test
