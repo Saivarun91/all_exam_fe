@@ -126,13 +126,17 @@ export default function FeaturedExamsAdmin() {
   const fetchCourses = async () => {
     setLoading(true);
     try {
-      // Fetch only featured courses
-      const res = await fetch(`${API_BASE_URL}/api/courses/featured/`);
+      const res = await fetch(`${API_BASE_URL}/api/courses/admin/list/`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+      });
       const data = await res.json();
-      
-      if (Array.isArray(data)) {
-        // Filter only active and featured courses
-        const featuredCourses = data.filter(course => course.is_active !== false && course.is_featured !== false);
+
+      if (data.success && Array.isArray(data.data)) {
+        const featuredCourses = data.data.filter(
+          (course) => course.is_active !== false && course.is_featured !== false
+        );
         setCourses(featuredCourses);
       }
     } catch (error) {

@@ -4,6 +4,16 @@ import TopCategoriesClient from "./TopCategoriesClient";
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
 
+function parseBoolean(value) {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value !== 0;
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    return ["true", "1", "yes", "y", "on"].includes(normalized);
+  }
+  return false;
+}
+
 async function getData() {
   try {
     const [catRes, sectionRes] = await Promise.all([
@@ -26,12 +36,20 @@ async function getData() {
 export default async function TopCategories() {
   const { categories, sectionSettings } = await getData();
 
+  const topCategories = categories.filter((category) =>
+    parseBoolean(category?.is_top_certification)
+  );
+
+  if (topCategories.length === 0) {
+    return null;
+  }
+
   const settings = sectionSettings || {
     heading: "Top Certification Categories",
     subtitle: "Explore certifications by category",
   };
 
-  const schemaItems = categories.map((cat) => ({
+  const schemaItems = topCategories.map((cat) => ({
     name: cat.name,
     description: cat.description || "",
     // url: `/categories/${cat.slug}`,
@@ -40,17 +58,15 @@ export default async function TopCategories() {
 
   return (
     <>
-      {categories.length > 0 && (
-        <ItemListJsonLd
-          items={schemaItems}
-          listName={settings.heading}
-          itemType="Category"
-          schemaId="top-categories-json-ld-schema"
-        />
-      )}
+      <ItemListJsonLd
+        items={schemaItems}
+        listName={settings.heading}
+        itemType="Category"
+        schemaId="top-categories-json-ld-schema"
+      />
 
       <TopCategoriesClient
-        categories={categories}
+        categories={topCategories}
         sectionSettings={sectionSettings}
       />
     </>

@@ -29,9 +29,7 @@ async function getData() {
         : { heading: "Featured Exams", subtitle: "" };
 
     const courses = Array.isArray(coursesJson)
-      ? coursesJson.filter(
-          (c) => c.is_active !== false && c.is_featured !== false
-        )
+      ? coursesJson.filter((c) => c.is_active !== false)
       : [];
 
     const providerSlugByName = Array.isArray(providersJson)
