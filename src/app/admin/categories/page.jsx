@@ -79,19 +79,53 @@ export default function AdminCategoriesPage() {
     meta_keywords: "",
     meta_description: "",
     is_top_certification: false,
+    hero_title: "",
+    hero_subtitle: "",
   });
+  const [modalTab, setModalTab] = useState("details");
   const [editSlug, setEditSlug] = useState(null);
   const router = useRouter();
 
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
   const BASE_URL = `${API_BASE_URL}/api/categories`;
   const HOME_BASE_URL = `${API_BASE_URL}/api/home`;
+  const handleSaveHeroSection = async () => {
+    try {
+      const res = await fetch(`${HOME_BASE_URL}/admin/categories-page-seo/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          hero_title: categoriesPageSeo.hero_title,
+          hero_subtitle: categoriesPageSeo.hero_subtitle,
+        }),
+      });
+  
+      if (!res.ok) throw new Error("Failed to save hero section");
+  
+      const data = await res.json();
+  
+      setCategoriesPageSeo((prev) => ({
+        ...prev,
+        ...data,
+      }));
+  
+      setPageMessage("✅ Hero section saved successfully!");
+      setTimeout(() => setPageMessage(""), 3000);
+    } catch (error) {
+      console.error(error);
+      setPageMessage("❌ Error saving hero section");
+    }
+  };
 
   // SEO for the /categories page (not per-category SEO)
   const [categoriesPageSeo, setCategoriesPageSeo] = useState({
     meta_title: "",
     meta_keywords: "",
     meta_description: "",
+    hero_title: "",
+    hero_subtitle: "",
   });
   const [seoLoading, setSeoLoading] = useState(false);
   const [seoMessage, setSeoMessage] = useState("");
@@ -142,6 +176,8 @@ export default function AdminCategoriesPage() {
           meta_keywords: c.meta_keywords || "",
           meta_description: c.meta_description || "",
           is_top_certification: parseBoolean(c.is_top_certification),
+              hero_title: c.hero_title || "",
+              hero_subtitle: c.hero_subtitle || "",
               courseCount: courseCount,
             };
           })
@@ -176,6 +212,8 @@ export default function AdminCategoriesPage() {
             meta_title: data.data.meta_title || "",
             meta_keywords: data.data.meta_keywords || "",
             meta_description: data.data.meta_description || "",
+            hero_title: data.data.hero_title || "",
+            hero_subtitle: data.data.hero_subtitle || "",
           });
         }
       } catch (err) {
@@ -268,6 +306,8 @@ export default function AdminCategoriesPage() {
           meta_keywords: categoryData.meta_keywords,
           meta_description: categoryData.meta_description,
           is_top_certification: parseBoolean(categoryData.is_top_certification),
+          hero_title: categoryData.hero_title,
+          hero_subtitle: categoryData.hero_subtitle,
         }),
       });
 
@@ -310,6 +350,8 @@ export default function AdminCategoriesPage() {
         meta_keywords: saved.meta_keywords || categoryData.meta_keywords,
         meta_description: saved.meta_description || categoryData.meta_description,
         is_top_certification: parseBoolean(saved.is_top_certification),
+        hero_title: saved.hero_title || categoryData.hero_title,
+        hero_subtitle: saved.hero_subtitle || categoryData.hero_subtitle,
         courseCount: updatedCourseCount,
       };
 
@@ -331,6 +373,7 @@ export default function AdminCategoriesPage() {
         setShowModal(false);
         setEditMode(false);
         setEditSlug(null);
+        setModalTab("details");
         setCategoryData({
           title: "",
           slug: "",
@@ -343,6 +386,8 @@ export default function AdminCategoriesPage() {
           meta_keywords: "",
           meta_description: "",
           is_top_certification: false,
+          hero_title: "",
+          hero_subtitle: "",
         });
         setSaveMessage("");
       }, 900);
@@ -386,9 +431,12 @@ export default function AdminCategoriesPage() {
       meta_keywords: cat.meta_keywords || "",
       meta_description: cat.meta_description || "",
       is_top_certification: parseBoolean(cat.is_top_certification),
+      hero_title: cat.hero_title || "",
+      hero_subtitle: cat.hero_subtitle || "",
     });
     setEditSlug(cat.slug);
     setEditMode(true);
+    setModalTab("details");
     setShowModal(true);
   };
 
@@ -489,6 +537,7 @@ export default function AdminCategoriesPage() {
               onClick={() => {
                 setEditMode(false);
                 setPageMessage("");
+                setModalTab("details");
                 setCategoryData({
                   title: "",
                   slug: "",
@@ -501,6 +550,8 @@ export default function AdminCategoriesPage() {
                   meta_keywords: "",
                   meta_description: "",
                   is_top_certification: false,
+                  hero_title: "",
+                  hero_subtitle: "",
                 });
                 setEditSlug(null);
                 setShowModal(true);
@@ -528,11 +579,11 @@ export default function AdminCategoriesPage() {
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900">
-                    SEO settings (/categories page)
+                    SEO settings 
                   </h3>
-                  <p className="text-sm text-gray-600 mt-1">
-                    Meta title, description, and keywords for the main categories listing page.
-                  </p>
+                  {/* <p className="text-sm text-gray-600 mt-1">
+                    SEO meta tags and hero content for the main categories listing page.
+                  </p> */}
                 </div>
 
                 <Button
@@ -558,6 +609,13 @@ export default function AdminCategoriesPage() {
                   {seoMessage}
                 </p>
               ) : null}
+
+              
+
+              <div className="pt-6">
+                <h4 className="text-base font-semibold text-gray-900 mb-4">
+                  SEO Meta Tags
+                </h4>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
@@ -616,8 +674,69 @@ export default function AdminCategoriesPage() {
                   placeholder="Concise description shown in Google results (150-160 characters recommended)"
                 />
               </div>
+
+              <div className="mt-6 flex justify-end border-t border-gray-200 pt-6">
+                <Button
+                  onClick={handleSaveCategoriesPageSeo}
+                  disabled={seoLoading}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-8"
+                >
+                  {seoLoading ? "Saving..." : "Save SEO"}
+                </Button>
+              </div>
+              </div>
             </CardContent>
           </Card>
+        </div>
+        <div className="space-y-4 border-b border-gray-200 pb-6">
+          <h4 className="text-base font-semibold text-gray-900">
+            Hero Section
+          </h4>
+          {/* <p className="text-sm text-gray-600">
+            Content shown in the hero banner on the public /categories page. Stats cards remain automatic from your categories and exams.
+          </p> */}
+
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Hero Title
+            </label>
+            <Input
+              value={categoriesPageSeo.hero_title}
+              onChange={(e) =>
+                setCategoriesPageSeo({
+                  ...categoriesPageSeo,
+                  hero_title: e.target.value,
+                })
+              }
+              placeholder="e.g., Explore Exam Categories"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Hero Subtitle
+            </label>
+            <textarea
+              value={categoriesPageSeo.hero_subtitle}
+              onChange={(e) =>
+                setCategoriesPageSeo({
+                  ...categoriesPageSeo,
+                  hero_subtitle: e.target.value,
+                })
+              }
+              className="w-full rounded-md border border-gray-300 bg-white p-3 text-base transition focus-visible:border-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-300"
+              rows={4}
+              placeholder="Short description shown below the hero title on the categories page"
+            />
+          </div>
+          <div className="flex justify-end mt-6">
+            <button
+              onClick={handleSaveHeroSection}
+              className="px-6 py-2 rounded-md bg-gray-900 text-white font-semibold hover:bg-gray-800 transition"
+            >
+              Save Changes
+            </button>
+          </div>
         </div>
 
         <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
@@ -758,7 +877,28 @@ export default function AdminCategoriesPage() {
                 </div>
               ) : null}
 
-              {/* Basic Information Section */}
+              <div className="flex flex-wrap gap-2 border-b border-gray-200 pb-4">
+                {[
+                  { id: "details", label: "Details" },
+                  { id: "seo", label: "SEO Meta Tags" },
+                  { id: "hero", label: "Hero Section" },
+                ].map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setModalTab(tab.id)}
+                    className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
+                      modalTab === tab.id
+                        ? "bg-indigo-600 text-white shadow"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+
+              {modalTab === "details" && (
               <div className="space-y-4">
                 <h4 className="text-lg font-semibold text-gray-800 pb-2 border-b-2 border-indigo-100">
                   📝 Basic Information
@@ -951,8 +1091,9 @@ export default function AdminCategoriesPage() {
                   </div>
                 </div>
               </div>
+              )}
 
-              {/* SEO Meta Tags Section */}
+              {modalTab === "seo" && (
               <div className="space-y-4">
                 <h4 className="text-lg font-semibold text-gray-800 pb-2 border-b-2 border-indigo-100">
                   🔍 SEO Meta Tags
@@ -1003,6 +1144,53 @@ export default function AdminCategoriesPage() {
                   </div>
                 </div>
               </div>
+              )}
+
+              {modalTab === "hero" && (
+              <div className="space-y-4">
+                <h4 className="text-lg font-semibold text-gray-800 pb-2 border-b-2 border-indigo-100">
+                  Hero Section
+                </h4>
+                <p className="text-sm text-gray-600">
+                  Title and subtitle shown in the hero banner on this category&apos;s public page.
+                </p>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Hero Title
+                  </label>
+                  <Input
+                    value={categoryData.hero_title}
+                    onChange={(e) =>
+                      setCategoryData({ ...categoryData, hero_title: e.target.value })
+                    }
+                    placeholder="e.g., AWS Certification Practice Tests"
+                    className="text-base"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Leave empty to use the category title.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Hero Subtitle
+                  </label>
+                  <textarea
+                    value={categoryData.hero_subtitle}
+                    onChange={(e) =>
+                      setCategoryData({ ...categoryData, hero_subtitle: e.target.value })
+                    }
+                    className="w-full border border-gray-300 rounded-lg p-3 text-base focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+                    rows={4}
+                    placeholder="Short description shown below the hero title on the category page"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Leave empty to use the category description.
+                  </p>
+                </div>
+              </div>
+              )}
 
               {/* Action Buttons */}
               <div className="flex gap-3 pt-4 border-t-2 border-gray-100">
@@ -1013,7 +1201,7 @@ export default function AdminCategoriesPage() {
                   {editMode ? "✓ Update Category" : "+ Add Category"}
                 </Button>
                 <Button 
-                  onClick={() => { setShowModal(false); setEditMode(false); }} 
+                  onClick={() => { setShowModal(false); setEditMode(false); setModalTab("details"); }} 
                   className="px-8 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-3 text-base transition"
                 >
                   Cancel

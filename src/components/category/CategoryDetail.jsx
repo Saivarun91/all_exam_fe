@@ -30,11 +30,16 @@ export default function CategoryDetail({
   courses,
   loading,
   error,
+  showBreadcrumb = true,
+  embedded = false,
 }) {
+  const wrapperClass = embedded ? "w-full" : "min-h-screen bg-white";
+  const innerClass = embedded ? "w-full" : "container mx-auto px-4 py-8";
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-white">
-        <div className="container mx-auto px-4 py-20 text-center">
+      <div className={wrapperClass}>
+        <div className={`${innerClass} py-20 text-center`}>
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#1A73E8] mx-auto mb-4"></div>
           <p className="text-[#0C1A35]/70">Loading category...</p>
         </div>
@@ -44,8 +49,8 @@ export default function CategoryDetail({
 
   if (error || !category) {
     return (
-      <div className="min-h-screen bg-white">
-        <div className="container mx-auto px-4 py-20 text-center">
+      <div className={wrapperClass}>
+        <div className={`${innerClass} py-20 text-center`}>
           <h1 className="text-3xl font-bold text-[#0C1A35] mb-4">
             Category Not Found
           </h1>
@@ -92,68 +97,79 @@ export default function CategoryDetail({
 
   const breadcrumbItems = [
     { name: "Home", url: "/" },
-    { name: "Exams", url: "/exams" },
+    { name: "Categories", url: "/categories" },
     { name: category?.title || "Category", url: `/categories/${slug}` },
   ];
 
+  const contentSectionClass = embedded
+    ? "mt-10 pt-8 border-t border-slate-200 w-full"
+    : "mt-10 pt-8 border-t border-gray-200";
+
   return (
-    <div className="min-h-screen bg-white">
-      {category && <BreadcrumbJsonLd items={breadcrumbItems} />}
-      <div className="container mx-auto px-4 py-8">
-        {/* Breadcrumb */}
-        <Breadcrumb className="mb-6">
-          <BreadcrumbList>
-            <BreadcrumbItem>
-              <BreadcrumbLink asChild>
-                <Link
-                  href="/"
-                  className="text-[#0C1A35]/60 hover:text-[#1A73E8]"
-                >
-                  Home
-                </Link>
-              </BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator />
-            <BreadcrumbItem>
-              <BreadcrumbLink asChild>
-                <Link
-                  href="/categories"
-                  className="text-[#0C1A35]/60 hover:text-[#1A73E8]"
-                >
-                  Categories
-                </Link>
-              </BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator />
-            <BreadcrumbPage className="text-[#0C1A35] font-medium">
-              {category.title}
-            </BreadcrumbPage>
-          </BreadcrumbList>
-        </Breadcrumb>
+    <div className={wrapperClass}>
+      {category && !embedded && <BreadcrumbJsonLd items={breadcrumbItems} />}
+      <div className={innerClass}>
+        {showBreadcrumb && (
+          <Breadcrumb className="mb-6">
+            <BreadcrumbList>
+              <BreadcrumbItem>
+                <BreadcrumbLink asChild>
+                  <Link
+                    href="/"
+                    className="text-[#0C1A35]/60 hover:text-[#1A73E8]"
+                  >
+                    Home
+                  </Link>
+                </BreadcrumbLink>
+              </BreadcrumbItem>
 
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-[#0C1A35] mb-4">
-            {category.title}
-          </h1>
-          {category.description && (
-            <p className="text-lg text-[#0C1A35]/70 max-w-3xl">
-              {category.description}
-            </p>
-          )}
-        </div>
+              <BreadcrumbSeparator />
 
-        {/* Stats */}
-        <div className="flex items-center gap-6 mb-8 pb-6 border-b border-gray-200">
-          <div>
-            <div className="text-3xl font-bold text-[#1A73E8]">
-              {filteredCourses.length}
+              <BreadcrumbItem>
+                <BreadcrumbLink asChild>
+                  <Link
+                    href="/categories"
+                    className="text-[#0C1A35]/60 hover:text-[#1A73E8]"
+                  >
+                    Categories
+                  </Link>
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+
+              <BreadcrumbSeparator />
+
+              <BreadcrumbPage className="text-[#0C1A35] font-medium">
+                {category.title}
+              </BreadcrumbPage>
+            </BreadcrumbList>
+          </Breadcrumb>
+        )}
+
+        {!embedded && (
+          <>
+            <div className="mb-8">
+              <h1 className="text-4xl font-bold text-[#0C1A35] mb-4">
+                {category.title}
+              </h1>
+              {category.description && (
+                <p className="text-lg text-[#0C1A35]/70 max-w-3xl">
+                  {category.description}
+                </p>
+              )}
             </div>
-            <div className="text-sm text-[#0C1A35]/60">Exams Available</div>
-          </div>
-        </div>
 
-        <div className="mb-8 max-w-lg">
+            <div className="flex items-center gap-6 mb-8 pb-6 border-b border-gray-200">
+              <div>
+                <div className="text-3xl font-bold text-[#1A73E8]">
+                  {filteredCourses.length}
+                </div>
+                <div className="text-sm text-[#0C1A35]/60">Exams Available</div>
+              </div>
+            </div>
+          </>
+        )}
+
+        <div className={embedded ? "mb-8 max-w-xl" : "mb-8 max-w-lg"}>
           <Input
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -162,7 +178,6 @@ export default function CategoryDetail({
           />
         </div>
 
-        {/* Courses Grid */}
         {filteredCourses.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredCourses.map((course) => (
@@ -174,7 +189,6 @@ export default function CategoryDetail({
                 }}
               >
                 <CardContent className="p-6 h-full flex flex-col gap-4">
-                  {/* Icon + Badge */}
                   <div className="flex items-center justify-between">
                     <div className="w-12 h-12 rounded-lg bg-[#1A73E8]/10 flex items-center justify-center">
                       <Award className="w-6 h-6 text-[#1A73E8]" />
@@ -186,7 +200,6 @@ export default function CategoryDetail({
                     )}
                   </div>
 
-                  {/* Course Info */}
                   <div className="space-y-1 min-h-[88px]">
                     <p className="text-sm text-[#0C1A35]/60 font-medium">
                       {course.provider}
@@ -197,7 +210,6 @@ export default function CategoryDetail({
                     <p className="text-sm text-[#0C1A35]/60">{course.code}</p>
                   </div>
 
-                  {/* Stats */}
                   <div className="pt-2">
                     <p className="text-sm text-[#0C1A35]/60">
                       {(() => {
@@ -236,7 +248,6 @@ export default function CategoryDetail({
                     </p>
                   </div>
 
-                  {/* Button */}
                   <Button
                     className="w-full bg-[#1A73E8] text-white hover:bg-[#1557B0]"
                     asChild
@@ -273,18 +284,22 @@ export default function CategoryDetail({
         )}
 
         {hasRenderableContent ? (
-          <section className="mt-10 pt-8 border-t border-gray-200">
-            <div className="prose prose-slate max-w-none">
-              <div
-                className="text-[#0C1A35]/80 leading-7"
-                dangerouslySetInnerHTML={{ __html: categoryContent }}
-              />
-            </div>
+          <section className={contentSectionClass}>
+            <div
+              className="tiptap-editor-content w-full text-[#0C1A35]/85 leading-relaxed break-words [&_img]:max-w-full [&_img]:h-auto [&_table]:block [&_table]:max-w-full [&_table]:overflow-x-auto"
+              dangerouslySetInnerHTML={{ __html: categoryContent }}
+            />
           </section>
         ) : null}
 
         {safeFaqs.length > 0 ? (
-          <section className="mt-10 pt-8 border-t border-gray-200">
+          <section
+            className={
+              embedded
+                ? "mt-10 pt-8 border-t border-slate-200 w-full"
+                : "mt-10 pt-8 border-t border-gray-200"
+            }
+          >
             <h2 className="text-2xl font-bold text-[#0C1A35] mb-4">FAQs</h2>
             <Accordion type="single" collapsible className="w-full">
               {safeFaqs.map((faq, index) => (
@@ -306,4 +321,3 @@ export default function CategoryDetail({
     </div>
   );
 }
-

@@ -331,13 +331,13 @@ export default async function RecentlyUpdated() {
                   </div>
 
                   {/* RIGHT BUTTON */}
-                  {exam.slug && (
+                  {(exam.slug || exam.provider || exam.title) && (
                     <Button
                       size="default"
                       className="bg-[#1A73E8] text-white hover:bg-[#1557B0] whitespace-nowrap"
                       asChild
                     >
-                      <Link href={`/exam-details/${exam.slug}`}>
+                      <Link href={getExamUrl(exam)}>
                         Practice Now
                         <ArrowRight className="ml-2 w-4 h-4" />
                       </Link>
