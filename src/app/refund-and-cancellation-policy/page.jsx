@@ -269,6 +269,7 @@
 
 // app/refund-and-cancellation-policy/page.jsx
 import BackButton from "./BackButton";
+import TipTapContent from "@/components/editor/TipTapContent";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
 
@@ -358,9 +359,9 @@ export default async function RefundCancellationPolicyPage() {
           <div className="prose prose-lg max-w-none">
             <div className="bg-card border border-border rounded-lg p-8 shadow-sm">
               {content && content.trim().startsWith("<") ? (
-                <div
-                  className="text-foreground leading-relaxed text-base tiptap-editor-content prose prose-p:my-2 prose-ul:my-2 prose-ol:my-2 prose-li:my-0"
-                  dangerouslySetInnerHTML={{ __html: content }}
+                <TipTapContent
+                  content={content}
+                  className="text-foreground leading-relaxed text-base"
                 />
               ) : (
                 <div className="text-foreground whitespace-pre-wrap leading-relaxed text-base">{content}</div>

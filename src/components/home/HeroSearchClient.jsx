@@ -3,14 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Search } from "lucide-react";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { ChevronDown, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { createSlug } from "@/lib/utils";
 
@@ -45,27 +38,32 @@ export default function HeroSearchClient({ providers }) {
     >
       <div className="flex flex-col md:flex-row gap-3 items-center">
 
-        <Select value={selectedProvider} onValueChange={setSelectedProvider}>
-          <SelectTrigger
+        <div className="relative w-full md:w-[200px] shrink-0">
+          <select
             id="hero-search-provider"
             aria-label="Exam provider (optional)"
-            className="w-full md:w-[200px] bg-white/95 h-11 min-h-[44px] text-sm text-[#0C1A35]"
+            value={selectedProvider}
+            onChange={(e) => setSelectedProvider(e.target.value)}
+            className="w-full appearance-none bg-white/95 h-11 min-h-[44px] rounded-md border border-input px-3 pr-9 text-sm text-[#0C1A35] shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <SelectValue placeholder="Select Provider" />
-          </SelectTrigger>
-
-          <SelectContent>
+            <option value="" data-i18n="home.search.provider">
+              Select Provider
+            </option>
             {providers.map((provider) => (
-              <SelectItem key={provider.id} value={provider.slug}>
+              <option key={provider.id} value={provider.slug}>
                 {provider.name}
-              </SelectItem>
+              </option>
             ))}
-          </SelectContent>
-        </Select>
+          </select>
+          <ChevronDown
+            className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 opacity-50 text-[#0C1A35]"
+            aria-hidden
+          />
+        </div>
 
         <Input
           id="hero-search-query"
-          placeholder="Search exams, codes, or keywords..."
+          data-i18n-placeholder="home.search.placeholder"
           aria-label="Search by exam name, code, or keyword"
           className="flex-1 bg-white/95 h-11 min-h-[44px] text-sm text-[#0C1A35]"
           value={searchKeyword}
@@ -79,7 +77,7 @@ export default function HeroSearchClient({ providers }) {
           className="bg-[#1A73E8] text-white hover:bg-[#1557B0] px-6 h-11 min-h-[44px] min-w-[44px] text-sm"
         >
           <Search className="w-4 h-4 mr-2" />
-          Search
+          <span data-i18n="home.search.button">Search</span>
         </Button>
 
       </div>

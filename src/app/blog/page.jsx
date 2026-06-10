@@ -366,7 +366,7 @@ export async function generateMetadata() {
 
 async function fetchBlogs() {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/home/blog-posts/`, { next: { revalidate: 60 } });
+    const res = await fetch(`${API_BASE_URL}/api/home/blog-posts/all/`, { next: { revalidate: 60 } });
     const data = await res.json();
     if (data.success && Array.isArray(data.data)) {
       return data.data;

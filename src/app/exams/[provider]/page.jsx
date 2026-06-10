@@ -78,6 +78,7 @@
 
 
 import ExamsPageContent from "@/components/exams/ExamsPageContent";
+import { filterPublicExamListings } from "@/lib/examListingFilters";
 
 export const dynamic = "force-dynamic";
 
@@ -116,9 +117,7 @@ async function fetchData() {
       categories: Array.isArray(categoriesData)
         ? categoriesData.filter((c) => c.is_active !== false)
         : [],
-      exams: Array.isArray(coursesData)
-        ? coursesData.filter((c) => c.is_active !== false)
-        : [],
+      exams: filterPublicExamListings(coursesData),
       trustBarItems: trustBarData?.success ? trustBarData.data : [],
       aboutSection: aboutData?.success ? aboutData.data : {},
       examsPageHeading:

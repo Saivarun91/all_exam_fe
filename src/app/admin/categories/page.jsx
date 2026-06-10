@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { FiPlus, FiX, FiTrash2, FiEdit } from "react-icons/fi";
 import { Cloud, Shield, Briefcase, Database, Code, TrendingUp, Eye } from "lucide-react";
 import TipTapEditor from "@/components/editor/TipTapEditor";
+import { resolveCategoryImageUrl } from "@/lib/categoryImage";
 
 const ICON_OPTIONS = [
   "Cloud",
@@ -29,6 +30,25 @@ const ICON_MAP = {
 };
 
 const EMPTY_FAQ = { question: "", answer: "" };
+const LOCAL_DJANGO_API = "http://127.0.0.1:8000";
+
+/** Image upload route exists on local Django; production API may not have it yet. */
+function resolveCategoryImageApiBase() {
+  const configured = (
+    process.env.NEXT_PUBLIC_API_BASE_URL || LOCAL_DJANGO_API
+  ).replace(/\/$/, "");
+
+  if (typeof window === "undefined") {
+    return configured;
+  }
+
+  const host = window.location.hostname;
+  if (host === "localhost" || host === "127.0.0.1") {
+    return LOCAL_DJANGO_API;
+  }
+
+  return configured;
+}
 
 function normalizeContentForEditor(str) {
   if (!str || !String(str).trim()) return "";
@@ -58,6 +78,12 @@ function parseBoolean(value) {
   return false;
 }
 
+const CATEGORY_TEXT_LIMIT = 150;
+
+function clampCategoryText(value, limit = CATEGORY_TEXT_LIMIT) {
+  return String(value || "").slice(0, limit);
+}
+
 export default function AdminCategoriesPage() {
   const [categories, setCategories] = useState([]);
   const [filteredCategories, setFilteredCategories] = useState([]);
@@ -75,6 +101,7 @@ export default function AdminCategoriesPage() {
     content: "",
     faqs: [],
     icon: ICON_OPTIONS[0],
+    image_url: "",
     meta_title: "",
     meta_keywords: "",
     meta_description: "",
@@ -131,6 +158,7 @@ export default function AdminCategoriesPage() {
   const [seoMessage, setSeoMessage] = useState("");
   const [saveMessage, setSaveMessage] = useState("");
   const [pageMessage, setPageMessage] = useState("");
+  const [imageUploading, setImageUploading] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState({
     open: false,
     type: null, // "single" | "bulk"
@@ -164,18 +192,18 @@ export default function AdminCategoriesPage() {
             }
             
             return {
-          title: c.title || c.name || "",
-          slug: c.slug || "",
-          main_category: c.main_category || "",
-          description: c.description || "",
-          content: normalizeContentForEditor(c.content || ""),
-          faqs: Array.isArray(c.faqs) ? c.faqs : [],
-          icon: c.icon || ICON_OPTIONS[0],
+              title: c.title || c.name || "",
               slug: slug,
-          meta_title: c.meta_title || "",
-          meta_keywords: c.meta_keywords || "",
-          meta_description: c.meta_description || "",
-          is_top_certification: parseBoolean(c.is_top_certification),
+              main_category: c.main_category || "",
+              description: c.description || "",
+              content: normalizeContentForEditor(c.content || ""),
+              faqs: Array.isArray(c.faqs) ? c.faqs : [],
+              icon: c.icon || ICON_OPTIONS[0],
+              image_url: c.image_url || "",
+              meta_title: c.meta_title || "",
+              meta_keywords: c.meta_keywords || "",
+              meta_description: c.meta_description || "",
+              is_top_certification: parseBoolean(c.is_top_certification),
               hero_title: c.hero_title || "",
               hero_subtitle: c.hero_subtitle || "",
               courseCount: courseCount,
@@ -272,6 +300,28 @@ export default function AdminCategoriesPage() {
     setFilteredCategories(filtered);
   }, [searchTerm, categories]);
 
+  const buildCategoryRequestBody = () => ({
+    title: categoryData.title,
+    slug: categoryData.slug,
+    main_category: categoryData.main_category,
+    description: categoryData.description,
+    content: categoryData.content,
+    faqs: (categoryData.faqs || [])
+      .map((faq) => ({
+        question: (faq?.question || "").trim(),
+        answer: (faq?.answer || "").trim(),
+      }))
+      .filter((faq) => faq.question && faq.answer),
+    icon: categoryData.icon,
+    image_url: categoryData.image_url,
+    meta_title: categoryData.meta_title,
+    meta_keywords: categoryData.meta_keywords,
+    meta_description: categoryData.meta_description,
+    is_top_certification: parseBoolean(categoryData.is_top_certification),
+    hero_title: categoryData.hero_title,
+    hero_subtitle: categoryData.hero_subtitle,
+  });
+
   // Save (create or update)
   const handleSaveCategory = async () => {
     if (!categoryData.title.trim()) {
@@ -289,31 +339,29 @@ export default function AdminCategoriesPage() {
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: categoryData.title,
-          slug: categoryData.slug,
-          main_category: categoryData.main_category,
-          description: categoryData.description,
-          content: categoryData.content,
-          faqs: (categoryData.faqs || [])
-            .map((faq) => ({
-              question: (faq?.question || "").trim(),
-              answer: (faq?.answer || "").trim(),
-            }))
-            .filter((faq) => faq.question && faq.answer),
-          icon: categoryData.icon,
-          meta_title: categoryData.meta_title,
-          meta_keywords: categoryData.meta_keywords,
-          meta_description: categoryData.meta_description,
-          is_top_certification: parseBoolean(categoryData.is_top_certification),
-          hero_title: categoryData.hero_title,
-          hero_subtitle: categoryData.hero_subtitle,
-        }),
+        body: JSON.stringify(buildCategoryRequestBody()),
       });
 
       if (!res.ok) {
-        const errText = await res.text();
-        throw new Error(`Failed to save category: ${res.status} - ${errText}`);
+        let errMessage = `Failed to save category (${res.status})`;
+        try {
+          const errData = await res.json();
+          const titleError = errData?.errors?.title;
+          errMessage =
+            errData?.error ||
+            errData?.message ||
+            (Array.isArray(titleError) ? titleError[0] : titleError) ||
+            (typeof errData?.errors === "string" ? errData.errors : null) ||
+            errMessage;
+        } catch {
+          const errText = await res.text();
+          if (errText) errMessage = errText;
+        }
+        throw new Error(
+          String(errMessage).includes("already exists")
+            ? "This category already exists."
+            : errMessage
+        );
       }
 
       const saved = await res.json();
@@ -345,6 +393,7 @@ export default function AdminCategoriesPage() {
         content: saved.content || categoryData.content,
         faqs: Array.isArray(saved.faqs) ? saved.faqs : categoryData.faqs,
         icon: saved.icon || categoryData.icon,
+        image_url: saved.image_url || categoryData.image_url,
         slug: savedSlug,
         meta_title: saved.meta_title || categoryData.meta_title,
         meta_keywords: saved.meta_keywords || categoryData.meta_keywords,
@@ -382,6 +431,7 @@ export default function AdminCategoriesPage() {
           content: "",
           faqs: [],
           icon: ICON_OPTIONS[0],
+          image_url: "",
           meta_title: "",
           meta_keywords: "",
           meta_description: "",
@@ -394,6 +444,174 @@ export default function AdminCategoriesPage() {
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error";
       setSaveMessage(`❌ ${message}`);
+    }
+  };
+
+  const persistCategoryBeforeImageUpload = async () => {
+    if (!categoryData.title.trim()) {
+      throw new Error("Please enter a category title before uploading an image.");
+    }
+
+    const imageApiBase = `${resolveCategoryImageApiBase()}/api/categories`;
+    const url =
+      editMode && editSlug
+        ? `${imageApiBase}/${encodeURIComponent(editSlug)}/update/`
+        : `${imageApiBase}/create/`;
+    const method = editMode && editSlug ? "PUT" : "POST";
+
+    const res = await fetch(url, {
+      method,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(buildCategoryRequestBody()),
+    });
+
+    if (!res.ok) {
+      let errMessage = `Failed to save category (${res.status})`;
+      try {
+        const errData = await res.json();
+        const titleError = errData?.errors?.title;
+        errMessage =
+          errData?.error ||
+          errData?.message ||
+          (Array.isArray(titleError) ? titleError[0] : titleError) ||
+          (typeof errData?.errors === "string" ? errData.errors : null) ||
+          errMessage;
+      } catch {
+        const errText = await res.text();
+        if (errText) errMessage = errText;
+      }
+      throw new Error(
+        String(errMessage).includes("already exists")
+          ? "This category already exists."
+          : errMessage
+      );
+    }
+
+    const saved = await res.json();
+    const savedSlug = String(saved.slug || "").trim();
+    if (!savedSlug) {
+      throw new Error("Category was saved but no slug was returned.");
+    }
+
+    const previousSlug = editSlug || savedSlug;
+    const normalized = {
+      title: saved.title || categoryData.title,
+      main_category: saved.main_category || categoryData.main_category,
+      description: saved.description || categoryData.description,
+      content: saved.content || categoryData.content,
+      faqs: Array.isArray(saved.faqs) ? saved.faqs : categoryData.faqs,
+      icon: saved.icon || categoryData.icon,
+      image_url: saved.image_url || categoryData.image_url,
+      slug: savedSlug,
+      meta_title: saved.meta_title || categoryData.meta_title,
+      meta_keywords: saved.meta_keywords || categoryData.meta_keywords,
+      meta_description: saved.meta_description || categoryData.meta_description,
+      is_top_certification: parseBoolean(saved.is_top_certification),
+      hero_title: saved.hero_title || categoryData.hero_title,
+      hero_subtitle: saved.hero_subtitle || categoryData.hero_subtitle,
+    };
+
+    setCategoryData((prev) => ({ ...prev, ...normalized }));
+    setEditMode(true);
+    setEditSlug(savedSlug);
+
+    const mergeList = (prev) => {
+      const existing = prev.find((c) => c.slug === previousSlug);
+      const courseCount = existing?.courseCount || 0;
+      const entry = { ...normalized, courseCount };
+      if (existing) {
+        return prev.map((c) => (c.slug === previousSlug ? entry : c));
+      }
+      return [...prev, entry];
+    };
+
+    setCategories(mergeList);
+    setFilteredCategories(mergeList);
+
+    return savedSlug;
+  };
+
+  const resolveCategoryUploadSlug = async () => {
+    if (editMode && editSlug) {
+      return String(editSlug).trim();
+    }
+
+    const draftSlug = String(categoryData.slug || "").trim();
+    if (draftSlug) {
+      try {
+        const imageApiBase = `${resolveCategoryImageApiBase()}/api/categories`;
+        const res = await fetch(
+          `${imageApiBase}/${encodeURIComponent(draftSlug)}/`
+        );
+        if (res.ok) return draftSlug;
+      } catch {
+        // fall through and save before upload
+      }
+    }
+
+    return persistCategoryBeforeImageUpload();
+  };
+
+  const handleUploadCategoryImage = async (file) => {
+    if (!file) return;
+
+    setImageUploading(true);
+    setSaveMessage("");
+    try {
+      const slug = await resolveCategoryUploadSlug();
+      const form = new FormData();
+      form.append("image", file);
+
+      const imageApiBase = `${resolveCategoryImageApiBase()}/api/categories`;
+      const res = await fetch(
+        `${imageApiBase}/${encodeURIComponent(slug)}/upload-image/`,
+        {
+          method: "POST",
+          body: form,
+        }
+      );
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const detail = data?.error || `Upload failed (${res.status})`;
+        if (res.status === 404 && detail.toLowerCase().includes("not found")) {
+          throw new Error(
+            "Category not found on the image API. Run the local Django server (python manage.py runserver) and ensure this category exists in your local database."
+          );
+        }
+        throw new Error(detail);
+      }
+
+      const uploadedImageUrl = data?.image_url || "";
+      setCategoryData((prev) => ({
+        ...prev,
+        slug,
+        image_url: uploadedImageUrl || prev.image_url,
+      }));
+
+      setCategories((prev) =>
+        prev.map((c) =>
+          c.slug === slug
+            ? { ...c, image_url: uploadedImageUrl || c.image_url }
+            : c
+        )
+      );
+      setFilteredCategories((prev) =>
+        prev.map((c) =>
+          c.slug === slug
+            ? { ...c, image_url: uploadedImageUrl || c.image_url }
+            : c
+        )
+      );
+
+      setSaveMessage("✅ Image uploaded successfully!");
+      setTimeout(() => setSaveMessage(""), 3000);
+    } catch (err) {
+      setSaveMessage(
+        `❌ ${err instanceof Error ? err.message : "Image upload failed"}`
+      );
+    } finally {
+      setImageUploading(false);
     }
   };
 
@@ -427,6 +645,7 @@ export default function AdminCategoriesPage() {
       content: normalizeContentForEditor(cat.content || ""),
       faqs: Array.isArray(cat.faqs) ? cat.faqs : [],
       icon: cat.icon || ICON_OPTIONS[0],
+      image_url: cat.image_url || "",
       meta_title: cat.meta_title || "",
       meta_keywords: cat.meta_keywords || "",
       meta_description: cat.meta_description || "",
@@ -523,15 +742,8 @@ export default function AdminCategoriesPage() {
         ) : null}
 
         <div className="flex flex-col sm:flex-row justify-between gap-4 sm:items-center">
-          <Input
-            placeholder="Search categories..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full sm:max-w-sm rounded-md border border-gray-200 bg-white shadow-none"
-          />
-
           <div className="flex flex-wrap gap-2">
-            <Button
+            {/* <Button
               variant="default"
               className="flex items-center gap-2 bg-gray-900 text-white hover:bg-gray-800"
               onClick={() => {
@@ -546,6 +758,7 @@ export default function AdminCategoriesPage() {
                   content: "",
                   faqs: [],
                   icon: ICON_OPTIONS[0],
+                  image_url: "",
                   meta_title: "",
                   meta_keywords: "",
                   meta_description: "",
@@ -558,7 +771,7 @@ export default function AdminCategoriesPage() {
               }}
             >
               <FiPlus /> Add Category
-            </Button>
+            </Button> */}
 
             {selectedSlugs.length > 0 && (
               <Button
@@ -586,14 +799,6 @@ export default function AdminCategoriesPage() {
                   </p> */}
                 </div>
 
-                <Button
-                  onClick={handleSaveCategoriesPageSeo}
-                  disabled={seoLoading}
-                  variant="outline"
-                  className="shrink-0 border-gray-300 font-medium hover:bg-gray-50"
-                >
-                  {seoLoading ? "Saving..." : "Save SEO"}
-                </Button>
               </div>
 
               {seoMessage ? (
@@ -612,12 +817,12 @@ export default function AdminCategoriesPage() {
 
               
 
-              <div className="pt-6">
+              <div className="pt-2">
                 <h4 className="text-base font-semibold text-gray-900 mb-4">
                   SEO Meta Tags
                 </h4>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
                     Meta Title
@@ -655,24 +860,24 @@ export default function AdminCategoriesPage() {
                     Comma-separated keywords
                   </p>
                 </div>
-              </div>
 
-              <div className="mt-4">
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Meta Description
-                </label>
-                <textarea
-                  value={categoriesPageSeo.meta_description}
-                  onChange={(e) =>
-                    setCategoriesPageSeo({
-                      ...categoriesPageSeo,
-                      meta_description: e.target.value,
-                    })
-                  }
-                  className="w-full rounded-md border border-gray-300 bg-white p-3 text-base transition focus-visible:border-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-300"
-                  rows={3}
-                  placeholder="Concise description shown in Google results (150-160 characters recommended)"
-                />
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Meta Description
+                  </label>
+                  <textarea
+                    value={categoriesPageSeo.meta_description}
+                    onChange={(e) =>
+                      setCategoriesPageSeo({
+                        ...categoriesPageSeo,
+                        meta_description: e.target.value,
+                      })
+                    }
+                    className="w-full rounded-md border border-gray-300 bg-white p-3 text-base transition focus-visible:border-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-300"
+                    rows={3}
+                    placeholder="Concise description shown in Google results (150-160 characters recommended)"
+                  />
+                </div>
               </div>
 
               <div className="mt-6 flex justify-end border-t border-gray-200 pt-6">
@@ -721,13 +926,17 @@ export default function AdminCategoriesPage() {
               onChange={(e) =>
                 setCategoriesPageSeo({
                   ...categoriesPageSeo,
-                  hero_subtitle: e.target.value,
+                  hero_subtitle: clampCategoryText(e.target.value),
                 })
               }
+              maxLength={CATEGORY_TEXT_LIMIT}
               className="w-full rounded-md border border-gray-300 bg-white p-3 text-base transition focus-visible:border-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-300"
               rows={4}
               placeholder="Short description shown below the hero title on the categories page"
             />
+            <p className="text-xs text-gray-500 mt-1">
+              {(categoriesPageSeo.hero_subtitle || "").length}/{CATEGORY_TEXT_LIMIT} characters
+            </p>
           </div>
           <div className="flex justify-end mt-6">
             <button
@@ -738,6 +947,46 @@ export default function AdminCategoriesPage() {
             </button>
           </div>
         </div>
+
+        {/* Search bar under Hero Section */}
+        <div className="flex flex-col sm:flex-row justify-between gap-4 sm:items-center">
+          <Input
+            placeholder="Search categories..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full sm:max-w-sm rounded-md border border-gray-200 bg-white shadow-none"
+          />
+           <Button
+              variant="default"
+              className="flex items-center gap-2 bg-gray-900 text-white hover:bg-gray-800"
+              onClick={() => {
+                setEditMode(false);
+                setPageMessage("");
+                setModalTab("details");
+                setCategoryData({
+                  title: "",
+                  slug: "",
+                  main_category: "",
+                  description: "",
+                  content: "",
+                  faqs: [],
+                  icon: ICON_OPTIONS[0],
+                  image_url: "",
+                  meta_title: "",
+                  meta_keywords: "",
+                  meta_description: "",
+                  is_top_certification: false,
+                  hero_title: "",
+                  hero_subtitle: "",
+                });
+                setEditSlug(null);
+                setShowModal(true);
+              }}
+            >
+              <FiPlus /> Add Category
+            </Button>
+        </div>
+
 
         <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
           <div className="overflow-x-auto">
@@ -776,6 +1025,7 @@ export default function AdminCategoriesPage() {
                 ) : (
                   filteredCategories.map((cat, idx) => {
                     const IconComp = ICON_MAP[cat.icon] || Cloud;
+                    const thumbSrc = resolveCategoryImageUrl(cat.image_url);
                     return (
                       <motion.tr
                         key={cat.slug || idx}
@@ -794,8 +1044,18 @@ export default function AdminCategoriesPage() {
                           />
                         </td>
                         <td className="px-4 py-3 align-middle">
-                          <div className="flex h-9 w-9 items-center justify-center rounded-md border border-gray-200 bg-gray-50">
-                            <IconComp className="h-4 w-4 text-gray-600" />
+                          <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-md border border-gray-200 bg-gray-50">
+                            {thumbSrc ? (
+                              <img
+                                src={thumbSrc}
+                                alt={cat.title || "Category"}
+                                className="h-full w-full object-cover"
+                                loading="lazy"
+                                decoding="async"
+                              />
+                            ) : (
+                              <IconComp className="h-4 w-4 text-gray-600" />
+                            )}
                           </div>
                         </td>
                         <td className="px-4 py-3 align-middle font-medium text-gray-900">{cat.title}</td>
@@ -809,15 +1069,6 @@ export default function AdminCategoriesPage() {
                         </td>
                         <td className="px-4 py-3 align-middle">
                           <div className="flex flex-wrap items-center justify-end gap-1.5 sm:justify-center">
-                            <Button
-                              onClick={() => router.push(`/admin/categories/${cat.slug}/courses`)}
-                              variant="outline"
-                              size="sm"
-                              className="h-9 border-gray-300 px-2.5 text-xs font-normal text-gray-800 hover:bg-gray-50 cursor-pointer"
-                            >
-                              <Eye className="h-3.5 w-3.5" />
-                              <span className="hidden sm:inline">View courses</span>
-                            </Button>
                             <Button
                               onClick={() => handleEditCategory(cat)}
                               variant="outline"
@@ -881,7 +1132,6 @@ export default function AdminCategoriesPage() {
                 {[
                   { id: "details", label: "Details" },
                   { id: "seo", label: "SEO Meta Tags" },
-                  { id: "hero", label: "Hero Section" },
                 ].map((tab) => (
                   <button
                     key={tab.id}
@@ -929,6 +1179,43 @@ export default function AdminCategoriesPage() {
                     />
                     <p className="text-xs text-gray-500 mt-1">This will be displayed as the main category slug</p>
                   </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Upload Category Image
+                  </label>
+                  <Input
+                    type="file"
+                    accept="image/*"
+                    disabled={imageUploading}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleUploadCategoryImage(file);
+                      // allow re-upload of same file later
+                      e.target.value = "";
+                    }}
+                    className="text-base"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    New categories are saved automatically when you upload an image. Editing uses the saved category slug.
+                    {imageUploading ? " Uploading..." : ""}
+                  </p>
+
+                  {resolveCategoryImageUrl(categoryData.image_url) ? (
+                    <div className="mt-3 rounded-xl border border-indigo-100 bg-indigo-50/30 p-3">
+                      <p className="text-xs font-semibold text-gray-700 mb-2">
+                        Preview
+                      </p>
+                      <img
+                        src={resolveCategoryImageUrl(categoryData.image_url)}
+                        alt="Category"
+                        className="w-full max-w-md h-40 object-cover rounded-lg border border-white shadow-sm"
+                        loading="lazy"
+                        decoding="async"
+                      />
+                    </div>
+                  ) : null}
+                </div>
                
 
             
@@ -980,12 +1267,20 @@ export default function AdminCategoriesPage() {
                     </label>
                     <textarea 
                       value={categoryData.description} 
-                      onChange={(e) => setCategoryData({ ...categoryData, description: e.target.value })} 
+                      onChange={(e) =>
+                        setCategoryData({
+                          ...categoryData,
+                          description: clampCategoryText(e.target.value),
+                        })
+                      }
+                      maxLength={CATEGORY_TEXT_LIMIT}
                       className="w-full border border-gray-300 rounded-lg p-3 text-base focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
                       rows={4}
                       placeholder="Describe what this category includes..."
                     />
-                    <p className="text-xs text-gray-500 mt-1">Brief description of the category</p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Brief description of the category ({(categoryData.description || "").length}/{CATEGORY_TEXT_LIMIT} characters)
+                    </p>
               </div>
 
                   <div className="md:col-span-2">
@@ -1142,52 +1437,6 @@ export default function AdminCategoriesPage() {
                       {categoryData.meta_description.length}/160 characters recommended
                     </p>
                   </div>
-                </div>
-              </div>
-              )}
-
-              {modalTab === "hero" && (
-              <div className="space-y-4">
-                <h4 className="text-lg font-semibold text-gray-800 pb-2 border-b-2 border-indigo-100">
-                  Hero Section
-                </h4>
-                <p className="text-sm text-gray-600">
-                  Title and subtitle shown in the hero banner on this category&apos;s public page.
-                </p>
-
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Hero Title
-                  </label>
-                  <Input
-                    value={categoryData.hero_title}
-                    onChange={(e) =>
-                      setCategoryData({ ...categoryData, hero_title: e.target.value })
-                    }
-                    placeholder="e.g., AWS Certification Practice Tests"
-                    className="text-base"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Leave empty to use the category title.
-                  </p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Hero Subtitle
-                  </label>
-                  <textarea
-                    value={categoryData.hero_subtitle}
-                    onChange={(e) =>
-                      setCategoryData({ ...categoryData, hero_subtitle: e.target.value })
-                    }
-                    className="w-full border border-gray-300 rounded-lg p-3 text-base focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
-                    rows={4}
-                    placeholder="Short description shown below the hero title on the category page"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Leave empty to use the category description.
-                  </p>
                 </div>
               </div>
               )}

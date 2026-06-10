@@ -969,10 +969,485 @@
 
 
 
-import { notFound } from "next/navigation";
+// import { notFound, permanentRedirect } from "next/navigation";
+// import ExamDetailClient from "./ExamDetailClient";
+// import { getOfficialExamInfoPathFromExam } from "./examInfoUtils";
+// import { getExamLandingPath, getExamPracticePath } from "@/utils/practiceTestRouting";
+
+
+// export const dynamic = "force-dynamic";
+
+// export async function generateMetadata({ params }) {
+//   const { provider, examCode } = await params;
+
+//   const API_BASE =
+//     process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
+
+//   try {
+//     const res = await fetch(
+//       `${API_BASE}/api/courses/exams/${provider}-${examCode}/`,
+//       { cache: "no-store" }
+//     );
+
+//     if (!res.ok) {
+//       return {
+//         title: "Exam | AllExamQuestions",
+//       };
+//     }
+
+//     const exam = await res.json();
+
+//     // return {
+//     //   // title:
+//     //   //   exam.meta_title + " | All Exam Questions"  ,
+//     //     // exam.title ||
+//     //     // `${examCode} Certification Exam`,
+
+//     //   title: exam.meta_title
+//     //   ? exam.meta_title + " | All Exam Questions"
+//     //   : exam.title || `${examCode} Certification Exam`,
+
+//     //   description:
+//     //     exam.meta_description ||
+//     //     exam.description ||
+//     //     "",
+
+//     //   keywords:
+//     //     exam.meta_keywords || "",
+
+//     //   alternates: {
+//     //     canonical: `https://allexamquestions.com/exams/${provider}/${examCode}`,
+//     //   },
+//     // };
+//     const pageTitle = exam.meta_title
+//       ? exam.meta_title + " | All Exam Questions"
+//       : exam.title || `${examCode} Certification Exam`;
+
+//     const pageDescription =
+//       exam.meta_description ||
+//       exam.description ||
+//       "";
+
+//     const canonicalUrl = exam?.slug
+//       ? `https://allexamquestions.com/${exam.slug}`
+//       : `https://allexamquestions.com/exams/${provider}/${examCode}`;
+    
+
+//     return {
+//       title: pageTitle,
+//       description: pageDescription,
+//       keywords: exam.meta_keywords || "",
+
+//       alternates: {
+//         canonical: canonicalUrl,
+//       },
+
+//       openGraph: {
+//         title: pageTitle,
+//         description: pageDescription,
+//         url: canonicalUrl,
+//         type: "website",
+//         images: [
+//           {
+//             url: exam.meta_image
+//               ? exam.meta_image
+//               : "https://allexamquestions.com/alleq_logo.png",
+//             width: 1200,
+//             height: 630,
+//             alt: exam.meta_title || "All Exam Questions Exam Page",
+//           },
+//         ],
+      
+//       },
+//     };
+  
+//   } catch (error) {
+//     return {
+//       title: "Exam | AllExamQuestions",
+//     };
+//   }
+// }
+// export default async function ExamDetailPage({ params }) {
+
+//   const { provider, examCode } = await params;
+
+//   const API_BASE =
+//     process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
+
+//   let exam;
+
+//   try {
+
+//     // const res = await fetch(
+//     //   `${API_BASE}/api/courses/exams/${provider}-${examCode}/`,
+//     //   { cache: "no-store" }
+//     // );
+
+//     // if (!res.ok) throw new Error();
+
+//     const url = `${API_BASE}/api/courses/exams/${provider}-${examCode}/`;
+
+//     const res = await fetch(url, { cache: "no-store" });
+
+//     console.log("FETCH URL:", url);
+
+//     if (!res.ok) {
+//       console.log("API FAILED:", res.status);
+//       notFound();
+//     }
+
+//     exam = await res.json();
+
+//     // console.log("EXAM RESPONSE:", exam);
+//     // // 🔥 ADD REDIRECT HERE (VERY IMPORTANT)
+//     if (exam && exam.slug) {
+//       const cleanSlug = String(exam.slug).trim();
+
+//       if (cleanSlug.length > 0) {
+//         console.log("REDIRECT TO:", cleanSlug);
+//         // permanentRedirect(`/${cleanSlug}`);
+//       }
+//     }
+
+//     // if (exam?.slug) {
+//     //   permanentRedirect(`/${exam.slug}`);
+//     // }
+
+//     console.log("FULL API =", exam);
+
+//     console.log("FULL API =", exam);
+
+//   } catch {
+//     notFound();
+//   }
+
+
+//   /* ---------------- SUPER SAFE PICK ---------------- */
+
+//   const pick = (...keys) => {
+//     for (const k of keys) {
+
+//       const val = exam?.[k];
+
+//       if (
+//         val !== undefined &&
+//         val !== null &&
+//         val !== "" &&
+//         val !== "null"
+//       ) return val;
+//     }
+//     return null;
+//   };
+
+//   const pickArray = (...keys) => {
+//     for (const k of keys) {
+//       if (Array.isArray(exam?.[k]) && exam[k].length) return exam[k];
+//     }
+//     return [];
+//   };
+
+
+
+    
+
+
+//   /* ---------------- PRACTICE TESTS ---------------- */
+
+//   const practiceTestsList =
+//     pickArray(
+//       "practice_tests_list",
+//       "practice_tests",
+//       "tests",
+//       "exam_tests"
+//     );
+
+//   const totalQuestions =
+//     practiceTestsList.length
+//       ? practiceTestsList.reduce(
+//           (sum, t) =>
+//             sum + Number(t.questions || t.total_questions || 0),
+//           0
+//         )
+//       : Number(
+//           pick(
+//             "total_questions",
+//             "questions",
+//             "question_count"
+//           ) || 0
+//         );
+
+
+
+//   /* ---------------- PRACTICE TESTS TOTAL DURATION ---------------- */
+//   function getTotalDuration(obj) {
+//     if (!obj || typeof obj !== "object") return 0;
+
+//     let total = 0;
+
+//     for (const key in obj) {
+//       const value = obj[key];
+
+//       // If the key contains "duration", extract its number
+//       if (key.toLowerCase().includes("duration")) {
+//         if (typeof value === "number") {
+//           total += value;
+//         } else if (typeof value === "string") {
+//           // Extract all numbers in the string and sum them
+//           const match = value.match(/\d+/g);
+//           if (match) total += match.reduce((sum, n) => sum + Number(n), 0);
+//         }
+//       }
+
+//       // If value is object, search recursively
+//       if (typeof value === "object" && value !== null) {
+//         total += getTotalDuration(value);
+//       }
+//     }
+
+//     return total;
+//   }
+
+//   // Calculate total duration of practice tests only
+//   let totalPracticeMinutes = 0;
+//   if (practiceTestsList.length) {
+//     for (const test of practiceTestsList) {
+//       totalPracticeMinutes += getTotalDuration(test);
+//     }
+//   }
+
+//   const adminDurationRaw = pick("duration");
+//   const adminDurationTrim =
+//     adminDurationRaw != null && String(adminDurationRaw).trim() !== ""
+//       ? String(adminDurationRaw).trim()
+//       : null;
+//   const computedMinutesLabel =
+//     totalPracticeMinutes > 0 ? `${totalPracticeMinutes} minutes` : null;
+//   const durationMerged = adminDurationTrim || computedMinutesLabel || null;
+
+//   const currencyRaw = pick("currency");
+//   const currency =
+//     currencyRaw != null && String(currencyRaw).trim() !== ""
+//       ? String(currencyRaw).trim()
+//       : "INR";
+//   const offerNum = Number(pick("offer_price"));
+//   const actualNum = Number(pick("actual_price"));
+//   let examCostDisplay = null;
+//   if (Number.isFinite(offerNum) && offerNum > 0) {
+//     examCostDisplay = `${currency} ${offerNum.toLocaleString(undefined, {
+//       maximumFractionDigits: 2,
+//     })}`;
+//   } else if (Number.isFinite(actualNum) && actualNum > 0) {
+//     examCostDisplay = `${currency} ${actualNum.toLocaleString(undefined, {
+//       maximumFractionDigits: 2,
+//     })}`;
+//   }
+
+  
+//   /* ---------------- TOPICS PREPROCESSING ---------------- */
+//   const rawTopics = exam.topics || [];
+
+//   const topics = rawTopics.map((t) => {
+//     const name = t.name || t.title || t.topic || "";
+
+//     // Pick numeric value from various possible fields
+//     let rawPercentage = t.weight ?? t.percentage ?? t.percent ?? t.value ?? "0";
+
+//     rawPercentage = rawPercentage.toString().trim(); // keep as string
+
+//     // Parse ranges like "10-20%", "10 - 20%", or single numbers like "15%"
+//     let startPercentage = 0;
+//     let endPercentage = 0;
+
+//     // Extract numbers from string
+//     const numbers = rawPercentage.match(/\d+/g); // will get all numbers in string
+
+//     if (numbers && numbers.length > 0) {
+//       startPercentage = Number(numbers[0]);
+//       endPercentage = numbers.length > 1 ? Number(numbers[1]) : startPercentage;
+//     }
+
+//     // Clamp between 0-100
+//     startPercentage = Math.min(Math.max(startPercentage, 0), 100);
+//     endPercentage = Math.min(Math.max(endPercentage, 0), 100);
+
+//     const explanationRaw = t.explanation ?? t.description ?? "";
+//     const explanation =
+//       typeof explanationRaw === "string" ? explanationRaw.trim() : "";
+
+//     return {
+//       name,
+//       rawPercentage: rawPercentage + (rawPercentage.includes("%") ? "" : "%"), // display string
+//       startPercentage,
+//       endPercentage,
+//       explanation,
+//     };
+//   });
+
+//   /* ---------------- FINAL DATA ---------------- */
+
+//   const aboutContent = pick("about", "description") || "";
+//   const examDetailsContent = pick("exam_details", "details") || aboutContent;
+
+//   const passingPick = pick(
+//     "passing_score",
+//     "pass_score",
+//     "cutoff",
+//     "pass_mark"
+//   );
+//   const passingScoreResolved =
+//     passingPick !== null &&
+//     passingPick !== undefined &&
+//     String(passingPick).trim() !== ""
+//       ? String(passingPick).trim()
+//       : "Not specified";
+
+//   const slug = exam?.slug != null ? String(exam.slug).trim() : null;
+//   const hasOfficialDetails =
+//     exam?.has_official_details === true ||
+//     exam?.official_details === true ||
+//     exam?.has_official_details === 1 ||
+//     exam?.official_details === 1 ||
+//     exam?.has_official_details === "true" ||
+//     exam?.official_details === "true";
+//   const providerSlug = pick("provider_slug") || provider;
+//   const lastUpdated = pick("badge") || null;
+
+//   const examData = {
+    
+
+//     ...exam,
+
+//     provider: pick("provider") || provider,
+//     providerSlug,
+//     slug,
+//     lastUpdated,
+//     hasOfficialDetails,
+//     landingUrl: getExamLandingPath({
+//       slug,
+//       title: pick("title", "name") || "",
+//       code: pick("code", "exam_code") || examCode,
+//     }) || (slug ? `/${slug}` : `/${examCode}`),
+//     practiceUrl:
+//       getExamPracticePath({
+//         slug,
+//         title: pick("title", "name") || "",
+//         code: pick("code", "exam_code") || examCode,
+//       }) || (slug ? `/${slug}/practice` : `/${examCode}/practice`),
+//     officialDetailsUrl: getOfficialExamInfoPathFromExam({
+//       slug,
+//       title: pick("title", "name") || "",
+//       code: pick("code", "exam_code") || examCode,
+//     }),
+//     code: pick("code", "exam_code") || examCode,
+//     title: pick("title", "name") || "",
+//     page_heading:
+//       pick("page_heading") || null,
+
+//     duration: durationMerged,
+
+//     examCostDisplay,
+
+//     passingScore: passingScoreResolved,
+
+//     difficulty:
+//       pick(
+//         "difficulty",
+//         "level",
+//         "exam_level"
+//       ) || "Beginner",
+
+//     practiceTests: practiceTestsList.length,
+
+//     totalQuestions,
+
+//     passRate:
+//       Number(pick("pass_rate", "passRate")) || null,
+
+//     rating:
+//       Number(pick("rating")) || null,
+
+//     about: aboutContent,
+
+//     about_heading:
+//       pick("about_heading") || null,
+
+//     exam_details_heading:
+//       pick("exam_details_heading") || null,
+
+//     exam_details: examDetailsContent,
+//     testDescription: pick("test_description") || "",
+
+//     why_matters_heading:
+//       pick("why_matters_heading") || null,
+
+//     whats_included_heading:
+//       pick("whats_included_heading") || null,
+
+//     topics_heading:
+//       pick("topics_heading") || null,
+
+//     practice_tests_heading:
+//       pick("practice_tests_heading") || null,
+
+//     testimonials_heading:
+//       pick("testimonials_heading") || null,
+
+//     faqs_heading:
+//       pick("faqs_heading") || null,
+
+//     whyMatters:
+//       pick("why_matters", "whyMatters") || "",
+
+//     practiceTestsList,
+
+//     category:
+//       pickArray("category", "categories"),
+
+//     topics,
+
+//     whatsIncluded:
+//       pickArray("whats_included"),
+
+//     testimonials:
+//       pickArray("testimonials"),
+
+//     faqs:
+//       pickArray("faqs"),
+//   };
+
+//   console.log("SERVER HTML DATA:", examData.title);
+//   return (
+//     <>
+//       {/* SERVER HTML FOR SEO / SOURCE VIEW */}
+//       {/* <div style={{display:"none"}}>
+//         <h1>{examData.title}</h1>
+//         <p>{examData.duration}</p>
+//         <p>{examData.totalQuestions}</p>
+//         <p>{examData.about}</p>
+//         <p>{examData.whyMatters}</p>
+//       </div> */}
+  
+//       {/* REAL UI */}
+//       <ExamDetailClient
+//         examData={examData}
+//         provider={provider}
+//         examCode={examCode}
+//       />
+//     </>
+//   );
+// }
+
+
+
+
+
+
+
+import { notFound, permanentRedirect } from "next/navigation";
 import ExamDetailClient from "./ExamDetailClient";
-
-
+import { getOfficialDetailsPath } from "./examInfoUtils";
+import { hasOfficialDetailsData } from "@/components/exam/OfficialExamDetailsView";
+import { getExamLandingPath, getExamPracticePath, trimPublicPathSegment } from "@/utils/practiceTestRouting";
 
 export const dynamic = "force-dynamic";
 
@@ -996,28 +1471,6 @@ export async function generateMetadata({ params }) {
 
     const exam = await res.json();
 
-    // return {
-    //   // title:
-    //   //   exam.meta_title + " | All Exam Questions"  ,
-    //     // exam.title ||
-    //     // `${examCode} Certification Exam`,
-
-    //   title: exam.meta_title
-    //   ? exam.meta_title + " | All Exam Questions"
-    //   : exam.title || `${examCode} Certification Exam`,
-
-    //   description:
-    //     exam.meta_description ||
-    //     exam.description ||
-    //     "",
-
-    //   keywords:
-    //     exam.meta_keywords || "",
-
-    //   alternates: {
-    //     canonical: `https://allexamquestions.com/exams/${provider}/${examCode}`,
-    //   },
-    // };
     const pageTitle = exam.meta_title
       ? exam.meta_title + " | All Exam Questions"
       : exam.title || `${examCode} Certification Exam`;
@@ -1027,7 +1480,9 @@ export async function generateMetadata({ params }) {
       exam.description ||
       "";
 
-    const pageUrl = `https://allexamquestions.com/exams/${provider}/${examCode}`;
+    const canonicalUrl = exam?.slug
+      ? `https://allexamquestions.com/${exam.slug}`
+      : `https://allexamquestions.com/exams/${provider}/${examCode}`;
 
     return {
       title: pageTitle,
@@ -1035,13 +1490,13 @@ export async function generateMetadata({ params }) {
       keywords: exam.meta_keywords || "",
 
       alternates: {
-        canonical: pageUrl,
+        canonical: canonicalUrl,
       },
 
       openGraph: {
         title: pageTitle,
         description: pageDescription,
-        url: pageUrl,
+        url: canonicalUrl,
         type: "website",
         images: [
           {
@@ -1053,20 +1508,17 @@ export async function generateMetadata({ params }) {
             alt: exam.meta_title || "All Exam Questions Exam Page",
           },
         ],
-      
       },
     };
-  
   } catch (error) {
     return {
       title: "Exam | AllExamQuestions",
     };
   }
 }
-export default async function ExamDetailPage({ params }) {
 
-  params = await params;
-  const { provider, examCode } = params;
+export default async function ExamDetailPage({ params }) {
+  const { provider, examCode } = await params;
 
   const API_BASE =
     process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
@@ -1074,28 +1526,36 @@ export default async function ExamDetailPage({ params }) {
   let exam;
 
   try {
+    const url = `${API_BASE}/api/courses/exams/${provider}-${examCode}/`;
 
-    const res = await fetch(
-      `${API_BASE}/api/courses/exams/${provider}-${examCode}/`,
-      { cache: "no-store" }
-    );
+    const res = await fetch(url, { cache: "no-store" });
 
-    if (!res.ok) throw new Error();
+    console.log("FETCH URL:", url);
+
+    if (!res.ok) {
+      console.log("API FAILED:", res.status);
+      notFound();
+    }
 
     exam = await res.json();
 
-    console.log("FULL API =", exam);
+    if (exam && exam.slug) {
+      const cleanSlug = String(exam.slug).trim();
 
+      if (cleanSlug.length > 0) {
+        console.log("REDIRECT TO:", cleanSlug);
+        // permanentRedirect(`/${cleanSlug}`);
+      }
+    }
+
+    console.log("FULL API =", exam);
+    console.log("FULL API =", exam);
   } catch {
     notFound();
   }
 
-
-  /* ---------------- SUPER SAFE PICK ---------------- */
-
   const pick = (...keys) => {
     for (const k of keys) {
-
       const val = exam?.[k];
 
       if (
@@ -1114,13 +1574,6 @@ export default async function ExamDetailPage({ params }) {
     }
     return [];
   };
-
-
-
-    
-
-
-  /* ---------------- PRACTICE TESTS ---------------- */
 
   const practiceTestsList =
     pickArray(
@@ -1145,9 +1598,6 @@ export default async function ExamDetailPage({ params }) {
           ) || 0
         );
 
-
-
-  /* ---------------- PRACTICE TESTS TOTAL DURATION ---------------- */
   function getTotalDuration(obj) {
     if (!obj || typeof obj !== "object") return 0;
 
@@ -1156,18 +1606,15 @@ export default async function ExamDetailPage({ params }) {
     for (const key in obj) {
       const value = obj[key];
 
-      // If the key contains "duration", extract its number
       if (key.toLowerCase().includes("duration")) {
         if (typeof value === "number") {
           total += value;
         } else if (typeof value === "string") {
-          // Extract all numbers in the string and sum them
           const match = value.match(/\d+/g);
           if (match) total += match.reduce((sum, n) => sum + Number(n), 0);
         }
       }
 
-      // If value is object, search recursively
       if (typeof value === "object" && value !== null) {
         total += getTotalDuration(value);
       }
@@ -1176,7 +1623,6 @@ export default async function ExamDetailPage({ params }) {
     return total;
   }
 
-  // Calculate total duration of practice tests only
   let totalPracticeMinutes = 0;
   if (practiceTestsList.length) {
     for (const test of practiceTestsList) {
@@ -1189,18 +1635,24 @@ export default async function ExamDetailPage({ params }) {
     adminDurationRaw != null && String(adminDurationRaw).trim() !== ""
       ? String(adminDurationRaw).trim()
       : null;
+
   const computedMinutesLabel =
     totalPracticeMinutes > 0 ? `${totalPracticeMinutes} minutes` : null;
-  const durationMerged = adminDurationTrim || computedMinutesLabel || null;
+
+  const durationMerged =
+    adminDurationTrim || computedMinutesLabel || null;
 
   const currencyRaw = pick("currency");
   const currency =
     currencyRaw != null && String(currencyRaw).trim() !== ""
       ? String(currencyRaw).trim()
       : "INR";
+
   const offerNum = Number(pick("offer_price"));
   const actualNum = Number(pick("actual_price"));
+
   let examCostDisplay = null;
+
   if (Number.isFinite(offerNum) && offerNum > 0) {
     examCostDisplay = `${currency} ${offerNum.toLocaleString(undefined, {
       maximumFractionDigits: 2,
@@ -1211,51 +1663,49 @@ export default async function ExamDetailPage({ params }) {
     })}`;
   }
 
-  
-  /* ---------------- TOPICS PREPROCESSING ---------------- */
   const rawTopics = exam.topics || [];
 
   const topics = rawTopics.map((t) => {
     const name = t.name || t.title || t.topic || "";
 
-    // Pick numeric value from various possible fields
-    let rawPercentage = t.weight ?? t.percentage ?? t.percent ?? t.value ?? "0";
+    let rawPercentage =
+      t.weight ?? t.percentage ?? t.percent ?? t.value ?? "0";
 
-    rawPercentage = rawPercentage.toString().trim(); // keep as string
+    rawPercentage = rawPercentage.toString().trim();
 
-    // Parse ranges like "10-20%", "10 - 20%", or single numbers like "15%"
     let startPercentage = 0;
     let endPercentage = 0;
 
-    // Extract numbers from string
-    const numbers = rawPercentage.match(/\d+/g); // will get all numbers in string
+    const numbers = rawPercentage.match(/\d+/g);
 
     if (numbers && numbers.length > 0) {
       startPercentage = Number(numbers[0]);
-      endPercentage = numbers.length > 1 ? Number(numbers[1]) : startPercentage;
+      endPercentage =
+        numbers.length > 1 ? Number(numbers[1]) : startPercentage;
     }
 
-    // Clamp between 0-100
     startPercentage = Math.min(Math.max(startPercentage, 0), 100);
     endPercentage = Math.min(Math.max(endPercentage, 0), 100);
 
     const explanationRaw = t.explanation ?? t.description ?? "";
     const explanation =
-      typeof explanationRaw === "string" ? explanationRaw.trim() : "";
+      typeof explanationRaw === "string"
+        ? explanationRaw.trim()
+        : "";
 
     return {
       name,
-      rawPercentage: rawPercentage + (rawPercentage.includes("%") ? "" : "%"), // display string
+      rawPercentage:
+        rawPercentage + (rawPercentage.includes("%") ? "" : "%"),
       startPercentage,
       endPercentage,
       explanation,
     };
   });
 
-  /* ---------------- FINAL DATA ---------------- */
-
   const aboutContent = pick("about", "description") || "";
-  const examDetailsContent = pick("exam_details", "details") || "";
+  const examDetailsContent =
+    pick("exam_details", "details") || aboutContent;
 
   const passingPick = pick(
     "passing_score",
@@ -1263,6 +1713,7 @@ export default async function ExamDetailPage({ params }) {
     "cutoff",
     "pass_mark"
   );
+
   const passingScoreResolved =
     passingPick !== null &&
     passingPick !== undefined &&
@@ -1270,110 +1721,101 @@ export default async function ExamDetailPage({ params }) {
       ? String(passingPick).trim()
       : "Not specified";
 
-  const examData = {
+  const slug =
+    exam?.slug != null ? String(exam.slug).trim() : null;
 
+  const providerSlug = pick("provider_slug") || provider;
+  const lastUpdated = pick("badge") || null;
+
+  const examData = {
     ...exam,
 
     provider: pick("provider") || provider,
+    providerSlug,
+    slug,
+    lastUpdated,
+
+    landingUrl:
+      getExamLandingPath({
+        slug,
+        title: pick("title", "name") || "",
+        code: pick("code", "exam_code") || examCode,
+      }) || (slug ? `/${slug}` : `/${examCode}`),
+
+    practiceUrl:
+      getExamPracticePath({
+        slug,
+        title: pick("title", "name") || "",
+        code: pick("code", "exam_code") || examCode,
+      }) || (slug ? `/${slug}/practice` : `/${examCode}/practice`),
+
+    hasOfficialDetails: hasOfficialDetailsData(exam),
+    officialDetailsUrl: (() => {
+      const officialPublicSlug = trimPublicPathSegment(
+        pick("official_details_url_slug") || ""
+      );
+      return officialPublicSlug
+        ? `/${officialPublicSlug}`
+        : getOfficialDetailsPath(
+            slug || examCode,
+            pick("official_details_url_slug") || "official-details"
+          );
+    })(),
+
     code: pick("code", "exam_code") || examCode,
     title: pick("title", "name") || "",
-    page_heading:
-      pick("page_heading") || null,
+
+    page_heading: pick("page_heading") || null,
 
     duration: durationMerged,
-
     examCostDisplay,
-
     passingScore: passingScoreResolved,
 
     difficulty:
-      pick(
-        "difficulty",
-        "level",
-        "exam_level"
-      ) || "Beginner",
+      pick("difficulty", "level", "exam_level") || "Beginner",
 
     practiceTests: practiceTestsList.length,
-
     totalQuestions,
 
     passRate:
       Number(pick("pass_rate", "passRate")) || null,
 
-    rating:
-      Number(pick("rating")) || null,
+    rating: Number(pick("rating")) || null,
 
     about: aboutContent,
-
-    about_heading:
-      pick("about_heading") || null,
-
-    exam_details_heading:
-      pick("exam_details_heading") || null,
-
+    about_heading: pick("about_heading") || null,
+    exam_details_heading: pick("exam_details_heading") || null,
     exam_details: examDetailsContent,
+    testDescription: pick("test_description") || "",
 
-    why_matters_heading:
-      pick("why_matters_heading") || null,
-
-    whats_included_heading:
-      pick("whats_included_heading") || null,
-
-    topics_heading:
-      pick("topics_heading") || null,
-
-    practice_tests_heading:
-      pick("practice_tests_heading") || null,
-
-    testimonials_heading:
-      pick("testimonials_heading") || null,
-
-    faqs_heading:
-      pick("faqs_heading") || null,
+    why_matters_heading: pick("why_matters_heading") || null,
+    whats_included_heading: pick("whats_included_heading") || null,
+    topics_heading: pick("topics_heading") || null,
+    practice_tests_heading: pick("practice_tests_heading") || null,
+    testimonials_heading: pick("testimonials_heading") || null,
+    faqs_heading: pick("faqs_heading") || null,
 
     whyMatters:
       pick("why_matters", "whyMatters") || "",
 
     practiceTestsList,
 
-    category:
-      pickArray("category", "categories"),
+    category: pickArray("category", "categories"),
 
     topics,
 
-    whatsIncluded:
-      pickArray("whats_included"),
-
-    testimonials:
-      pickArray("testimonials"),
-
-    faqs:
-      pickArray("faqs"),
+    whatsIncluded: pickArray("whats_included"),
+    testimonials: pickArray("testimonials"),
+    faqs: pickArray("faqs"),
   };
 
   console.log("SERVER HTML DATA:", examData.title);
+
   return (
-    <>
-      {/* SERVER HTML FOR SEO / SOURCE VIEW */}
-      {/* <div style={{display:"none"}}>
-        <h1>{examData.title}</h1>
-        <p>{examData.duration}</p>
-        <p>{examData.totalQuestions}</p>
-        <p>{examData.about}</p>
-        <p>{examData.whyMatters}</p>
-      </div> */}
-  
-      {/* REAL UI */}
-      <ExamDetailClient
-        examData={examData}
-        provider={provider}
-        examCode={examCode}
-      />
-    </>
+    <ExamDetailClient
+      examData={examData}
+      provider={provider}
+      examCode={examCode}
+    />
   );
 }
-
-
-
-
-

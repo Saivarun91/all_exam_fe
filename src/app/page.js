@@ -221,7 +221,7 @@ import { Suspense } from "react";
 import dynamicImport from "next/dynamic";
 import HeroSection from "../components/home/HeroSection";
 import BlogSection from "../components/home/BlogSection";
-import ScrollHandler from "../components/home/ScrollHandler";
+import HomeScrollHandler from "../components/home/HomeScrollHandler";
 
 const belowFoldFallback = <div className="py-20 bg-gray-50/40" aria-hidden />;
 
@@ -384,43 +384,40 @@ export async function generateMetadata() {
 
 export default function Page() {
   return (
-    <div className="min-h-screen">
-      <ScrollHandler />
-
-      <div>
-        <HeroSection />
-        <Suspense fallback={belowFoldFallback}>
-          <SeoIntroSection />
-        </Suspense>
-        <Suspense fallback={belowFoldFallback}>
-          <TopCategories />
-        </Suspense>
-        <Suspense fallback={belowFoldFallback}>
-          <FeaturedExams />
-        </Suspense>
-        <Suspense fallback={belowFoldFallback}>
-          <ValuePrepositions />
-        </Suspense>
-        <Suspense fallback={belowFoldFallback}>
-          <PopularProviders />
-        </Suspense>
-        <Suspense fallback={belowFoldFallback}>
-          <RecentlyUpdated />
-        </Suspense>
-        <Suspense fallback={belowFoldFallback}>
-          <Testimonials />
-        </Suspense>
-        <Suspense fallback={belowFoldFallback}>
-          <BlogSection />
-        </Suspense>
-        <Suspense fallback={belowFoldFallback}>
-          <EmailSubscribe />
-        </Suspense>
-        <Suspense fallback={belowFoldFallback}>
-          <HomeFAQ />
-        </Suspense>
-      </div>
-    </div>
+    <>
+      <HeroSection />
+      <Suspense fallback={belowFoldFallback}>
+        <SeoIntroSection />
+      </Suspense>
+      <Suspense fallback={belowFoldFallback}>
+        <TopCategories />
+      </Suspense>
+      <Suspense fallback={belowFoldFallback}>
+        <FeaturedExams />
+      </Suspense>
+      <Suspense fallback={belowFoldFallback}>
+        <ValuePrepositions />
+      </Suspense>
+      <Suspense fallback={belowFoldFallback}>
+        <PopularProviders />
+      </Suspense>
+      <Suspense fallback={belowFoldFallback}>
+        <RecentlyUpdated />
+      </Suspense>
+      <Suspense fallback={belowFoldFallback}>
+        <Testimonials />
+      </Suspense>
+      <Suspense fallback={belowFoldFallback}>
+        <BlogSection />
+      </Suspense>
+      <Suspense fallback={belowFoldFallback}>
+        <EmailSubscribe />
+      </Suspense>
+      <Suspense fallback={belowFoldFallback}>
+        <HomeFAQ />
+      </Suspense>
+      <HomeScrollHandler />
+    </>
   );
 }
 

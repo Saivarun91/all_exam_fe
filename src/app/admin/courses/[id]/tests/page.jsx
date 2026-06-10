@@ -308,7 +308,10 @@ export default function CourseTestsPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-4">
-          <Button variant="outline" onClick={() => router.back()}>
+          <Button
+            variant="outline"
+            onClick={() => router.push("/admin/home/practice-tests-manager")}
+          >
             <ArrowLeft className="h-4 w-4 mr-2" /> Back
           </Button>
           <div>
@@ -497,9 +500,9 @@ export default function CourseTestsPage() {
             <p className="text-[#0C1A35]/60 mb-4">No practice tests configured yet</p>
             <Button
               className="bg-[#1A73E8] hover:bg-[#1557B0]"
-              onClick={() => router.push(`/admin/home/exam-details-manager`)}
+              onClick={() => router.push(`/admin/home/practice-tests-manager`)}
             >
-              Configure Practice Tests
+              Go to Practice Tests Manager
             </Button>
           </CardContent>
         </Card>
@@ -535,7 +538,7 @@ export default function CourseTestsPage() {
             variant="outline"
             onClick={() => router.push(`/admin/home/exam-details-manager`)}
           >
-            Configure Course Settings
+            Configure Exam Details
           </Button>
         </div>
       </div>

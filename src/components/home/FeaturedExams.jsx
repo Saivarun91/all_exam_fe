@@ -1,6 +1,10 @@
 import FeaturedExamsClient from "./FeaturedExamsClient";
 import ItemListJsonLd from "@/components/ItemListJsonLd";
 import { getExamUrl } from "@/lib/utils";
+import {
+  FEATURED_COURSES_API_PATH,
+  filterAdminFeaturedCourses,
+} from "@/lib/featuredCourses";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
@@ -11,8 +15,8 @@ async function getData() {
       fetch(`${API_BASE_URL}/api/home/featured-exams-section/`, {
         next: { revalidate: 300 },
       }),
-      fetch(`${API_BASE_URL}/api/courses/featured/`, {
-        next: { revalidate: 300 },
+      fetch(`${API_BASE_URL}${FEATURED_COURSES_API_PATH}`, {
+        cache: "no-store",
       }),
       fetch(`${API_BASE_URL}/api/providers/`, {
         next: { revalidate: 300 },
@@ -28,9 +32,7 @@ async function getData() {
         ? sectionJson.data
         : { heading: "Featured Exams", subtitle: "" };
 
-    const courses = Array.isArray(coursesJson)
-      ? coursesJson.filter((c) => c.is_active !== false)
-      : [];
+    const courses = filterAdminFeaturedCourses(coursesJson);
 
     const providerSlugByName = Array.isArray(providersJson)
       ? providersJson.reduce((acc, provider) => {

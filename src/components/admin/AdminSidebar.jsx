@@ -24,6 +24,9 @@ import {
   Sparkles,
   FileInput,
   Building2,
+  ScrollText,
+  Globe,
+  ClipboardList,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -35,14 +38,18 @@ export default function AdminSidebar() {
 
   const menuItems = [
     { name: "Dashboard", path: "/admin", icon: Home },
-    { name: "Categories", path: "/admin/categories", icon: Layers },
     { name: "Home Page Management", path: "/admin/home", icon: Home },
+    { name: "Categories", path: "/admin/categories", icon: Layers },
+    { name: "Providers", path: "/admin/home/providers", icon: Building2 },
     { name: "Exam Details Manager", path: "/admin/home/exam-details-manager", icon: BookOpen },
+    { name: "Official Details Manager", path: "/admin/home/official-details-manager", icon: ScrollText },
+    { name: "Blog Posts", path: "/admin/home/blog-posts", icon: FileText },
+    { name: "Practice Tests Manager", path: "/admin/home/practice-tests-manager", icon: ClipboardList },
     { name: "Exams Page Manager", path: "/admin/home/exams-page-manager", icon: Search },
     // { name: "Question Craftsman Suite", path: "/admin/question-craftsman", icon: Sparkles },
     { name: "Parsing Suite", path: "/admin/parsing-suite", icon: FileInput },
     { name: "Pricing Plans", path: "/admin/pricing-plans", icon: DollarSign },
-    { name: "Providers", path: "/admin/home/providers", icon: Building2 },
+    { name: "Languages", path: "/admin/languages", icon: Globe },
     { name: "Coupons", path: "/admin/coupons", icon: Ticket },
     { name: "Enrollments", path: "/admin/enrollments", icon: Users },
     { name: "Email Templates", path: "/admin/email-templates", icon: Mail },
@@ -62,10 +69,13 @@ export default function AdminSidebar() {
 
   const isPathActive = (path) => {
     if (path === "/admin/home") {
-      // For Home Page Management, check if pathname starts with /admin/home but exclude exam-details-manager and exams-page-manager
+      // For Home Page Management, exclude dedicated manager routes under /admin/home
       return pathname?.startsWith("/admin/home") && 
              !pathname?.includes("/exam-details-manager") && 
-             !pathname?.includes("/exams-page-manager");
+             !pathname?.includes("/practice-tests-manager") &&
+             !pathname?.includes("/official-details-manager") &&
+             !pathname?.includes("/exams-page-manager") &&
+             !pathname?.includes("/blog-posts");
     }
     return pathname === path || (path !== "/admin" && pathname?.startsWith(path));
   };

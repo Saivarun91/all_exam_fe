@@ -218,6 +218,8 @@ export default function TestimonialsClient({ testimonials, section }) {
   const carouselRef = useRef(null);
 
   const maxIndex = Math.max(0, testimonials.length - itemsPerView);
+  const heading = section?.heading || "";
+  const subtitle = section?.subtitle || "";
 
   return (
     <section className="py-12 md:py-20 bg-[#0B1A35]">
@@ -225,13 +227,23 @@ export default function TestimonialsClient({ testimonials, section }) {
 
         {/* Heading */}
         <div className="text-center mb-10">
-          <h2 className="text-3xl md:text-4xl font-bold text-white mb-3">
-            {section.heading}
+          <h2
+            className="text-3xl md:text-4xl font-bold text-white mb-3"
+            data-i18n="cms.testimonials.heading"
+            data-i18n-fallback={heading}
+            suppressHydrationWarning
+          >
+            {heading}
           </h2>
 
-          {section.subtitle && (
-            <p className="text-[#E4EAF8] max-w-3xl mx-auto">
-              {section.subtitle}
+          {subtitle && (
+            <p
+              className="text-[#E4EAF8] max-w-3xl mx-auto"
+              data-i18n="cms.testimonials.subtitle"
+              data-i18n-fallback={subtitle}
+              suppressHydrationWarning
+            >
+              {subtitle}
             </p>
           )}
         </div>
@@ -272,9 +284,13 @@ export default function TestimonialsClient({ testimonials, section }) {
                 transform: `translateX(-${currentIndex * (100 / itemsPerView)}%)`,
               }}
             >
-              {testimonials.map((t, index) => (
+              {testimonials.map((testimonial, index) => {
+                const reviewText =
+                  testimonial.review || testimonial.text || "";
+
+                return (
                 <div
-                  key={t.id || index}
+                  key={testimonial.id || index}
                   className="flex-shrink-0"
                   style={{
                     width: `calc(${100 / itemsPerView}% - ${(itemsPerView - 1) *
@@ -288,14 +304,21 @@ export default function TestimonialsClient({ testimonials, section }) {
                       <div className="flex flex-col items-center text-center gap-3">
 
                         <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#1A73E8] to-purple-500 flex items-center justify-center text-white font-bold text-2xl">
-                          {t.name.charAt(0).toUpperCase()}
+                          {testimonial.name.charAt(0).toUpperCase()}
                         </div>
 
                         <div>
                           <h3 className="font-bold text-[#0C1A35] text-lg">
-                            {t.name}
+                            {testimonial.name}
                           </h3>
-                          <p className="text-sm text-[#0C1A35]/60">{t.role}</p>
+                          <p
+                            className="text-sm text-[#0C1A35]/60"
+                            data-i18n={`cms.testimonial.${testimonial.id}.role`}
+                            data-i18n-fallback={testimonial.role}
+                            suppressHydrationWarning
+                          >
+                            {testimonial.role}
+                          </p>
                         </div>
 
                       </div>
@@ -306,7 +329,7 @@ export default function TestimonialsClient({ testimonials, section }) {
                           <Star
                             key={i}
                             className={`w-4 h-4 ${
-                              i < (t.rating || 5)
+                              i < (testimonial.rating || 5)
                                 ? "fill-[#1A73E8] text-[#1A73E8]"
                                 : "text-gray-300"
                             }`}
@@ -314,14 +337,20 @@ export default function TestimonialsClient({ testimonials, section }) {
                         ))}
                       </div>
 
-                      <p className="text-[#0C1A35]/70 text-center text-sm">
-                        "{t.review || t.text}"
+                      <p
+                        className="text-[#0C1A35]/70 text-center text-sm before:content-['\201C'] after:content-['\201D']"
+                        data-i18n={`cms.testimonial.${testimonial.id}.text`}
+                        data-i18n-fallback={reviewText}
+                        suppressHydrationWarning
+                      >
+                        {reviewText}
                       </p>
 
                     </CardContent>
                   </Card>
                 </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 

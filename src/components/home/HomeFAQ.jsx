@@ -4,6 +4,18 @@ import FAQJsonLd from "@/components/FAQJsonLd";
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
 
+const DEFAULT_FAQ_SECTION = {
+  heading: "Frequently Asked Questions",
+  subtitle: "Clear answers to the most common questions our learners ask.",
+};
+
+function normalizeFaqSection(section = {}) {
+  return {
+    heading: (section.heading || DEFAULT_FAQ_SECTION.heading).trim(),
+    subtitle: (section.subtitle || DEFAULT_FAQ_SECTION.subtitle).trim(),
+  };
+}
+
 async function getFAQData() {
   try {
     const sectionRes = await fetch(
@@ -30,14 +42,11 @@ async function getFAQData() {
 
 
     return {
-      section:
+      section: normalizeFaqSection(
         sectionJson?.success && sectionJson?.data
           ? sectionJson.data
-          : {
-              heading: "Frequently Asked Questions",
-              subtitle:
-                "Clear answers to the most common questions our learners ask.",
-            },
+          : DEFAULT_FAQ_SECTION
+      ),
       sectionContent:
         contentJson?.success && contentJson?.data
           ? {
@@ -54,7 +63,7 @@ async function getFAQData() {
           : [],
     };
   } catch (err) {
-    return { section: {}, faqs: [] };
+    return { section: normalizeFaqSection(), faqs: [], sectionContent: null };
   }
 }
 

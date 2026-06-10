@@ -1,62 +1,115 @@
-/**
- * Sitemap Route Handler
- * Fetches sitemap from backend API and serves it as XML
- * Accessible at /sitemap (Next.js limitation - cannot use dots in folder names)
- * For /sitemap.xml access, use Next.js rewrite or access via /sitemap
- */
+import { NextResponse } from "next/server";
+import {
+  buildLanguageAllPagesUrl,
+  buildRootSitemapIndexXml,
+  fetchActiveSitemapLanguages,
+  formatSitemapLastmod,
+  prefersHtmlResponse,
+  renderSitemapHtml,
+  SITEMAP_SECTIONS,
+  withSitemapStylesheet,
+} from "@/lib/sitemapUtils";
 
-// Mark route as dynamic to prevent static generation errors during build
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(request) {
+  const targetOrigin = new URL(request.url).origin;
+  const API_BASE_URL =
+    process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
+
   try {
-    const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
-    const sitemapUrl = `${API_BASE_URL}/sitemap.xml`;
+    const languages = await fetchActiveSitemapLanguages(API_BASE_URL);
+    const lastmod = formatSitemapLastmod();
 
-    // Fetch sitemap from backend
-    const response = await fetch(sitemapUrl, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/xml",
-      },
-      cache: "no-store", // Always fetch fresh data
-    });
+    if (prefersHtmlResponse(request)) {
+      const entries = languages.map((code) => ({
+        type: "Language",
+        url: buildLanguageAllPagesUrl(targetOrigin, code),
+        lastmod,
+      }));
 
-    if (!response.ok) {
-      throw new Error(`Failed to fetch sitemap: ${response.status}`);
+      return new NextResponse(
+        renderSitemapHtml({
+          title: "Sitemap",
+          entries,
+        }),
+        {
+          status: 200,
+          headers: {
+            "Content-Type": "text/html; charset=utf-8",
+            "Cache-Control":
+              "public, max-age=3600, stale-while-revalidate=86400",
+          },
+        }
+      );
     }
 
-    const xmlContent = await response.text();
+    const xml = buildRootSitemapIndexXml(targetOrigin, languages);
 
-    // Return XML response
-    return new Response(xmlContent, {
+    return new NextResponse(xml, {
       status: 200,
       headers: {
         "Content-Type": "application/xml; charset=utf-8",
-        "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400",
+        "Cache-Control":
+          "public, max-age=3600, stale-while-revalidate=86400",
       },
     });
   } catch (error) {
-    console.error("Error fetching sitemap:", error);
-    
-    // Return error response
-    return new Response(
-      `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url>
-    <loc>https://allexamquestions.com/</loc>
-    <lastmod>${new Date().toISOString().split("T")[0]}</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>1.0</priority>
-  </url>
-</urlset>`,
-      {
-        status: 200,
-        headers: {
-          "Content-Type": "application/xml; charset=utf-8",
-        },
-      }
-    );
+    console.error("Sitemap index error:", error);
+    const fallbackLastmod = formatSitemapLastmod();
+    const fallbackLanguages = await fetchActiveSitemapLanguages(API_BASE_URL);
+
+    const legacyEntries = SITEMAP_SECTIONS.map(
+      (section) => `  <sitemap>
+    <loc>${targetOrigin}/${section.file}</loc>
+    <lastmod>${fallbackLastmod}</lastmod>
+  </sitemap>`
+    ).join("\n\n");
+
+    const xml = withSitemapStylesheet(`<?xml version="1.0" encoding="UTF-8"?>
+<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+
+  <sitemap>
+    <loc>${targetOrigin}/en/sitemap.xml</loc>
+    <lastmod>${fallbackLastmod}</lastmod>
+  </sitemap>
+
+${legacyEntries}
+
+</sitemapindex>`);
+
+    if (prefersHtmlResponse(request)) {
+      const entries = fallbackLanguages.length
+        ? fallbackLanguages.map((code) => ({
+            type: "Language",
+            url: buildLanguageAllPagesUrl(targetOrigin, code),
+            lastmod: fallbackLastmod,
+          }))
+        : [
+            {
+              type: "Language",
+              url: buildLanguageAllPagesUrl(targetOrigin, "en"),
+              lastmod: fallbackLastmod,
+            },
+          ];
+
+      return new NextResponse(
+        renderSitemapHtml({
+          title: "Sitemap",
+          entries,
+        }),
+        {
+          status: 200,
+          headers: { "Content-Type": "text/html; charset=utf-8" },
+        }
+      );
+    }
+
+    return new NextResponse(xml, {
+      status: 200,
+      headers: {
+        "Content-Type": "application/xml; charset=utf-8",
+      },
+    });
   }
 }
-

@@ -1,11 +1,10 @@
 "use client";
 
 import { useEffect } from "react";
+import { fetchPublicSettings, clearPublicSettingsCache } from "@/lib/fetchPublicSettings";
 
 export default function FontSettingsProvider({ children }) {
   useEffect(() => {
-    // globals.css applies --admin-font-* on html/body; only set variables on :root
-    // (avoid querySelectorAll + per-node style — that was very expensive for TBT).
     const applyFontSettings = (family, size) => {
       if (typeof document === "undefined") return;
       const root = document.documentElement;
@@ -19,20 +18,11 @@ export default function FontSettingsProvider({ children }) {
       root.style.setProperty("--admin-font-size", fontSizePx, "important");
     };
 
-    const fetchFontSettings = async () => {
-      try {
-        const API_BASE_URL =
-          process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
-        const res = await fetch(`${API_BASE_URL}/api/settings/public/`);
-        const data = await res.json();
-
-        if (data.success) {
-          const adminFontFamily = data.font_family || "Poppins";
-          const adminFontSize = data.font_size || "16";
-          applyFontSettings(adminFontFamily, adminFontSize);
-        }
-      } catch (err) {
-        console.error("Error fetching font settings:", err);
+    const loadFontSettings = async () => {
+      const data = await fetchPublicSettings();
+      if (data?.success) {
+        applyFontSettings(data.font_family || "Poppins", data.font_size || "16");
+      } else {
         applyFontSettings("Poppins", "16");
       }
     };
@@ -45,10 +35,11 @@ export default function FontSettingsProvider({ children }) {
       }
     };
 
-    runWhenIdle(fetchFontSettings);
+    runWhenIdle(loadFontSettings);
 
     const handleFontSettingsUpdate = () => {
-      runWhenIdle(fetchFontSettings);
+      clearPublicSettingsCache();
+      runWhenIdle(loadFontSettings);
     };
 
     window.addEventListener("fontSettingsUpdated", handleFontSettingsUpdate);
@@ -60,4 +51,3 @@ export default function FontSettingsProvider({ children }) {
 
   return <>{children}</>;
 }
-

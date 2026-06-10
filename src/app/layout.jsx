@@ -231,6 +231,8 @@ import { Poppins } from "next/font/google";
 import Header from "../components/layout/Header";
 import Footer from "../components/layout/Footer";
 import Providers from "../components/providers";
+import I18nLanguageBoundary from "@/components/i18n/I18nLanguageBoundary";
+import { ROBOTS_INDEX } from "@/lib/seoRobots";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
@@ -273,6 +275,7 @@ export const metadata = {
   title: "AllExamQuestions - Certification Practice Tests",
   description:
     "Accurate, updated, exam-style questions trusted by thousands of professionals.",
+  robots: ROBOTS_INDEX,
   alternates: {
     canonical: "https://allexamquestions.com/",
   },
@@ -296,13 +299,18 @@ export default async function RootLayout({ children }) {
         className={`${poppins.className} flex flex-col min-h-screen bg-gray-50 text-gray-900` }
       >
         <Providers>
-        <Header
-          initialLogoUrl={initialLogoUrl}
-          initialSiteName={initialSiteName}
-        />
-        <div className="h-16 md:h-20" />
-        <main className="flex-1">{children}</main>
-        <Footer />
+          <I18nLanguageBoundary>
+            <Header
+              initialLogoUrl={initialLogoUrl}
+              initialSiteName={initialSiteName}
+            />
+
+            <div className="h-16 md:h-20" />
+
+            <main className="flex-1">{children}</main>
+
+            <Footer />
+          </I18nLanguageBoundary>
         </Providers>
       </body>
     </html>

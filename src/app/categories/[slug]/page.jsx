@@ -116,6 +116,10 @@ export async function generateMetadata({ params }) {
       alternates: {
         canonical: `${SITE_URL}/categories`,
       },
+      robots: {
+        index: false,
+        follow: false,
+      },
       openGraph: {
         title: "Category Not Found | AllExamQuestions",
         description: "The requested category does not exist.",
@@ -138,6 +142,10 @@ export async function generateMetadata({ params }) {
       description: "The requested category does not exist.",
       alternates: {
         canonical: canonicalUrl,
+      },
+      robots: {
+        index: false,
+        follow: false,
       },
       openGraph: {
         title: "Category Not Found | AllExamQuestions",
@@ -176,6 +184,10 @@ export async function generateMetadata({ params }) {
     keywords,
     alternates: {
       canonical: canonicalUrl,
+    },
+    robots: {
+      index: true,
+      follow: true,
     },
     openGraph: {
       title,

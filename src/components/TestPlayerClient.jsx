@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useEffect, useState, useRef, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Clock, Star, Compass, ChevronLeft, ChevronRight, FileText, Lock, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -11,9 +11,13 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import TipTapContent from "@/components/editor/TipTapContent";
+import { normalizeAnswersToIndexKey } from "@/utils/testReviewDisplay";
+import { getExamPracticePath } from "@/utils/practiceTestRouting";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 const FREE_QUESTIONS_LIMIT = 10;
+const GUEST_ATTEMPT_ID = "guest-local";
 const QUESTIONS_PER_PAGE = 20;
 
 const isGarbageImageRef = (url) =>
@@ -86,12 +90,7 @@ const RichContent = ({ content, className = "" }) => {
   if (!safeContent.trim()) return null;
 
   if (hasHtmlContent(safeContent)) {
-    return (
-      <div
-        className={`tiptap-editor-content break-words ${className}`}
-        dangerouslySetInnerHTML={{ __html: safeContent }}
-      />
-    );
+    return <TipTapContent content={safeContent} className={`break-words ${className}`} />;
   }
 
   return (
@@ -101,7 +100,13 @@ const RichContent = ({ content, className = "" }) => {
 
 export default function TestPlayerClient({ exam, questions, test, provider, examCode, testId }) {
   const router = useRouter();
- 
+
+  const practiceHubPath =
+    getExamPracticePath(exam) ||
+    (provider && examCode
+      ? `/exams/${provider}/${examCode}/practice`
+      : "/exams");
+
   // State
 
   const [testStarted, setTestStarted] = useState(false);
@@ -117,6 +122,7 @@ export default function TestPlayerClient({ exam, questions, test, provider, exam
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [navigatorPage, setNavigatorPage] = useState(1);
   const [attemptId, setAttemptId] = useState(null);
+  const [isStartingTest, setIsStartingTest] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
   const handleSubmitRef = useRef(null);
@@ -125,6 +131,70 @@ export default function TestPlayerClient({ exam, questions, test, provider, exam
   const autoTimeExpiredSubmitRef = useRef(false);
 
   timeRemainingRef.current = timeRemaining;
+
+  const currentTest = useMemo(() => {
+    const practiceTests = exam?.practice_tests_list || [];
+    if (practiceTests.length === 0) {
+      return {
+        id: testId,
+        name: `Practice Test ${testId}`,
+        questions: questions.length || 0,
+        duration: exam?.duration || "30 minutes",
+        difficulty: exam?.difficulty || "Medium",
+        free_trial_questions: test?.free_trial_questions,
+      };
+    }
+
+    const testIdWithoutHash =
+      testId && typeof testId === "string"
+        ? testId.replace(/-[a-f0-9]{8}$/i, "")
+        : testId;
+
+    let match = practiceTests.find((t) => t.slug === testId);
+    if (!match) {
+      match = practiceTests.find((t) => {
+        const slugWithoutHash =
+          t.slug && typeof t.slug === "string"
+            ? t.slug.replace(/-[a-f0-9]{8}$/i, "")
+            : t.slug;
+        return slugWithoutHash === testIdWithoutHash || slugWithoutHash === testId;
+      });
+    }
+    if (!match) {
+      match = practiceTests.find(
+        (t) => String(t.id || t._id || "") === String(testId)
+      );
+    }
+    if (!match && testId) {
+      const testIndex = parseInt(testId, 10) - 1;
+      if (testIndex >= 0 && testIndex < practiceTests.length) {
+        match = practiceTests[testIndex];
+      }
+    }
+
+    return (
+      match || {
+        id: testId,
+        name: `Practice Test ${testId}`,
+        questions: questions.length || 0,
+        duration: exam?.duration || "30 minutes",
+        difficulty: exam?.difficulty || "Medium",
+      }
+    );
+  }, [exam, testId, test, questions.length]);
+
+  const freeQuestionsLimit = useMemo(() => {
+    const raw =
+      test?.free_trial_questions ?? currentTest?.free_trial_questions;
+    const parsed = parseInt(raw, 10);
+    if (Number.isFinite(parsed) && parsed > 0) return parsed;
+    return FREE_QUESTIONS_LIMIT;
+  }, [test, currentTest]);
+
+  const getAccessibleCount = () =>
+    isEnrolled
+      ? questions.length
+      : Math.min(freeQuestionsLimit, questions.length);
 
   // Get authentication token
   const getAuthToken = () => {
@@ -205,7 +275,7 @@ export default function TestPlayerClient({ exam, questions, test, provider, exam
   };
 
   const canAccessQuestion = (questionNum) => {
-    return isEnrolled || questionNum <= FREE_QUESTIONS_LIMIT;
+    return isEnrolled || questionNum <= freeQuestionsLimit;
   };
 
   const handleAnswerChange = (optionText, checked = null) => {
@@ -237,7 +307,7 @@ export default function TestPlayerClient({ exam, questions, test, provider, exam
   const handleNext = () => {
     const nextQuestion = currentQuestion + 1;
     
-    if (!isEnrolled && nextQuestion > FREE_QUESTIONS_LIMIT && nextQuestion <= questions.length) {
+    if (!isEnrolled && nextQuestion > freeQuestionsLimit && nextQuestion <= questions.length) {
       setShowUpgradeModal(true);
       return;
     }
@@ -272,7 +342,7 @@ export default function TestPlayerClient({ exam, questions, test, provider, exam
   };
 
   const getAnsweredCount = () => {
-    const limit = isEnrolled ? questions.length : Math.min(FREE_QUESTIONS_LIMIT, questions.length);
+    const limit = getAccessibleCount();
     return Object.keys(answers).filter(q => {
       const qNum = parseInt(q);
       if (qNum > limit) return false;
@@ -286,19 +356,118 @@ export default function TestPlayerClient({ exam, questions, test, provider, exam
   };
 
   const getRemainingCount = () => {
-    const limit = isEnrolled ? questions.length : Math.min(FREE_QUESTIONS_LIMIT, questions.length);
+    const limit = getAccessibleCount();
     return limit - getAnsweredCount();
+  };
+
+  const scoreGuestAnswers = (accessibleQuestions) => {
+    let correct = 0;
+    let unanswered = 0;
+
+    for (let i = 0; i < accessibleQuestions.length; i++) {
+      const q = accessibleQuestions[i];
+      const questionNum = i + 1;
+      const userAnswer = answers[questionNum];
+      const hasAnswer =
+        userAnswer &&
+        (Array.isArray(userAnswer) ? userAnswer.length > 0 : userAnswer !== "");
+
+      if (!hasAnswer) {
+        unanswered++;
+        continue;
+      }
+
+      const correctAnswers =
+        q.correct_answers || (q.correct_answer ? [q.correct_answer] : []);
+      if (!correctAnswers.length) continue;
+
+      const opts = q.options && Array.isArray(q.options) ? q.options : [];
+      let isCorrect = false;
+
+      if (opts.length > 0) {
+        const userKey = normalizeAnswersToIndexKey(userAnswer, opts);
+        const correctKey = normalizeAnswersToIndexKey(correctAnswers, opts);
+        isCorrect = userKey === correctKey && userKey !== "";
+      } else if (Array.isArray(userAnswer)) {
+        const userAnswerTexts = userAnswer
+          .map((a) => String(a).trim().toLowerCase())
+          .sort();
+        const correctAnswerTexts = correctAnswers
+          .map((a) => String(a).trim().toLowerCase())
+          .sort();
+        isCorrect =
+          JSON.stringify(userAnswerTexts) === JSON.stringify(correctAnswerTexts);
+      } else {
+        const userAnswerText = String(userAnswer).trim().toLowerCase();
+        isCorrect = correctAnswers.some(
+          (ca) => String(ca).trim().toLowerCase() === userAnswerText
+        );
+      }
+
+      if (isCorrect) correct++;
+    }
+
+    return { correct, unanswered };
+  };
+
+  const finishGuestTest = (totalAccessible) => {
+    const accessibleQuestions = questions.slice(0, totalAccessible);
+    const { correct, unanswered } = scoreGuestAnswers(accessibleQuestions);
+    const incorrect = totalAccessible - correct - unanswered;
+    const totalDurationSeconds = parseDuration(
+      currentTest?.duration ?? test?.duration ?? exam?.duration ?? "30"
+    ) * 60;
+    const elapsedSeconds = totalDurationSeconds - (timeRemaining || 0);
+    const minutes = Math.floor(elapsedSeconds / 60);
+    const seconds = elapsedSeconds % 60;
+    const timeTaken = `${minutes}:${seconds.toString().padStart(2, "0")}`;
+    const percentage =
+      totalAccessible > 0 ? Math.round((correct / totalAccessible) * 100) : 0;
+
+    const testResults = {
+      questionsCompleted: totalAccessible,
+      totalQuestions: questions.length,
+      correctAnswers: correct,
+      incorrectAnswers: incorrect,
+      unanswered,
+      timeTaken,
+      hasFullAccess: false,
+      answers,
+      percentage,
+      passed: percentage >= 70,
+      attemptId: GUEST_ATTEMPT_ID,
+    };
+
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem("testResults", JSON.stringify(testResults));
+      sessionStorage.setItem("userAnswers", JSON.stringify(answers));
+      sessionStorage.setItem(
+        "testQuestions",
+        JSON.stringify(accessibleQuestions)
+      );
+      sessionStorage.setItem("attemptId", GUEST_ATTEMPT_ID);
+    }
+
+    router.push(`/test-review/${provider}/${examCode}`);
   };
 
   const handleSubmit = async (autoSubmit = false) => {
     const answeredCount = getAnsweredCount();
-    const totalAccessible = isEnrolled ? questions.length : Math.min(FREE_QUESTIONS_LIMIT, questions.length);
-    
-    // Non-auto submits are confirmed via custom dialog UI.
+    const totalAccessible = getAccessibleCount();
 
     if (!attemptId) {
       console.error('[TestPlayer] No attempt_id found.');
       alert('Error: Test attempt not found. Please start the test again.');
+      return;
+    }
+
+    if (attemptId === GUEST_ATTEMPT_ID) {
+      setIsSubmitting(true);
+      try {
+        finishGuestTest(totalAccessible);
+      } finally {
+        setIsSubmitting(false);
+      }
       return;
     }
 
@@ -482,30 +651,69 @@ const timeTaken = `${minutes}:${seconds.toString().padStart(2, '0')}`;
     router.push(`/exams/${provider}/${examCode}/practice/pricing`);
   };
 
+  const startGuestTestSession = () => {
+    const limitMinutes = Math.max(
+      1,
+      parseDuration(
+        currentTest?.duration ?? test?.duration ?? exam?.duration ?? "30"
+      )
+    );
+    const totalSeconds = Math.floor(limitMinutes * 60);
+    autoTimeExpiredSubmitRef.current = false;
+    setAttemptId(GUEST_ATTEMPT_ID);
+    setTimeRemaining(totalSeconds);
+    setTestStarted(true);
+  };
+
+  const [autostartRequested, setAutostartRequested] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search || "");
+    const queryAutoStart = params.get("autostart");
+    const fromQuery =
+      queryAutoStart === "1" ||
+      String(queryAutoStart).toLowerCase() === "true";
+    const pathKey = `autostart:${window.location.pathname}`;
+    const fromSession = sessionStorage.getItem(pathKey) === "1";
+    if (fromQuery || fromSession) {
+      setAutostartRequested(true);
+    }
+  }, []);
+
+  const autostartFiredRef = useRef(false);
+
   const handleStartTest = async () => {
-    if (!isLoggedIn) {
-      setShowLoginPrompt(true);
+    if (isStartingTest || testStarted) {
       return;
     }
+
     if (questions.length === 0) {
       return;
     }
 
-    const token = getAuthToken();
-    if (!token) {
-      setShowLoginPrompt(true);
-      return;
-    }
-
-    if (token.split('.').length !== 3) {
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('token');
-      }
-      setShowLoginPrompt(true);
-      return;
-    }
-
+    setIsStartingTest(true);
     try {
+      if (!isLoggedIn) {
+        startGuestTestSession();
+        return;
+      }
+
+      const token = getAuthToken();
+      if (!token) {
+        startGuestTestSession();
+        return;
+      }
+
+      if (token.split('.').length !== 3) {
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('token');
+        }
+        // Token is invalid/expired; treat user as guest so the free test opens immediately.
+        startGuestTestSession();
+        return;
+      }
+
       const examId = exam.id ? String(exam.id) : null;
       
       if (!examId) {
@@ -593,51 +801,33 @@ const timeTaken = `${minutes}:${seconds.toString().padStart(2, '0')}`;
     } catch (error) {
       const errorMsg = error.message || 'Network error. Please check your connection and try again.';
       alert(errorMsg);
+    } finally {
+      setIsStartingTest(false);
     }
   };
+
+  // If requested via URL flag, skip the "Ready" screen and start immediately.
+  // This is opt-in only: existing behavior is unchanged unless autostart=1 is present.
+  useEffect(() => {
+    if (!autostartRequested) return;
+    if (autostartFiredRef.current) return;
+    if (testStarted) return;
+    if (!exam) return;
+    if (!questions || questions.length === 0) return;
+
+    if (typeof window !== "undefined") {
+      const pathKey = `autostart:${window.location.pathname}`;
+      sessionStorage.removeItem(pathKey);
+    }
+    autostartFiredRef.current = true;
+    void handleStartTest();
+  }, [autostartRequested, testStarted, exam, questions?.length]);
 
   
 
   
   
  
-  const practiceTests = exam.practice_tests_list || [];
-  let currentTest = null;
-  
-  if (practiceTests.length > 0) {
-    // Remove ObjectId hash from testId for matching (e.g., "test-name-694e3de3" -> "test-name")
-    const testIdWithoutHash = testId && typeof testId === 'string' ? testId.replace(/-[a-f0-9]{8}$/i, '') : testId;
-    
-    // Try exact match first
-    currentTest = practiceTests.find(t => t.slug === testId);
-    if (!currentTest) {
-      // Try match without hash (e.g., "test-name" matches "test-name-694e3de3")
-      currentTest = practiceTests.find(t => {
-        const slugWithoutHash = t.slug && typeof t.slug === 'string' ? t.slug.replace(/-[a-f0-9]{8}$/i, '') : t.slug;
-        return slugWithoutHash === testIdWithoutHash || slugWithoutHash === testId;
-      });
-    }
-    if (!currentTest) {
-      currentTest = practiceTests.find(t => String(t.id || t._id || '') === String(testId));
-    }
-    if (!currentTest && testId) {
-      const testIndex = parseInt(testId) - 1;
-      if (testIndex >= 0 && testIndex < practiceTests.length) {
-        currentTest = practiceTests[testIndex];
-      }
-    }
-  }
-  
-  if (!currentTest) {
-    currentTest = {
-      id: testId,
-      name: `Practice Test ${testId}`,
-      questions: questions.length || 0,
-      duration: exam.duration || "30 minutes",
-      difficulty: exam.difficulty || "Medium"
-    };
-  }
-
   if (questions.length === 0) {
     return (
       <div className="min-h-screen bg-white">
@@ -647,9 +837,7 @@ const timeTaken = `${minutes}:${seconds.toString().padStart(2, '0')}`;
             This test doesn't have any questions yet. Please add questions to this test.
           </p>
           <Button asChild className="bg-[#1A73E8] text-white hover:bg-[#1557B0]">
-            <Link href={`/exams/${provider}/${examCode}/practice`}>
-              Back to Practice Tests
-            </Link>
+            <Link href={practiceHubPath}>Back to Practice Tests</Link>
           </Button>
         </div>
       </div>
@@ -662,7 +850,7 @@ const timeTaken = `${minutes}:${seconds.toString().padStart(2, '0')}`;
         <div className="container mx-auto px-4 py-8 max-w-5xl">
           <div className="mb-4">
             <Button asChild variant="ghost">
-            <Link href={`/exams/${provider}/${examCode}/practice`}>
+            <Link href={practiceHubPath}>
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Back to Practice Tests
             </Link>
@@ -687,7 +875,7 @@ const timeTaken = `${minutes}:${seconds.toString().padStart(2, '0')}`;
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-2xl mx-auto">
                   <div className="p-4 bg-blue-50 rounded-lg border border-blue-100">
                     <div className="text-3xl font-bold text-[#1A73E8] mb-1">
-                      {isEnrolled ? questions.length : `${Math.min(FREE_QUESTIONS_LIMIT, questions.length)} Free`}
+                      {isEnrolled ? questions.length : `${Math.min(freeQuestionsLimit, questions.length)} Free`}
                     </div>
                     <div className="text-sm text-[#0C1A35]/70">Questions</div>
                   </div>
@@ -709,10 +897,11 @@ const timeTaken = `${minutes}:${seconds.toString().padStart(2, '0')}`;
                   <Button
                     size="lg"
                     onClick={handleStartTest}
+                    disabled={isStartingTest || questions.length === 0}
                     className="bg-[#1A73E8] text-white hover:bg-[#1557B0] px-12"
                   >
                     <Clock className="w-5 h-5 mr-2" />
-                    Start Test Now
+                    {isStartingTest ? "Starting..." : "Start Test Now"}
                   </Button>
                 </div>
               </div>
@@ -732,9 +921,13 @@ const timeTaken = `${minutes}:${seconds.toString().padStart(2, '0')}`;
     ? (answers[currentQuestion] || "") 
     : (Array.isArray(answers[currentQuestion]) ? answers[currentQuestion] : []);
   const totalQuestions = questions.length;
-  const accessibleQuestions = isEnrolled ? totalQuestions : Math.min(FREE_QUESTIONS_LIMIT, totalQuestions);
+  const accessibleQuestions = isEnrolled ? totalQuestions : Math.min(freeQuestionsLimit, totalQuestions);
   const answeredCount = getAnsweredCount();
   const progressPercentage = (answeredCount / accessibleQuestions) * 100;
+  const atFreeQuestionLimit =
+    !isEnrolled &&
+    (currentQuestion >= accessibleQuestions ||
+      answeredCount >= accessibleQuestions);
 
   const getOptions = () => {
     if (currentQuestionData.options && Array.isArray(currentQuestionData.options)) {
@@ -804,10 +997,10 @@ const timeTaken = `${minutes}:${seconds.toString().padStart(2, '0')}`;
                 <span>Remaining:</span>
                 <span className="font-medium text-[#0C1A35]">{getRemainingCount()}</span>
               </div>
-              {!isEnrolled && totalQuestions > FREE_QUESTIONS_LIMIT && (
+              {!isEnrolled && totalQuestions > freeQuestionsLimit && (
                 <div className="flex justify-between text-[#0C1A35]/70 mt-2 pt-2 border-t border-gray-200">
                   <span className="text-xs">Locked:</span>
-                  <span className="font-medium text-[#0C1A35] text-xs">{totalQuestions - FREE_QUESTIONS_LIMIT} questions</span>
+                  <span className="font-medium text-[#0C1A35] text-xs">{totalQuestions - freeQuestionsLimit} questions</span>
                 </div>
               )}
             </div>
@@ -1100,17 +1293,19 @@ const timeTaken = `${minutes}:${seconds.toString().padStart(2, '0')}`;
             <p className="text-sm text-gray-700">
               You can review your answers before submitting, or submit now to see your results.
             </p>
-            <div className="flex gap-3 pt-2">
+            <div className={`flex gap-3 pt-2 ${atFreeQuestionLimit ? "justify-center" : ""}`}>
+              {!atFreeQuestionLimit && (
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => setShowSubmitConfirm(false)}
+                  disabled={isSubmitting}
+                >
+                  Continue Test
+                </Button>
+              )}
               <Button
-                variant="outline"
-                className="flex-1"
-                onClick={() => setShowSubmitConfirm(false)}
-                disabled={isSubmitting}
-              >
-                Continue Test
-              </Button>
-              <Button
-                className="flex-1 bg-green-600 text-white hover:bg-green-700"
+                className={`${atFreeQuestionLimit ? "w-full" : "flex-1"} bg-green-600 text-white hover:bg-green-700`}
                 onClick={async () => {
                   setShowSubmitConfirm(false);
                   await handleSubmit(false);

@@ -6,7 +6,7 @@ import Underline from "@tiptap/extension-underline";
 import Subscript from "@tiptap/extension-subscript";
 import Superscript from "@tiptap/extension-superscript";
 import Highlight from "@tiptap/extension-highlight";
-import Image from "@tiptap/extension-image";
+import { ResizableImage } from "@/components/editor/ResizableImage";
 import FontFamily from "@tiptap/extension-font-family";
 import TextAlign from "@tiptap/extension-text-align";
 import Color from "@tiptap/extension-color";
@@ -42,8 +42,9 @@ import {
   Subscript as SubscriptIcon,
   Superscript as SuperscriptIcon,
   Highlighter,
+  ChevronUp,
+  ChevronDown,
   Type,
-  ChevronDown
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -119,11 +120,17 @@ const FontSize = TextStyle.extend({
       fontSize: {
         default: null,
         parseHTML: (element) => {
-          const fontSize = element.style.fontSize;
-          if (fontSize) {
-            return fontSize.replace("px", "");
-          }
-          return null;
+          const raw = element.style?.fontSize;
+          if (!raw) return null;
+          const value = parseFloat(raw);
+          if (!Number.isFinite(value)) return null;
+          const unit = (raw.match(/[a-z%]+$/i)?.[0] || "px").toLowerCase();
+          let px = value;
+          if (unit === "pt") px = value * (96 / 72);
+          else if (unit === "em" || unit === "rem") px = value * 16;
+          else if (unit === "%") return null;
+          if (px < 12) return null;
+          return String(Math.round(px));
         },
         renderHTML: (attributes) => {
           if (!attributes.fontSize) {
@@ -181,43 +188,34 @@ const getGradientCSS = (direction, color1, color2, color3 = null) => {
 };
 
 /**
- * Normalize tiny pasted font sizes so content remains readable.
- * Keeps larger pasted sizes intact and only bumps small values.
+ * Strip pasted font-size / Word styling so content uses the editor's readable default.
  */
-function normalizePastedFontSizes(html, minPx = 14) {
+function sanitizePastedHTML(html) {
   if (!html || typeof window === "undefined") return html;
 
   try {
     const parser = new window.DOMParser();
     const doc = parser.parseFromString(html, "text/html");
-    const nodes = doc.body.querySelectorAll("*");
-    const defaultSizeTargets = "p, div, ul, ol, li, td, th, span, a, blockquote";
 
-    nodes.forEach((el) => {
-      const raw = el.style?.fontSize;
-      if (!raw) return;
+    doc.querySelectorAll("style, link[rel='stylesheet'], meta").forEach((el) => el.remove());
 
-      const value = parseFloat(raw);
-      if (!Number.isFinite(value) || Number.isNaN(value)) return;
-
-      const unit = (raw.match(/[a-z%]+$/i)?.[0] || "px").toLowerCase();
-      let px = value;
-      if (unit === "pt") px = value * (96 / 72);
-      else if (unit === "em" || unit === "rem") px = value * 16;
-
-      if (px < minPx) {
-        el.style.fontSize = `${minPx}px`;
-      }
+    doc.body.querySelectorAll("font").forEach((el) => {
+      const span = doc.createElement("span");
+      span.innerHTML = el.innerHTML;
+      el.replaceWith(span);
     });
 
-    // If pasted nodes don't carry explicit sizes, assign a readable baseline
-    // to text containers. This avoids tiny inherited sizes from source content.
-    doc.body.querySelectorAll(defaultSizeTargets).forEach((el) => {
-      const tag = (el.tagName || "").toLowerCase();
-      if (/^h[1-6]$/.test(tag) || tag === "sub" || tag === "sup") return;
-      if (el.style?.fontSize) return;
-      if (el.closest("pre, code")) return;
-      el.style.fontSize = `${minPx}px`;
+    doc.body.querySelectorAll("*").forEach((el) => {
+      if (el.style) {
+        el.style.removeProperty("font-size");
+        el.style.removeProperty("font");
+        el.style.removeProperty("line-height");
+        const styleAttr = el.getAttribute("style");
+        if (!styleAttr || !styleAttr.trim()) {
+          el.removeAttribute("style");
+        }
+      }
+      el.removeAttribute("size");
     });
 
     return doc.body.innerHTML;
@@ -265,6 +263,8 @@ const TipTapEditor = ({
   const [tableCols, setTableCols] = useState("3");
   const [tableRows, setTableRows] = useState("3");
   const [tableHeaderRow, setTableHeaderRow] = useState(true);
+  const [toolbarRevision, setToolbarRevision] = useState(0);
+  const [imageWidthDraft, setImageWidthDraft] = useState("");
 
 
   const uploadImageToCloudinary = async (file) => {
@@ -328,8 +328,8 @@ const TipTapEditor = ({
       Highlight.configure({
         multicolor: true,
       }),
-      Image.configure({
-        inline: true,
+      ResizableImage.configure({
+        inline: false,
         allowBase64: true,
       }),
       Table.configure({
@@ -365,7 +365,7 @@ const TipTapEditor = ({
     editorProps: {
       attributes: {
         class: "tiptap-editor-content focus:outline-none min-h-[300px] p-4",
-        style: "font-family: Poppins, sans-serif; font-size: 11px;",
+        style: "font-family: Poppins, sans-serif; font-size: 16px; line-height: 1.6;",
       },
       handlePaste(view, event) {
         // Get the clipboard data as plain text
@@ -454,8 +454,7 @@ const TipTapEditor = ({
         return false;
       },
       transformPastedHTML(html) {
-        // Keep pasted styles, but avoid unreadable tiny font sizes.
-        return normalizePastedFontSizes(html, 14);
+        return sanitizePastedHTML(html);
       },
     },
   });
@@ -476,6 +475,28 @@ const TipTapEditor = ({
   }, [htmlFromProps, editor]);
 
   // Update color state when editor selection changes
+  useEffect(() => {
+    if (editor?.isActive("image")) {
+      const attrs = editor.getAttributes("image");
+      const width = attrs.width;
+      setImageWidthDraft(width ? String(width) : "");
+    }
+  }, [editor, toolbarRevision]);
+
+  useEffect(() => {
+    if (editor) {
+      const refreshToolbar = () => setToolbarRevision((value) => value + 1);
+
+      editor.on("selectionUpdate", refreshToolbar);
+      editor.on("transaction", refreshToolbar);
+
+      return () => {
+        editor.off("selectionUpdate", refreshToolbar);
+        editor.off("transaction", refreshToolbar);
+      };
+    }
+  }, [editor]);
+
   useEffect(() => {
     if (editor) {
       const updateColors = () => {
@@ -517,6 +538,68 @@ const TipTapEditor = ({
       </div>
     );
   }
+
+  void toolbarRevision;
+
+  const getCurrentParagraphStyle = () => {
+    for (let level = 1; level <= 6; level += 1) {
+      if (editor.isActive("heading", { level })) {
+        return `h${level}`;
+      }
+    }
+    return "normal";
+  };
+
+  const applyParagraphStyle = (value) => {
+    if (value === "normal") {
+      editor.chain().focus().setParagraph().run();
+      return;
+    }
+
+    const level = parseInt(String(value).replace("h", ""), 10);
+    if (!Number.isFinite(level)) return;
+
+    editor.chain().focus().unsetFontSize().setHeading({ level }).run();
+  };
+
+  const currentParagraphStyle = getCurrentParagraphStyle();
+  const isImageActive = editor.isActive("image");
+  const selectedImageAlign = isImageActive
+    ? editor.getAttributes("image").align || "left"
+    : "left";
+
+  const applyImageWidth = (rawValue) => {
+    if (!editor.isActive("image")) return;
+    const trimmed = String(rawValue || "").trim();
+    if (!trimmed) {
+      editor.commands.updateAttributes("image", { width: null });
+      setImageWidthDraft("");
+      onChange(editor.getHTML());
+      return;
+    }
+    const next = parseInt(trimmed, 10);
+    if (!Number.isFinite(next)) return;
+    const clamped = Math.max(80, Math.min(1200, next));
+    editor.commands.updateAttributes("image", { width: clamped });
+    setImageWidthDraft(String(clamped));
+    onChange(editor.getHTML());
+  };
+
+  const applyImageAlign = (align) => {
+    if (!editor.isActive("image")) return;
+    editor.chain().focus().updateAttributes("image", { align }).run();
+    onChange(editor.getHTML());
+  };
+
+  const stepImageWidth = (delta) => {
+    if (!editor.isActive("image")) return;
+    const currentWidth = editor.getAttributes("image").width;
+    const base = Number.isFinite(currentWidth) ? currentWidth : 320;
+    const next = Math.max(80, Math.min(1200, base + delta));
+    editor.commands.updateAttributes("image", { width: next });
+    setImageWidthDraft(String(next));
+    onChange(editor.getHTML());
+  };
 
 
   const insertTableWithDimensions = (cols, rows, withHeader) => {
@@ -848,7 +931,7 @@ const TipTapEditor = ({
         <div className="w-px h-6 bg-gray-300 mx-1" />
 
         {/* Font Family */}
-        <Select
+        {/* <Select
           value={getCurrentFontFamily()}
           onValueChange={(value) => {
             editor.chain().focus().setFontFamily(value).run();
@@ -867,10 +950,10 @@ const TipTapEditor = ({
               </div>
             </SelectItem>
           </SelectContent>
-        </Select>
+        </Select> */}
 
         {/* Font Size */}
-        <Select
+        {/* <Select
           value={getCurrentFontSize()}
           onValueChange={(value) => {
             if (value) {
@@ -888,7 +971,7 @@ const TipTapEditor = ({
               </SelectItem>
             ))}
           </SelectContent>
-        </Select>
+        </Select> */}
 
         <div className="w-px h-6 bg-gray-300 mx-1" />
 
@@ -1531,45 +1614,82 @@ const TipTapEditor = ({
 
         {/* Paragraph Style */}
         <Select
-          value={
-            editor.isActive("heading", { level: 1 })
-              ? "h1"
-              : editor.isActive("heading", { level: 2 })
-              ? "h2"
-              : editor.isActive("heading", { level: 3 })
-              ? "h3"
-              : editor.isActive("heading", { level: 4 })
-              ? "h4"
-              : editor.isActive("heading", { level: 5 })
-              ? "h5"
-              : editor.isActive("heading", { level: 6 })
-              ? "h6"
-              : "normal"
-          }
+          value={currentParagraphStyle}
           onValueChange={(value) => {
-            if (value === "normal") {
-              editor.chain().focus().setParagraph().run();
-            } else {
-              const level = parseInt(value.replace("h", ""));
-              // Use setHeading for deterministic behavior: selecting Heading 1/2/3
-              // should always apply that heading level (not toggle it off).
-              // Remove explicit text-size mark so heading levels render with
-              // their own visual hierarchy (h1 > h2 > h3, etc.).
-              editor.chain().focus().unsetFontSize().setHeading({ level }).run();
-            }
+            applyParagraphStyle(value);
           }}
         >
           <SelectTrigger className="h-8 w-[100px] text-xs">
-            <SelectValue />
+            <SelectValue placeholder="Style">
+              {currentParagraphStyle === "normal"
+                ? "Normal"
+                : `Heading ${currentParagraphStyle.replace("h", "")}`}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="normal">Normal</SelectItem>
-            <SelectItem value="h1">Heading 1</SelectItem>
-            <SelectItem value="h2">Heading 2</SelectItem>
-            <SelectItem value="h3">Heading 3</SelectItem>
-            <SelectItem value="h4">Heading 4</SelectItem>
-            <SelectItem value="h5">Heading 5</SelectItem>
-            <SelectItem value="h6">Heading 6</SelectItem>
+            <SelectItem
+              value="normal"
+              onPointerDown={(event) => {
+                event.preventDefault();
+                applyParagraphStyle("normal");
+              }}
+            >
+              Normal
+            </SelectItem>
+            <SelectItem
+              value="h1"
+              onPointerDown={(event) => {
+                event.preventDefault();
+                applyParagraphStyle("h1");
+              }}
+            >
+              Heading 1
+            </SelectItem>
+            <SelectItem
+              value="h2"
+              onPointerDown={(event) => {
+                event.preventDefault();
+                applyParagraphStyle("h2");
+              }}
+            >
+              Heading 2
+            </SelectItem>
+            <SelectItem
+              value="h3"
+              onPointerDown={(event) => {
+                event.preventDefault();
+                applyParagraphStyle("h3");
+              }}
+            >
+              Heading 3
+            </SelectItem>
+            <SelectItem
+              value="h4"
+              onPointerDown={(event) => {
+                event.preventDefault();
+                applyParagraphStyle("h4");
+              }}
+            >
+              Heading 4
+            </SelectItem>
+            <SelectItem
+              value="h5"
+              onPointerDown={(event) => {
+                event.preventDefault();
+                applyParagraphStyle("h5");
+              }}
+            >
+              Heading 5
+            </SelectItem>
+            <SelectItem
+              value="h6"
+              onPointerDown={(event) => {
+                event.preventDefault();
+                applyParagraphStyle("h6");
+              }}
+            >
+              Heading 6
+            </SelectItem>
           </SelectContent>
         </Select>
 
@@ -2084,6 +2204,86 @@ const TipTapEditor = ({
             <ImageIcon className="h-4 w-4" />
           )}
         </Button>
+        {isImageActive ? (
+          <div
+            className="flex items-center gap-1"
+            onMouseDown={(event) => event.preventDefault()}
+          >
+            <Button
+              type="button"
+              variant={selectedImageAlign === "left" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => applyImageAlign("left")}
+              className="h-8 w-8 p-0"
+              title="Align image left"
+            >
+              <AlignLeft className="h-4 w-4" />
+            </Button>
+            <Button
+              type="button"
+              variant={selectedImageAlign === "center" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => applyImageAlign("center")}
+              className="h-8 w-8 p-0"
+              title="Align image center"
+            >
+              <AlignCenter className="h-4 w-4" />
+            </Button>
+            <Button
+              type="button"
+              variant={selectedImageAlign === "right" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => applyImageAlign("right")}
+              className="h-8 w-8 p-0"
+              title="Align image right"
+            >
+              <AlignRight className="h-4 w-4" />
+            </Button>
+            <Label className="text-[10px] text-gray-500 whitespace-nowrap">Width</Label>
+            <div className="flex flex-col">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => stepImageWidth(10)}
+                className="h-4 w-6 p-0"
+                title="Increase width"
+              >
+                <ChevronUp className="h-3 w-3" />
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => stepImageWidth(-10)}
+                className="h-4 w-6 p-0"
+                title="Decrease width"
+              >
+                <ChevronDown className="h-3 w-3" />
+              </Button>
+            </div>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={imageWidthDraft}
+              onChange={(event) => {
+                setImageWidthDraft(event.target.value.replace(/\D/g, ""));
+              }}
+              onKeyDown={(event) => {
+                event.stopPropagation();
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  applyImageWidth(imageWidthDraft);
+                  event.currentTarget.blur();
+                }
+              }}
+              onBlur={() => applyImageWidth(imageWidthDraft)}
+              className="h-8 w-16 rounded border border-gray-300 px-2 text-xs"
+              title="Image width in pixels"
+            />
+            <span className="text-[10px] text-gray-500">px</span>
+          </div>
+        ) : null}
         <Popover open={tableMenuOpen} onOpenChange={setTableMenuOpen}>
           <PopoverTrigger asChild>
             <Button

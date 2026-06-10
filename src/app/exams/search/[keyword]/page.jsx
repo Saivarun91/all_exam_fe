@@ -73,6 +73,7 @@
 
 
 import ExamsPageContent from "@/components/exams/ExamsPageContent";
+import { filterPublicExamListings } from "@/lib/examListingFilters";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
@@ -83,9 +84,7 @@ async function fetchExams() {
       cache: "no-store",
     });
     const data = await res.json();
-    return Array.isArray(data)
-      ? data.filter((c) => c.is_active !== false)
-      : [];
+    return filterPublicExamListings(data);
   } catch {
     return [];
   }

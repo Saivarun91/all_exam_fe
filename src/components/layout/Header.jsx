@@ -7,6 +7,10 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useSiteName } from "@/hooks/useSiteName";
 import { useLogoUrl, getLogoUrl } from "@/hooks/useLogoUrl";
+import { useLanguage } from "@/contexts/LanguageContext";
+import LanguageSelect from "@/components/common/LanguageSelect";
+import { REACT_MANAGED_ATTR } from "@/lib/domTextUpdate";
+
 
 
 const Header = ({ initialLogoUrl = "", initialSiteName = "" }) => {
@@ -15,11 +19,13 @@ const Header = ({ initialLogoUrl = "", initialSiteName = "" }) => {
   const siteName = useSiteName(initialSiteName);
   const logoUrl = useLogoUrl(initialLogoUrl);
   const displayLogoUrl = logoUrl || getLogoUrl();
+  const { t, language, translations, translationsRefreshToken } = useLanguage();
+  // void language;
+  // void translations;
+  // void translationsRefreshToken;
 
-  // Don't show header on admin routes
-  if (pathname?.startsWith("/admin")) {
-    return null;
-  }
+  
+
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userName, setUserName] = useState("");
   const [userEmail, setUserEmail] = useState("");
@@ -28,12 +34,11 @@ const Header = ({ initialLogoUrl = "", initialSiteName = "" }) => {
   const dropdownRef = useRef(null);
   const mobileMenuRef = useRef(null);
 
-  // Function to update login state from localStorage
   const updateLoginState = () => {
     const token = localStorage.getItem("token");
     const name = localStorage.getItem("name");
     const email = localStorage.getItem("email");
-    
+
     if (token) {
       setIsLoggedIn(true);
       setUserName(name || "User");
@@ -45,7 +50,6 @@ const Header = ({ initialLogoUrl = "", initialSiteName = "" }) => {
     }
   };
 
-  // Notify listeners once the header shell is mounted (no artificial delay — improves LCP / Speed Index).
   useEffect(() => {
     const id = requestAnimationFrame(() => {
       window.dispatchEvent(new CustomEvent("headerLoaded"));
@@ -130,8 +134,15 @@ const Header = ({ initialLogoUrl = "", initialSiteName = "" }) => {
     return userName.charAt(0).toUpperCase() || "U";
   };
 
+  if (pathname?.startsWith("/admin")) {
+    return null;
+  }
+
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 w-full bg-white border-b border-gray-200 shadow-sm">
+    <header
+      {...{ [REACT_MANAGED_ATTR]: "true" }}
+      className="fixed top-0 left-0 right-0 z-50 w-full bg-white border-b border-gray-200 shadow-sm"
+    >
       <div className="container mx-auto px-4 h-16 md:h-20 flex items-center justify-between">
         
         {/* Logo */}
@@ -174,7 +185,7 @@ const Header = ({ initialLogoUrl = "", initialSiteName = "" }) => {
                 : "text-[#0C1A35] hover:text-[#1A73E8]"
             }`}
           >
-            Home
+            {t("nav.home")}
           </Link>
 
           {/* <Link 
@@ -193,7 +204,7 @@ const Header = ({ initialLogoUrl = "", initialSiteName = "" }) => {
                 : "text-[#0C1A35] hover:text-[#1A73E8]"
             }`}
           >
-            Categories
+            {t("nav.categories")}
           </Link>
 
           <Link 
@@ -204,7 +215,7 @@ const Header = ({ initialLogoUrl = "", initialSiteName = "" }) => {
                 : "text-[#0C1A35] hover:text-[#1A73E8]"
             }`}
           >
-            All Exams
+            {t("nav.all_exams")}
           </Link>
 
           {/* <Link 
@@ -212,7 +223,7 @@ const Header = ({ initialLogoUrl = "", initialSiteName = "" }) => {
             onClick={(e) => handleAnchorClick(e, "popular-providers")}
             className="text-[#0C1A35] hover:text-[#1A73E8] transition-colors font-semibold min-h-[44px] min-w-[44px] flex items-center px-2"
           >
-            Providers
+            {t("nav.providers")}
           </Link> */}
 
           <Link
@@ -223,7 +234,7 @@ const Header = ({ initialLogoUrl = "", initialSiteName = "" }) => {
                 : "text-[#0C1A35] hover:text-[#1A73E8]"
             }`}
           >
-            Providers
+            {t("nav.providers")}
           </Link>
 
           <Link 
@@ -234,7 +245,7 @@ const Header = ({ initialLogoUrl = "", initialSiteName = "" }) => {
                 : "text-[#0C1A35] hover:text-[#1A73E8]"
             }`}
           >
-            Blogs
+            {t("nav.blogs")}
           </Link>
 
           <Link 
@@ -245,12 +256,14 @@ const Header = ({ initialLogoUrl = "", initialSiteName = "" }) => {
                 : "text-[#0C1A35] hover:text-[#1A73E8]"
             }`}
           >
-            Testimonials
+            {t("nav.testimonials")}
           </Link>
         </nav>
 
         {/* Desktop Auth Buttons or Profile Dropdown */}
         <div className="hidden md:flex items-center gap-4">
+          <LanguageSelect />
+          
           {!isLoggedIn ? (
             <>
               <Button 
@@ -258,14 +271,14 @@ const Header = ({ initialLogoUrl = "", initialSiteName = "" }) => {
                 className="text-[#0C1A35] hover:text-[#1A73E8] font-semibold min-h-[44px] px-4"
                 asChild
               >
-                <Link href="/login">Login</Link>
+                <Link href="/login">{t("auth.login")}</Link>
               </Button>
 
               <Button 
                 className="bg-[#1A73E8] text-white hover:bg-[#1557B0] shadow-[0_4px_14px_rgba(26,115,232,0.4)] font-semibold min-h-[44px] px-4"
                 asChild
               >
-                <Link href="/signup">Sign Up</Link>
+                <Link href="/signup">{t("auth.signup")}</Link>
               </Button>
             </>
           ) : (
@@ -307,7 +320,7 @@ const Header = ({ initialLogoUrl = "", initialSiteName = "" }) => {
                       className="flex items-center gap-3 px-4 py-3 min-h-[44px] text-sm text-[#0C1A35] hover:bg-[#1A73E8]/5 transition-colors"
                     >
                       <User className="w-4 h-4" />
-                      <span className="font-medium">My Dashboard</span>
+                      <span className="font-medium">{t("auth.my_dashboard")}</span>
                     </Link>
 
                     <Link
@@ -316,7 +329,7 @@ const Header = ({ initialLogoUrl = "", initialSiteName = "" }) => {
                       className="flex items-center gap-3 px-4 py-3 min-h-[44px] text-sm text-[#0C1A35] hover:bg-[#1A73E8]/5 transition-colors"
                     >
                       <User className="w-4 h-4" />
-                      <span className="font-medium">View Profile</span>
+                      <span className="font-medium">{t("auth.profile")}</span>
                     </Link>
 
                     <button
@@ -324,7 +337,7 @@ const Header = ({ initialLogoUrl = "", initialSiteName = "" }) => {
                       className="flex items-center gap-3 px-4 py-3 min-h-[44px] text-sm text-red-600 hover:bg-red-50 transition-colors w-full text-left"
                     >
                       <LogOut className="w-4 h-4" />
-                      <span className="font-medium">Logout</span>
+                      <span className="font-medium">{t("auth.logout")}</span>
                     </button>
                   </div>
                 </div>
@@ -337,7 +350,7 @@ const Header = ({ initialLogoUrl = "", initialSiteName = "" }) => {
         <button
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
           className="md:hidden p-3 min-h-[44px] min-w-[44px] flex items-center justify-center text-[#0C1A35] hover:text-[#1A73E8] transition-colors"
-          aria-label="Toggle menu"
+          aria-label={t("common.toggle_menu")}
         >
           {mobileMenuOpen ? (
             <X className="w-6 h-6" />
@@ -360,7 +373,7 @@ const Header = ({ initialLogoUrl = "", initialSiteName = "" }) => {
                   : "text-[#0C1A35] hover:bg-gray-50"
               }`}
             >
-              Home
+              {t("nav.home")}
             </Link>
 
             <Link
@@ -371,7 +384,7 @@ const Header = ({ initialLogoUrl = "", initialSiteName = "" }) => {
               }}
               className="block px-4 py-3 min-h-[44px] rounded-lg text-[#0C1A35] hover:bg-gray-50 hover:text-[#1A73E8] transition-colors font-semibold flex items-center"
             >
-              Popular Exams
+              {t("nav.popular_exams")}
             </Link>
 
             <Link
@@ -383,7 +396,7 @@ const Header = ({ initialLogoUrl = "", initialSiteName = "" }) => {
                   : "text-[#0C1A35] hover:bg-gray-50"
               }`}
             >
-              All Exams
+              {t("nav.all_exams")}
             </Link>
 
             <Link
@@ -394,7 +407,7 @@ const Header = ({ initialLogoUrl = "", initialSiteName = "" }) => {
               }}
               className="block px-4 py-3 min-h-[44px] rounded-lg text-[#0C1A35] hover:bg-gray-50 hover:text-[#1A73E8] transition-colors font-semibold flex items-center"
             >
-              Providers
+              {t("nav.providers")}
             </Link>
 
             <Link
@@ -406,7 +419,7 @@ const Header = ({ initialLogoUrl = "", initialSiteName = "" }) => {
                   : "text-[#0C1A35] hover:bg-gray-50"
               }`}
             >
-              Blog
+              {t("nav.blog")}
             </Link>
 
             <Link
@@ -418,8 +431,12 @@ const Header = ({ initialLogoUrl = "", initialSiteName = "" }) => {
                   : "text-[#0C1A35] hover:bg-gray-50"
               }`}
             >
-              Testimonials
+              {t("nav.testimonials")}
             </Link>
+
+            <div className="px-4 py-2">
+              <LanguageSelect className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-white" />
+            </div>
 
             {/* Mobile Auth Buttons */}
             <div className="pt-4 border-t border-gray-200 space-y-2">
@@ -431,14 +448,14 @@ const Header = ({ initialLogoUrl = "", initialSiteName = "" }) => {
                     asChild
                     onClick={() => setMobileMenuOpen(false)}
                   >
-                    <Link href="/login">Login</Link>
+                    <Link href="/login">{t("auth.login")}</Link>
                   </Button>
                   <Button
                     className="w-full bg-[#1A73E8] text-white hover:bg-[#1557B0] font-semibold min-h-[44px]"
                     asChild
                     onClick={() => setMobileMenuOpen(false)}
                   >
-                    <Link href="/signup">Sign Up</Link>
+                    <Link href="/signup">{t("auth.signup")}</Link>
                   </Button>
                 </>
               ) : (
@@ -453,7 +470,7 @@ const Header = ({ initialLogoUrl = "", initialSiteName = "" }) => {
                     className="flex items-center gap-3 px-4 py-3 min-h-[44px] text-sm text-[#0C1A35] hover:bg-gray-50 transition-colors font-semibold"
                   >
                     <User className="w-4 h-4" />
-                    <span>Dashboard</span>
+                    <span>{t("auth.dashboard")}</span>
                   </Link>
                   <Link
                     href="/profile"
@@ -461,7 +478,7 @@ const Header = ({ initialLogoUrl = "", initialSiteName = "" }) => {
                     className="flex items-center gap-3 px-4 py-3 min-h-[44px] text-sm text-[#0C1A35] hover:bg-gray-50 transition-colors font-semibold"
                   >
                     <User className="w-4 h-4" />
-                    <span>View Profile</span>
+                    <span>{t("auth.profile")}</span>
                   </Link>
                   <button
                     onClick={() => {
@@ -471,7 +488,7 @@ const Header = ({ initialLogoUrl = "", initialSiteName = "" }) => {
                     className="flex items-center gap-3 px-4 py-3 min-h-[44px] text-sm text-red-600 hover:bg-red-50 transition-colors w-full text-left font-semibold"
                   >
                     <LogOut className="w-4 h-4" />
-                    <span>Logout</span>
+                    <span>{t("auth.logout")}</span>
                   </button>
                 </>
               )}

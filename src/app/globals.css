@@ -15,6 +15,14 @@
       scroll-margin-top: 5rem;
     }
   }
+
+  button:not(:disabled) {
+    cursor: pointer;
+  }
+
+  button:disabled {
+    cursor: not-allowed;
+  }
 }
 
 @custom-variant dark (&:is(.dark *));
@@ -180,6 +188,15 @@
 }
 
 /* Continuous Auto-Scroll Carousel Animation - Right to Left Only */
+@keyframes languageBar {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(400%);
+  }
+}
+
 @keyframes marquee {
   0% {
     transform: translateX(0);
@@ -216,12 +233,124 @@
   }
 }
 
+/* Blog inline slider — seamless loop (2× duplicated track), right to left */
+@keyframes blog-inline-marquee {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-blog-inline-marquee {
+  animation: blog-inline-marquee var(--blog-marquee-duration, 36s) linear infinite;
+  will-change: transform;
+  display: flex;
+  width: max-content;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+.animate-blog-inline-marquee.is-paused {
+  animation-play-state: paused;
+}
+
+/* Exam sidebar social proof strip */
+@keyframes social-proof-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes social-avatar-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.5) translateX(12px);
+  }
+  70% {
+    transform: scale(1.08) translateX(0);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateX(0);
+  }
+}
+
+@keyframes social-percent-glow {
+  0%,
+  100% {
+    text-shadow: 0 0 0 transparent;
+    transform: scale(1);
+  }
+  50% {
+    text-shadow: 0 0 12px rgba(26, 115, 232, 0.35);
+    transform: scale(1.05);
+  }
+}
+
+@keyframes social-text-reveal {
+  from {
+    opacity: 0;
+    transform: translateX(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes social-avatar-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+.social-proof-strip {
+  animation: social-proof-slide-in 0.55s ease-out both;
+}
+
+.social-proof-avatar {
+  --avatar-delay: 0s;
+  animation:
+    social-avatar-pop 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) var(--avatar-delay) both,
+    social-avatar-float 3s ease-in-out calc(var(--avatar-delay) + 0.65s) infinite;
+}
+
+.social-proof-percent {
+  animation: social-percent-glow 2.5s ease-in-out infinite;
+  display: inline-block;
+}
+
+.social-proof-text {
+  animation: social-text-reveal 0.6s ease-out both;
+  animation-delay: 0.45s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .social-proof-strip,
+  .social-proof-avatar,
+  .social-proof-percent,
+  .social-proof-text {
+    animation: none !important;
+  }
+}
+
 /* TipTap Editor Styles */
 .tiptap-editor-content {
   @apply text-gray-900;
 }
 
-.tiptap-editor-content p {
+.ProseMirror.tiptap-editor-content p {
   @apply mb-2;
 }
 
@@ -235,14 +364,82 @@
   @apply text-gray-400 float-left h-0 pointer-events-none;
 }
 
-.tiptap-editor-content {
+/* Admin TipTap editor canvas — compact default; inline editor styles still win */
+.ProseMirror.tiptap-editor-content {
   font-family: var(--admin-font-family, var(--font-poppins, 'Poppins')), system-ui, -apple-system, sans-serif !important;
-  font-size: 14px; /* Default font size - will be overridden by inline styles */
+  font-size: 14px;
   line-height: 1.6;
 }
 
-/* Ensure inline font-size styles from editor are preserved and displayed */
-/* Inline styles have highest specificity, so they will automatically work */
+/* Public TipTap content — match site body typography */
+.tiptap-editor-content:not(.ProseMirror) {
+  font-family: var(--font-poppins, 'Poppins'), system-ui, -apple-system, sans-serif !important;
+  font-size: 1rem;
+  line-height: 1.75;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+.tiptap-editor-content:not(.ProseMirror) p {
+  font-size: 1rem;
+  line-height: 1.75;
+  margin-bottom: 1rem;
+}
+
+.tiptap-editor-content:not(.ProseMirror) li {
+  font-size: 1rem;
+  line-height: 1.75;
+}
+
+.tiptap-editor-content:not(.ProseMirror) table td,
+.tiptap-editor-content:not(.ProseMirror) table th {
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.tiptap-editor-content:not(.ProseMirror) table {
+  display: table;
+  width: 100%;
+  max-width: 100%;
+  table-layout: auto;
+  overflow: visible;
+}
+
+.tiptap-editor-content:not(.ProseMirror) table p {
+  margin-bottom: 0;
+}
+
+.tiptap-editor-content:not(.ProseMirror) table p:last-child {
+  margin-bottom: 0;
+}
+
+.tiptap-editor-content:not(.ProseMirror) strong,
+.tiptap-editor-content:not(.ProseMirror) b {
+  font-size: inherit;
+  line-height: inherit;
+  font-weight: 700;
+  padding-inline: 0.08em;
+  display: inline;
+}
+
+.tiptap-editor-content:not(.ProseMirror) em,
+.tiptap-editor-content:not(.ProseMirror) i,
+.tiptap-editor-content:not(.ProseMirror) u,
+.tiptap-editor-content:not(.ProseMirror) mark,
+.tiptap-editor-content:not(.ProseMirror) a,
+.tiptap-editor-content:not(.ProseMirror) span,
+.tiptap-editor-content:not(.ProseMirror) code {
+  font-size: inherit;
+  line-height: inherit;
+}
+
+/* .tiptap-editor-content:not(.ProseMirror) p,
+.tiptap-editor-content:not(.ProseMirror) li,
+.tiptap-editor-content:not(.ProseMirror) td,
+.tiptap-editor-content:not(.ProseMirror) th {
+  white-space: normal;
+  word-spacing: normal;
+} */
 
 .tiptap-editor-content h1 {
   @apply text-3xl font-bold mb-4 mt-6;
@@ -480,4 +677,67 @@
 
 .tiptap-editor-content mark {
   @apply bg-yellow-200;
+}
+
+
+.tiptap-editor-content,
+.tiptap-content {
+  white-space: normal !important;
+  word-spacing: normal !important;
+  letter-spacing: normal !important;
+  line-height: 1.75;
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
+.tiptap-editor-content *,
+.tiptap-content * {
+  white-space: normal !important;
+  word-spacing: normal !important;
+  letter-spacing: normal !important;
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
+.tiptap-editor-content p,
+.tiptap-content p {
+  margin-bottom: 1rem;
+}
+
+.tiptap-editor-content img,
+.tiptap-content img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 12px 0;
+}
+
+.tiptap-editor-content img[data-align="left"],
+.tiptap-content img[data-align="left"] {
+  margin-left: 0;
+  margin-right: auto;
+}
+
+.tiptap-editor-content img[data-align="center"],
+.tiptap-content img[data-align="center"] {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.tiptap-editor-content img[data-align="right"],
+.tiptap-content img[data-align="right"] {
+  margin-left: auto;
+  margin-right: 0;
+}
+
+.tiptap-editor-content .tiptap-image-node,
+.ProseMirror .tiptap-image-node {
+  display: flex;
+  width: 100%;
+}
+
+.tiptap-editor-content p:has(> img),
+.tiptap-content p:has(> img) {
+  display: block;
+  width: 100%;
 }

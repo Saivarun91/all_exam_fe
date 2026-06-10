@@ -37,62 +37,35 @@
 
 "use client";
 
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
-export default function StartTestButton({ url }) {
+export default function StartTestButton({
+  url,
+  label = "Start Practicing →",
+  className = "w-full bg-[#1A73E8] text-white hover:bg-[#1557B0] h-12 text-lg",
+}) {
   const router = useRouter();
-  const [showLoginModal, setShowLoginModal] = useState(false);
 
-  const checkLogin = () =>
-    typeof window !== "undefined" && !!localStorage.getItem("token");
-
-  const handleClick = () => {
-    if (!checkLogin()) {
-      setShowLoginModal(true);
-    } else {
-      router.push(url);
+  useEffect(() => {
+    if (typeof url === "string" && url) {
+      router.prefetch(url);
     }
-  };
+  }, [router, url]);
 
   return (
-    <>
-      <Button
-        className="w-full bg-[#1A73E8] text-white hover:bg-[#1557B0] h-12 text-lg"
-        onClick={handleClick}
-      >
-        Start Practicing →
-      </Button>
-
-      <Dialog open={showLoginModal} onOpenChange={setShowLoginModal}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Login Required</DialogTitle>
-            <DialogDescription>
-              You need to login to start taking tests.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex gap-3 mt-4">
-            <Button
-              variant="outline"
-              onClick={() => setShowLoginModal(false)}
-              className="flex-1"
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={() =>
-                router.push(`/auth/login?redirect=${encodeURIComponent(url)}`)
-              }
-              className="flex-1 bg-[#1A73E8] hover:bg-[#1557B0] text-white"
-            >
-              Login / Sign Up
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-    </>
+    <Button
+      className={className}
+      onMouseEnter={() => {
+        if (typeof url === "string" && url) router.prefetch(url);
+      }}
+      onFocus={() => {
+        if (typeof url === "string" && url) router.prefetch(url);
+      }}
+      onClick={() => router.push(url)}
+    >
+      {label}
+    </Button>
   );
 }

@@ -118,10 +118,13 @@ export default function BreadcrumbJsonLd({ items = [], currentUrl }) {
     })),
   };
 
+  const safeJson = JSON.stringify(breadcrumbJsonLd).replace(/</g, "\\u003c");
+
   return (
     <script
       type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      dangerouslySetInnerHTML={{ __html: safeJson }}
+      suppressHydrationWarning
     />
   );
 }

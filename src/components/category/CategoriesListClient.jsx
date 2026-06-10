@@ -1,21 +1,82 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Folder, Search } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Folder, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import CategoryCard from "@/components/category/CategoryCard";
+import ListPagination, {
+  getListPaginationSlice,
+} from "@/components/common/ListPagination";
+import { useLanguage } from "@/contexts/LanguageContext";
+import {
+  getEntityId,
+  useLocalizedEntity,
+} from "@/lib/entityI18n";
+import { resolveCategoryImageUrl } from "@/lib/categoryImage";
+
+const TOP_CATEGORIES_PAGE_SIZE = 8;
+
+function CategoryListItem({ category }) {
+  const { t } = useLanguage();
+  const categoryId = getEntityId(category);
+  const title = useLocalizedEntity(
+    "category",
+    categoryId,
+    "title",
+    category?.title || ""
+  );
+  const imageSrc = resolveCategoryImageUrl(category?.image_url);
+
+  return (
+    <Link
+      key={category.id}
+      href={`/categories/${category.slug}`}
+      className="group flex items-center justify-between text-[16px]"
+    >
+      <span className="flex items-center gap-3 min-w-0">
+        {imageSrc ? (
+          <span className="w-10 h-10 rounded-lg border border-[#DDE7FF] bg-[#F7FAFF] flex items-center justify-center p-1 shrink-0">
+            <img
+              src={imageSrc}
+              alt={title || t("common.category")}
+              className="w-full h-full object-contain"
+              loading="lazy"
+              decoding="async"
+            />
+          </span>
+        ) : (
+          <span className="w-10 h-10 rounded-lg bg-[#1A73E8]/10 flex items-center justify-center shrink-0">
+            <Folder className="w-5 h-5 text-[#1A73E8]" />
+          </span>
+        )}
+        <span className="font-medium text-[#1A73E8] group-hover:text-[#1557B0] group-hover:underline underline-offset-4 transition-colors truncate">
+          {title}
+        </span>
+      </span>
+      <span className="text-sm text-[#0C1A35]/55">
+        {category.examCount || 0}{" "}
+        {(category.examCount || 0) === 1
+          ? t("common.exam_singular")
+          : t("common.exam_plural")}
+      </span>
+    </Link>
+  );
+}
 
 export default function CategoriesListClient({
   groupedCategories = {},
   topCertificationCategories = [],
 }) {
+  const { t, tf } = useLanguage();
   const [searchTerm, setSearchTerm] = useState("");
+  const [topCategoriesPage, setTopCategoriesPage] = useState(1);
   const formatSectionHeading = (heading) => {
     const text = String(heading || "").trim();
-    if (!text) return "Categories";
-    return /categories$/i.test(text) ? text : `${text} Categories`;
+    if (!text) return t("common.categories");
+    return /categories$/i.test(text)
+      ? text
+      : `${text} ${t("common.categories_suffix")}`;
   };
 
   const { filteredTopCategories, filteredGroups } = useMemo(() => {
@@ -52,6 +113,20 @@ export default function CategoriesListClient({
     };
   }, [groupedCategories, searchTerm, topCertificationCategories]);
 
+  useEffect(() => {
+    setTopCategoriesPage(1);
+  }, [searchTerm]);
+
+  const topCategoriesPagination = useMemo(
+    () =>
+      getListPaginationSlice(
+        filteredTopCategories,
+        topCategoriesPage,
+        TOP_CATEGORIES_PAGE_SIZE
+      ),
+    [filteredTopCategories, topCategoriesPage]
+  );
+
   const hasResults =
     filteredTopCategories.length > 0 || Object.keys(filteredGroups).length > 0;
 
@@ -63,7 +138,7 @@ export default function CategoriesListClient({
           <Input
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search categories..."
+            placeholder={t("common.search_categories")}
             className="pl-10 border-[#DDE7FF] focus-visible:ring-[#1A73E8]"
           />
         </div>
@@ -71,60 +146,37 @@ export default function CategoriesListClient({
 
       {hasResults ? (
         <>
-          <section className="mb-12">
+          <section id="top-certification-categories" className="mb-12">
             <h2 className="text-2xl md:text-3xl font-bold text-[#0C1A35] mb-5">
-              Top Certification Categories
+              {t("common.top_certification_categories")}
             </h2>
 
             {filteredTopCategories.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredTopCategories.map((category) => (
-                  <Link
-                    key={category.id}
-                    href={`/categories/${category.slug}`}
-                    className="block h-full group"
-                  >
-                    <Card className="h-full hover:shadow-lg hover:-translate-y-1 transition-all border-[#DDE7FF] cursor-pointer">
-                      <CardContent className="p-6 h-full flex flex-col space-y-4">
-                        <div className="w-12 h-12 rounded-lg bg-[#1A73E8]/10 flex items-center justify-center">
-                          <Folder className="w-6 h-6 text-[#1A73E8]" />
-                        </div>
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {topCategoriesPagination.items.map((category) => (
+                    <CategoryCard
+                      key={category.id}
+                      category={category}
+                      showExamCount
+                      imageFit="contain"
+                    />
+                  ))}
+                </div>
 
-                        <div className="flex-1">
-                          <div className="flex items-start justify-between gap-3">
-                            <h3 className="text-xl font-bold text-[#0C1A35] group-hover:text-[#1A73E8] transition-colors">
-                              {category.title}
-                            </h3>
-                            <span className="shrink-0 rounded-full bg-[#1A73E8]/10 px-2.5 py-1 text-xs font-semibold text-[#1A73E8]">
-                              {category.examCount || 0} Exam
-                              {(category.examCount || 0) !== 1 ? "s" : ""}
-                            </span>
-                          </div>
-
-                          {category.description && (
-                            <p className="text-sm text-[#0C1A35]/60 mt-1">
-                              {category.description}
-                            </p>
-                          )}
-                        </div>
-
-                        <Button
-                          asChild
-                          className="w-full mt-auto bg-[#1A73E8] text-white hover:bg-[#1557B0]"
-                        >
-                          <span>
-                            View Exams
-                            <ArrowRight className="ml-2 w-4 h-4 inline-block" />
-                          </span>
-                        </Button>
-                      </CardContent>
-                    </Card>
-                  </Link>
-                ))}
-              </div>
+                <ListPagination
+                  currentPage={topCategoriesPagination.page}
+                  totalPages={topCategoriesPagination.totalPages}
+                  totalItems={topCategoriesPagination.totalItems}
+                  pageSize={TOP_CATEGORIES_PAGE_SIZE}
+                  itemLabelKey="pagination.categories"
+                  scrollTargetId="top-certification-categories"
+                  onPageChange={setTopCategoriesPage}
+                />
+              </>
             ) : (
               <div className="rounded-lg border border-[#DDE7FF] bg-[#F8FBFF] px-4 py-3 text-sm text-[#0C1A35]/70">
-                No top certification categories selected yet.
+                {t("categories.no_top_selected")}
               </div>
             )}
           </section>
@@ -141,19 +193,7 @@ export default function CategoriesListClient({
 
                 <div className="space-y-2.5">
                   {groupedItems.map((category) => (
-                    <Link
-                      key={category.id}
-                      href={`/categories/${category.slug}`}
-                      className="group flex items-center justify-between text-[16px]"
-                    >
-                      <span className="font-medium text-[#1A73E8] group-hover:text-[#1557B0] group-hover:underline underline-offset-4 transition-colors">
-                        {category.title}
-                      </span>
-                      <span className="text-sm text-[#0C1A35]/55">
-                        {category.examCount || 0}{" "}
-                        {(category.examCount || 0) === 1 ? "Exam" : "Exams"}
-                      </span>
-                    </Link>
+                    <CategoryListItem key={category.id} category={category} />
                   ))}
                 </div>
               </section>
@@ -162,7 +202,7 @@ export default function CategoriesListClient({
         </>
       ) : (
         <div className="py-12 text-center text-[#0C1A35]/60">
-          No categories found for "{searchTerm}".
+          {t("common.no_categories_found")} &quot;{searchTerm}&quot;.
         </div>
       )}
     </>

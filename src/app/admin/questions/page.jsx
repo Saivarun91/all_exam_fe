@@ -49,6 +49,7 @@ export default function QuestionsManager() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [csvDialogOpen, setCsvDialogOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [selectedQuestions, setSelectedQuestions] = useState([]);
   const [csvFile, setCsvFile] = useState(null);
@@ -532,6 +533,7 @@ export default function QuestionsManager() {
         }
         setMessage(message);
         setCsvFile(null);
+        setCsvDialogOpen(false);
         fetchQuestions(selectedCourse);
         setTimeout(() => setMessage(""), 8000);
       } else {
@@ -666,7 +668,7 @@ export default function QuestionsManager() {
                     <Download className="w-4 h-4" />
                     CSV Template
                   </Button>
-                  <Dialog>
+                  <Dialog open={csvDialogOpen} onOpenChange={setCsvDialogOpen}>
                     <DialogTrigger asChild>
                       <Button size="sm" variant="outline" className="gap-2">
                         <Upload className="w-4 h-4" />

@@ -135,7 +135,11 @@ export default function FeaturedExamsAdmin() {
 
       if (data.success && Array.isArray(data.data)) {
         const featuredCourses = data.data.filter(
-          (course) => course.is_active !== false && course.is_featured !== false
+          (course) =>
+            course.is_active !== false &&
+            (course.is_featured === true ||
+              course.is_featured === 1 ||
+              String(course.is_featured).toLowerCase() === "true")
         );
         setCourses(featuredCourses);
       }
@@ -148,6 +152,10 @@ export default function FeaturedExamsAdmin() {
   };
   
   const toggleFeatured = async (courseId, currentStatus) => {
+    const isCurrentlyFeatured =
+      currentStatus === true ||
+      currentStatus === 1 ||
+      String(currentStatus).toLowerCase() === "true";
     try {
       const res = await fetch(`${API_BASE_URL}/api/courses/admin/${courseId}/update/`, {
         method: "PUT",
@@ -156,14 +164,16 @@ export default function FeaturedExamsAdmin() {
           "Authorization": `Bearer ${localStorage.getItem("token")}`
         },
         body: JSON.stringify({
-          is_featured: !currentStatus
+          is_featured: !isCurrentlyFeatured,
         }),
       });
       
       const data = await res.json();
       
       if (data.success || res.ok) {
-        setMessage(`✅ Course ${!currentStatus ? 'added to' : 'removed from'} featured exams!`);
+        setMessage(
+          `✅ Course ${!isCurrentlyFeatured ? "added to" : "removed from"} featured exams!`
+        );
         fetchCourses();
         setTimeout(() => setMessage(""), 3000);
       } else {
@@ -434,8 +444,14 @@ export default function FeaturedExamsAdmin() {
                           <div className="flex items-center space-x-2">
                             <Checkbox
                               id={`featured-${course.id || course._id}`}
-                              checked={course.is_featured !== false}
-                              onCheckedChange={() => toggleFeatured(course.id || course._id, course.is_featured)}
+                              checked={
+                                course.is_featured === true ||
+                                course.is_featured === 1 ||
+                                String(course.is_featured).toLowerCase() === "true"
+                              }
+                              onCheckedChange={() =>
+                                toggleFeatured(course.id || course._id, course.is_featured)
+                              }
                             />
                             <label
                               htmlFor={`featured-${course.id || course._id}`}

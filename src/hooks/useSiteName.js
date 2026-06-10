@@ -1,76 +1,45 @@
 "use client";
 
 import { useState, useEffect } from "react";
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
-
-// Cache for site name
-let cachedSiteName = null;
-let cacheTimestamp = 0;
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+import { fetchPublicSettings, clearPublicSettingsCache } from "@/lib/fetchPublicSettings";
 
 export function useSiteName(initialSiteNameFromServer = "") {
   const [siteName, setSiteName] = useState(initialSiteNameFromServer || "");
 
   useEffect(() => {
-    const fetchSiteName = async () => {
-      try {
-        // Use public endpoint for site name (no auth required)
-        const res = await fetch(`${API_BASE_URL}/api/settings/public/`);
+    let cancelled = false;
 
-        if (res.ok) {
-          const data = await res.json();
-          if (data.success) {
-            // Use site_name if it exists and is not empty, otherwise use empty string
-            const name = (data.site_name && data.site_name.trim()) ? data.site_name.trim() : "";
-            cachedSiteName = name;
-            cacheTimestamp = Date.now();
-            setSiteName(name);
-          } else {
-            // If API call failed, set to empty string
-            cachedSiteName = "";
-            setSiteName("");
-          }
-        } else {
-          // If response not ok, set to empty string
-          cachedSiteName = "";
-          setSiteName("");
-        }
-      } catch (err) {
-        console.error("Error fetching site name:", err);
-        // Keep empty string on error
-        cachedSiteName = "";
-        setSiteName("");
+    const loadSiteName = async () => {
+      const data = await fetchPublicSettings();
+      if (cancelled || !data) return;
+
+      const name =
+        data.site_name && String(data.site_name).trim()
+          ? String(data.site_name).trim()
+          : "";
+      if (name) {
+        setSiteName(name);
       }
     };
 
-    // Check cache first
-    const now = Date.now();
-    if (cachedSiteName !== null && (now - cacheTimestamp) < CACHE_DURATION) {
-      setSiteName(cachedSiteName);
-    } else {
-      fetchSiteName();
-    }
+    loadSiteName();
 
-    // Listen for site name updates
     const handleSiteNameUpdate = () => {
-      cachedSiteName = null;
-      cacheTimestamp = 0;
-      fetchSiteName();
+      clearPublicSettingsCache();
+      loadSiteName();
     };
 
-    window.addEventListener('siteNameUpdated', handleSiteNameUpdate);
+    window.addEventListener("siteNameUpdated", handleSiteNameUpdate);
 
     return () => {
-      window.removeEventListener('siteNameUpdated', handleSiteNameUpdate);
+      cancelled = true;
+      window.removeEventListener("siteNameUpdated", handleSiteNameUpdate);
     };
   }, [initialSiteNameFromServer]);
 
   return siteName;
 }
 
-// Helper to get site name synchronously (returns cached value or empty string)
 export function getSiteName() {
-  return cachedSiteName || "";
+  return "";
 }
-

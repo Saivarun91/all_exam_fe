@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ArrowRight, Calendar, Clock, Search } from "lucide-react";
+import { ArrowRight, Calendar, Search } from "lucide-react";
 import { getOptimizedImageUrl } from "@/utils/imageUtils";
 
 const POSTS_PER_PAGE = 9;
@@ -148,14 +148,13 @@ export default function BlogPageClient({ articles }) {
                 <Link key={article.id} href={blogUrl} className="block group">
                   <Card className="overflow-hidden hover:shadow-[0_6px_20px_rgba(26,115,232,0.15)] hover:-translate-y-1 transition-all duration-300 border-[#DDE7FF] cursor-pointer bg-white shadow-[0_2px_8px_rgba(26,115,232,0.08)] h-full flex flex-col">
                     {article.image_url ? (
-                      <div className="relative w-full aspect-[16/9] overflow-hidden bg-gray-100">
+                      <div className="relative w-full overflow-hidden bg-white">
                         <img
                           src={getOptimizedImageUrl(article.image_url, 400, 225)}
                           alt={article.title}
                           width={400}
                           height={225}
-                          className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300"
-                          style={{ objectFit: "contain" }}
+                          className="w-full h-auto block transition-transform duration-300 group-hover:scale-[1.02]"
                           loading="lazy"
                           sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 400px"
                           decoding="async"
@@ -184,12 +183,6 @@ export default function BlogPageClient({ articles }) {
                           <Calendar className="w-4 h-4" />
                           <span>{articleDate}</span>
                         </div>
-                        {article.reading_time && (
-                          <div className="flex items-center gap-1">
-                            <Clock className="w-4 h-4" />
-                            <span>{article.reading_time}</span>
-                          </div>
-                        )}
                       </div>
 
                       <h3 className="text-xl font-bold text-[#0C1A35] group-hover:text-[#1A73E8] transition-colors line-clamp-2">

@@ -1,6 +1,12 @@
 // app/providers/page.jsx
 import Link from "next/link";
 import { logServerFetchError } from "@/lib/serverFetchLog";
+import ProviderCardExams from "@/components/provider/ProviderCardExams";
+import { getOptimizedImageUrl } from "@/utils/imageUtils";
+
+/** Every provider logo uses the same height; width scales within this box (fits wide logos). */
+const PROVIDER_LOGO_HEIGHT = 72;
+const PROVIDER_LOGO_MAX_WIDTH = 220;
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
@@ -93,20 +99,40 @@ export default async function ProvidersPage() {
   const normalizedProviders = Array.isArray(providers) ? providers : [];
   const normalizedCourses = Array.isArray(courses) ? courses : [];
 
-  const providerExamCountMap = normalizedCourses.reduce((acc, course) => {
-    if (course?.is_active === false) return acc;
+  const courseProviderKeys = (course) => {
+    const keys = [];
+
+    const providerIdKey = String(course?.provider_id || "").trim();
+    if (providerIdKey) keys.push(providerIdKey);
 
     const providerSlugKey = String(course?.provider_slug || "")
       .toLowerCase()
       .trim();
+    if (providerSlugKey) keys.push(providerSlugKey);
+
     const providerNameKey = String(course?.provider || "")
       .toLowerCase()
       .trim();
+    if (providerNameKey) keys.push(providerNameKey);
 
-    if (providerSlugKey) {
-      acc[providerSlugKey] = (acc[providerSlugKey] || 0) + 1;
-    } else if (providerNameKey) {
-      acc[providerNameKey] = (acc[providerNameKey] || 0) + 1;
+    return keys;
+  };
+
+  const providerExamsMap = normalizedCourses.reduce((acc, course) => {
+    if (course?.is_active === false) return acc;
+
+    for (const key of courseProviderKeys(course)) {
+      if (!acc[key]) acc[key] = [];
+      acc[key].push(course);
+    }
+    return acc;
+  }, {});
+
+  const providerExamCountMap = normalizedCourses.reduce((acc, course) => {
+    if (course?.is_active === false) return acc;
+
+    for (const key of courseProviderKeys(course)) {
+      acc[key] = (acc[key] || 0) + 1;
     }
     return acc;
   }, {});
@@ -120,10 +146,11 @@ export default async function ProvidersPage() {
       {normalizedProviders.length === 0 ? (
         <p className="text-center">No providers found.</p>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {normalizedProviders.map((provider) => {
             const providerLogo =
               provider?.logo_url || provider?.logoUrl || provider?.logo || "";
+            const providerIdKey = String(provider?.id || "").trim();
             const providerSlugKey = String(provider?.slug || "")
               .toLowerCase()
               .trim();
@@ -131,43 +158,80 @@ export default async function ProvidersPage() {
               .toLowerCase()
               .trim();
             const examCount =
+              providerExamCountMap[providerIdKey] ??
               providerExamCountMap[providerSlugKey] ??
               providerExamCountMap[providerNameKey] ??
               0;
 
+            const examsForProvider = (
+              providerExamsMap[providerIdKey] ??
+              providerExamsMap[providerSlugKey] ??
+              providerExamsMap[providerNameKey] ??
+              []
+            )
+              .slice()
+              .sort((a, b) =>
+                String(a?.title || a?.name || "")
+                  .localeCompare(String(b?.title || b?.name || ""), undefined, {
+                    sensitivity: "base",
+                  })
+              );
+
             return (
               <div
                 key={provider.id}
-                className="border rounded-lg p-3 shadow-sm hover:shadow-md bg-white"
+                className="flex flex-col h-full border border-[#DDE7FF] rounded-lg p-5 shadow-sm hover:shadow-md bg-white"
               >
                 {providerLogo && (
                   <Link
                     href={`/providers/${provider.slug}`}
-                    className="block mb-2"
+                    className="mb-4 flex w-full shrink-0 items-center justify-center"
+                    style={{
+                      height: PROVIDER_LOGO_HEIGHT,
+                      minHeight: PROVIDER_LOGO_HEIGHT,
+                    }}
                     aria-label={`View exams by ${provider.name}`}
                   >
                     <img
-                      src={providerLogo}
+                      src={getOptimizedImageUrl(
+                        providerLogo,
+                        PROVIDER_LOGO_MAX_WIDTH,
+                        PROVIDER_LOGO_HEIGHT,
+                        "fit"
+                      )}
                       alt={provider.name}
-                      className="w-full h-20 sm:h-24 object-contain"
+                      width={PROVIDER_LOGO_MAX_WIDTH}
+                      height={PROVIDER_LOGO_HEIGHT}
+                      className="block object-contain object-center"
+                      style={{
+                        height: PROVIDER_LOGO_HEIGHT,
+                        minHeight: PROVIDER_LOGO_HEIGHT,
+                        maxHeight: PROVIDER_LOGO_HEIGHT,
+                        width: "auto",
+                        maxWidth: PROVIDER_LOGO_MAX_WIDTH,
+                        objectFit: "contain",
+                        objectPosition: "center",
+                      }}
                       loading="lazy"
                       decoding="async"
                     />
                   </Link>
                 )}
-              <div className="mt-1 flex items-center justify-between gap-2">
-                <h2 className="text-sm sm:text-base font-semibold min-w-0">
-                  <Link
-                    href={`/providers/${provider.slug}`}
-                    className="inline-block text-[#1A73E8] hover:underline font-medium truncate"
-                  >
-                    {provider.name}
-                  </Link>
-                </h2>
-                <p className="text-xs sm:text-sm text-[#0C1A35]/70 whitespace-nowrap">
-                  {examCount} Exam{examCount === 1 ? "" : "s"}
-                </p>
-              </div>
+                <div className="flex items-start justify-between gap-3 border-b border-[#E8EEF5] pb-3">
+                  <h2 className="text-base font-semibold min-w-0 flex-1">
+                    <Link
+                      href={`/providers/${provider.slug}`}
+                      className="text-[#1A73E8] hover:underline font-semibold leading-snug"
+                    >
+                      {provider.name}
+                    </Link>
+                  </h2>
+                  <p className="text-sm text-[#0C1A35]/70 whitespace-nowrap shrink-0">
+                    {examCount} Exam{examCount === 1 ? "" : "s"}
+                  </p>
+                </div>
+
+                <ProviderCardExams exams={examsForProvider} />
               </div>
             );
           })}

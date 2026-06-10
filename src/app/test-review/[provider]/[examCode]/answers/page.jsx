@@ -7,6 +7,7 @@ import { ArrowLeft, CheckCircle, XCircle, Clock, Shield, ChevronLeft, ChevronRig
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import TipTapContent from "@/components/editor/TipTapContent";
 import {
   contentToDisplayString,
   optionTextFromApi,
@@ -26,12 +27,7 @@ const RichContent = ({ content, className = "" }) => {
   if (!safeContent.trim()) return null;
 
   if (hasHtmlContent(safeContent)) {
-    return (
-      <div
-        className={`tiptap-editor-content break-words ${className}`}
-        dangerouslySetInnerHTML={{ __html: safeContent }}
-      />
-    );
+    return <TipTapContent content={safeContent} className={`break-words ${className}`} />;
   }
 
   return (

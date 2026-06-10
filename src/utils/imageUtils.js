@@ -101,10 +101,18 @@
 
 
 
-export function getOptimizedImageUrl(url, width, height = null) {
+/**
+ * @param {string} url
+ * @param {number} width
+ * @param {number|null} height
+ * @param {'limit'|'pad'|'fill'|'fit'} [crop='limit'] - pad/fill return a fixed canvas (good for uniform logos)
+ */
+export function getOptimizedImageUrl(url, width, height = null, crop = 'limit') {
   if (!url || typeof url !== 'string') {
     return url;
   }
+
+  const cropMode = ['limit', 'pad', 'fill', 'fit'].includes(crop) ? crop : 'limit';
 
   if (url.includes('res.cloudinary.com')) {
     try {
@@ -145,13 +153,18 @@ export function getOptimizedImageUrl(url, width, height = null) {
         ) {
           let transformations = firstPart
             .split(',')
-            .filter(t => !t.startsWith('w_') && !t.startsWith('h_'))
+            .filter(
+              (t) =>
+                !t.startsWith('w_') &&
+                !t.startsWith('h_') &&
+                !t.startsWith('c_')
+            )
             .join(',');
 
           let newTransformation = `w_${width}`;
           if (height) newTransformation += `,h_${height}`;
 
-          newTransformation += ',c_limit,q_auto:eco,f_auto,fl_strip_profile';
+          newTransformation += `,c_${cropMode},q_auto:eco,f_auto,fl_strip_profile`;
 
           if (transformations) {
             newTransformation = `${newTransformation},${transformations}`;
@@ -165,7 +178,7 @@ export function getOptimizedImageUrl(url, width, height = null) {
       let transformation = `w_${width}`;
       if (height) transformation += `,h_${height}`;
 
-      transformation += ',c_limit,q_auto:eco,f_auto,fl_strip_profile';
+      transformation += `,c_${cropMode},q_auto:eco,f_auto,fl_strip_profile`;
 
       return `${beforeUpload}${transformation}/${afterUpload}`;
 

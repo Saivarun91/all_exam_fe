@@ -52,8 +52,7 @@ export default async function TopCategories() {
   const schemaItems = topCategories.map((cat) => ({
     name: cat.name,
     description: cat.description || "",
-    // url: `/categories/${cat.slug}`,
-    url: `/${cat.slug}`,
+    url: cat.slug ? `/categories/${cat.slug}` : "/categories",
   }));
 
   return (

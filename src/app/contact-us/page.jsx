@@ -392,6 +392,7 @@
 // app/contact-us/page.jsx
 import { Mail, Phone, MapPin, Globe } from "lucide-react";
 import BackButton from "./BackButton";
+import TranslatedAddress from "@/components/i18n/TranslatedAddress";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
 
@@ -489,7 +490,7 @@ export default async function ContactUsPage() {
                 <MapPin className="w-6 h-6 text-blue-600 mt-1 flex-shrink-0" />
                 <div>
                   <h3 className="font-semibold text-foreground mb-1">Address</h3>
-                  <p>{contact.address}</p>
+                  <TranslatedAddress address={contact.address} as="p" />
                 </div>
               </div>
             )}

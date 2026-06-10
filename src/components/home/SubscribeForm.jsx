@@ -131,8 +131,9 @@ import { Mail } from "lucide-react";
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
-export default function SubscribeForm({ buttonText }) {
+const SUBSCRIBE_PLACEHOLDER = "Enter your email address";
 
+export default function SubscribeForm({ buttonText }) {
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -181,12 +182,15 @@ export default function SubscribeForm({ buttonText }) {
           <Input
             id="footer-subscribe-email"
             type="email"
-            placeholder="Enter your email address"
+            placeholder={SUBSCRIBE_PLACEHOLDER}
+            data-i18n-placeholder="home.subscribe.placeholder"
+            data-i18n-fallback={SUBSCRIBE_PLACEHOLDER}
             autoComplete="email"
             aria-label="Email address for weekly exam updates"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className="pl-10 h-12 min-h-[44px] bg-white/95 border-white/30 text-[#0C1A35]"
+            suppressHydrationWarning
           />
         </div>
 
@@ -197,20 +201,34 @@ export default function SubscribeForm({ buttonText }) {
           onClick={handleSubscribe}
           disabled={loading}
         >
-          {loading ? "Subscribing..." : buttonText}
+          {loading ? (
+            <span data-i18n="home.subscribe.loading" suppressHydrationWarning>
+              Subscribing...
+            </span>
+          ) : (
+            <span
+              data-i18n="home.subscribe.button"
+              data-i18n-fallback={buttonText || ""}
+              suppressHydrationWarning
+            >
+              {buttonText || "Subscribe"}
+            </span>
+          )}
         </Button>
 
       </div>
 
       {status === "success" && (
         <p className="text-sm text-green-400 mt-2">
-          Successfully subscribed! 🎉
+          <span data-i18n="home.subscribe.success">Successfully subscribed!</span> 🎉
         </p>
       )}
 
       {status === "error" && (
         <p className="text-sm text-red-400 mt-2">
-          Subscription failed. Please try again.
+          <span data-i18n="home.subscribe.error">
+            Subscription failed. Please try again.
+          </span>
         </p>
       )}
     </>

@@ -1,67 +1,42 @@
 "use client";
 
 import { useState, useEffect } from "react";
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
-
-// Cache for logo URL
-let cachedLogoUrl = null;
-let cacheTimestamp = 0;
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+import { fetchPublicSettings, clearPublicSettingsCache } from "@/lib/fetchPublicSettings";
 
 export function useLogoUrl(initialLogoFromServer = "") {
   const [logoUrl, setLogoUrl] = useState(initialLogoFromServer || "");
 
   useEffect(() => {
-    const fetchLogoUrl = async () => {
-      try {
-        // Use public endpoint for logo URL (no auth required)
-        const res = await fetch(`${API_BASE_URL}/api/settings/public/`);
+    let cancelled = false;
 
-        if (res.ok) {
-          const data = await res.json();
-          if (data.success) {
-            const url = data.logo_url || "";
-            cachedLogoUrl = url;
-            cacheTimestamp = Date.now();
-            setLogoUrl(url);
-          }
-        }
-      } catch (err) {
-        console.error("Error fetching logo URL:", err);
-        // Keep default empty string
+    const loadLogo = async () => {
+      const data = await fetchPublicSettings();
+      if (cancelled || !data) return;
+      if (data.logo_url) {
+        setLogoUrl(data.logo_url);
       }
     };
 
-    // Check cache first
-    const now = Date.now();
-    if (cachedLogoUrl !== null && (now - cacheTimestamp) < CACHE_DURATION) {
-      setLogoUrl(cachedLogoUrl);
-    } else {
-      fetchLogoUrl();
-    }
+    loadLogo();
 
-    // Listen for logo updates
     const handleLogoUpdate = () => {
-      cachedLogoUrl = null;
-      cacheTimestamp = 0;
-      fetchLogoUrl();
+      clearPublicSettingsCache();
+      loadLogo();
     };
 
-    window.addEventListener('logoUpdated', handleLogoUpdate);
-    window.addEventListener('siteNameUpdated', handleLogoUpdate); // Also refresh on site name update
+    window.addEventListener("logoUpdated", handleLogoUpdate);
+    window.addEventListener("siteNameUpdated", handleLogoUpdate);
 
     return () => {
-      window.removeEventListener('logoUpdated', handleLogoUpdate);
-      window.removeEventListener('siteNameUpdated', handleLogoUpdate);
+      cancelled = true;
+      window.removeEventListener("logoUpdated", handleLogoUpdate);
+      window.removeEventListener("siteNameUpdated", handleLogoUpdate);
     };
   }, [initialLogoFromServer]);
 
   return logoUrl;
 }
 
-// Helper to get logo URL synchronously (returns cached value or empty string)
 export function getLogoUrl() {
-  return cachedLogoUrl || "";
+  return "";
 }
-

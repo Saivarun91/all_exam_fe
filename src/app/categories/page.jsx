@@ -262,6 +262,7 @@ export default async function CategoriesPage() {
     {
       value: totalCategories,
       label: "Total Categories",
+      labelKey: "categories.page.stat_total",
       barClass: "from-slate-400 to-slate-200",
       valueClass: "text-slate-100",
       cardClass:
@@ -270,6 +271,7 @@ export default async function CategoriesPage() {
     {
       value: totalTopCategories,
       label: "Top Certifications",
+      labelKey: "categories.page.stat_top",
       barClass: "from-cyan-300 to-blue-400",
       valueClass: "text-cyan-300",
       cardClass:
@@ -278,6 +280,7 @@ export default async function CategoriesPage() {
     {
       value: totalExams,
       label: "Practice Exams",
+      labelKey: "categories.page.stat_exams",
       barClass: "from-slate-400 to-slate-200",
       valueClass: "text-slate-100",
       cardClass:
@@ -286,6 +289,7 @@ export default async function CategoriesPage() {
     {
       value: totalMainDomains,
       label: "Main Domains",
+      labelKey: "categories.page.stat_domains",
       barClass: "from-cyan-300 to-blue-400",
       valueClass: "text-cyan-300",
       cardClass:
@@ -301,21 +305,19 @@ export default async function CategoriesPage() {
     return `${Math.min(100, Math.max(percent, value > 0 ? 12 : 0))}%`;
   };
 
-  const heroTitle =
-    pageSeo?.hero_title?.trim() || "Explore Exam Categories";
+  const heroTitle = pageSeo?.hero_title?.trim() || "";
 
-  const heroDescription =
-    pageSeo?.hero_subtitle?.trim() ||
-    "Discover cloud computing, cybersecurity, networking, DevOps, programming, Microsoft, AWS, Azure, Google Cloud, VMware, Cisco, CompTIA, and many more certification categories with premium practice exams.";
+  const heroDescription = pageSeo?.hero_subtitle?.trim() || "";
 
   return (
-    <div className="min-h-screen bg-[#f5f7fa] overflow-hidden">
+    <>
       <BreadcrumbJsonLd
         items={[
           { name: "Home", url: "/" },
           { name: "Categories", url: "/categories" },
         ]}
       />
+      <div className="min-h-screen bg-[#f5f7fa] overflow-hidden">
       {/* Breadcrumb - top of page */}
       <div className="bg-white border-b border-slate-200">
         <div className="container mx-auto px-4 py-3">
@@ -326,16 +328,16 @@ export default async function CategoriesPage() {
                   <Link
                     href="/"
                     className="text-[#0C1A35]/60 hover:text-[#1A73E8]"
-                  >
-                    Home
-                  </Link>
+                    data-i18n="breadcrumb.home"
+                  ></Link>
                 </BreadcrumbLink>
               </BreadcrumbItem>
               <BreadcrumbSeparator />
               <BreadcrumbItem>
-                <BreadcrumbPage className="text-[#0C1A35] font-medium">
-                  Categories
-                </BreadcrumbPage>
+                <BreadcrumbPage
+                  className="text-[#0C1A35] font-medium"
+                  data-i18n="nav.categories"
+                ></BreadcrumbPage>
               </BreadcrumbItem>
             </BreadcrumbList>
           </Breadcrumb>
@@ -363,12 +365,20 @@ export default async function CategoriesPage() {
 
               {/* Heading */}
               <h1 className="mt-8 text-5xl md:text-6xl xl:text-7xl font-black leading-[1.05] text-white">
-                <span className="block text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-blue-400 to-indigo-400">
+                <span
+                  className="block text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-blue-400 to-indigo-400"
+                  data-i18n="cms.categories_page.hero_title"
+                  data-i18n-fallback={heroTitle}
+                >
                   {heroTitle}
                 </span>
               </h1>
 
-              <p className="mt-8 text-lg md:text-xl text-slate-300 leading-relaxed max-w-2xl">
+              <p
+                className="mt-8 text-lg md:text-xl text-slate-300 leading-relaxed max-w-2xl"
+                data-i18n="cms.categories_page.hero_subtitle"
+                data-i18n-fallback={heroDescription}
+              >
                 {heroDescription}
               </p>
 
@@ -398,7 +408,11 @@ export default async function CategoriesPage() {
                     <div className={`text-5xl font-black ${stat.valueClass}`}>
                       {stat.value.toLocaleString()}
                     </div>
-                    <div className="mt-3 text-slate-300 font-medium">
+                    <div
+                      className="mt-3 text-slate-300 font-medium"
+                      data-i18n={stat.labelKey}
+                      data-i18n-fallback={stat.label}
+                    >
                       {stat.label}
                     </div>
                     <div className="mt-6 h-2 rounded-full bg-white/10 overflow-hidden">
@@ -436,34 +450,33 @@ export default async function CategoriesPage() {
       <section className="py-16 bg-gradient-to-r from-[#eaf2ff] via-[#e6f0ff] to-[#f1f5f9]">
         <div className="container mx-auto px-4 text-center">
 
-          <h2 className="text-3xl md:text-4xl font-black text-slate-900">
-            Start Your Certification Preparation Today
-          </h2>
+          <h2
+            className="text-3xl md:text-4xl font-black text-slate-900"
+            data-i18n="categories.page.cta_title"
+          ></h2>
 
-          <p className="mt-4 text-slate-600 max-w-2xl mx-auto">
-            Explore premium practice exams across cloud, security,
-            networking, DevOps, programming, and more.
-          </p>
+          <p
+            className="mt-4 text-slate-600 max-w-2xl mx-auto"
+            data-i18n="categories.page.cta_subtitle"
+          ></p>
 
           <div className="mt-8 flex flex-wrap justify-center gap-4">
             <a
               href="/exams"
               className="px-7 py-3 rounded-xl bg-slate-900 text-white font-semibold hover:bg-slate-800 transition-all"
-            >
-              Explore Exams
-            </a>
+              data-i18n="common.explore_exams"
+            ></a>
 
             <a
               href="/providers"
               className="px-7 py-3 rounded-xl border border-slate-300 text-slate-900 font-semibold hover:bg-slate-100 transition-all"
-            >
-              Browse Providers
-            </a>
+              data-i18n="common.browse_providers"
+            ></a>
           </div>
 
         </div>
       </section>
-    </div>
-    
+      </div>
+    </>
   );
 }

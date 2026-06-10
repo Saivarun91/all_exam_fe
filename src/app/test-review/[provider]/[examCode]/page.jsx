@@ -12,6 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -44,6 +45,7 @@ export default function TestReview() {
   const [couponCode, setCouponCode] = useState(null);
   const [showCouponModal, setShowCouponModal] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
   
   // Fetch exam data dynamically
   useEffect(() => {
@@ -288,6 +290,18 @@ export default function TestReview() {
 
   const handleEnrollClick = () => {
     setShowUpgradeModal(true);
+  };
+
+  const pricingUrl = `/exams/${provider}/${examCode}/practice/pricing`;
+
+  const handleContinueFullTest = () => {
+    const token =
+      typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    if (!token) {
+      setShowLoginModal(true);
+      return;
+    }
+    router.push(pricingUrl);
   };
 
   const handlePurchase = (planId) => {
@@ -539,7 +553,7 @@ export default function TestReview() {
                 <Button
                   size="lg"
                   className="bg-white text-[#1A73E8] hover:bg-white/90 font-semibold"
-                  onClick={() => router.push(`/exams/${provider}/${examCode}/practice/pricing`)}
+                  onClick={handleContinueFullTest}
                 >
                   Continue Full Test →
                 </Button>
@@ -913,6 +927,36 @@ export default function TestReview() {
                 Browse Courses
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showLoginModal} onOpenChange={setShowLoginModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Login Required</DialogTitle>
+            <DialogDescription>
+              Please log in to unlock the full test and access all questions.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-3 mt-4">
+            <Button
+              variant="outline"
+              onClick={() => setShowLoginModal(false)}
+              className="flex-1"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() =>
+                router.push(
+                  `/auth/login?redirect=${encodeURIComponent(pricingUrl)}`
+                )
+              }
+              className="flex-1 bg-[#1A73E8] hover:bg-[#1557B0] text-white"
+            >
+              Login / Sign Up
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

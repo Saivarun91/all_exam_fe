@@ -209,6 +209,7 @@
 
 import WebSiteJsonLd from "@/components/WebSiteJsonLd";
 import HeroSearchClient from "./HeroSearchClient";
+import HeroSocialProof from "./HeroSocialProof";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
@@ -277,10 +278,6 @@ export default async function HeroSection() {
   const bgUrl = heroData?.background_image_url;
 
   return (
-    <>
-      {bgUrl ? (
-        <link rel="preload" as="image" href={bgUrl} fetchPriority="high" />
-      ) : null}
       <section
         className="relative min-h-[450px] md:min-h-[550px] flex items-center overflow-hidden"
         style={bgUrl ? backgroundStyle : {}}
@@ -298,11 +295,19 @@ export default async function HeroSection() {
           
           {/* TITLE */}
           <div className="space-y-3 md:space-y-4">
-            <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold leading-tight text-[#F5F8FF] px-2">
+            <h1
+              className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold leading-tight text-[#F5F8FF] px-2"
+              data-i18n="cms.hero.title"
+              data-i18n-fallback={title}
+            >
               {title}
             </h1>
 
-            <p className="text-sm sm:text-base md:text-lg text-[#E7ECF6] max-w-2xl mx-auto leading-relaxed px-2">
+            <p
+              className="text-sm sm:text-base md:text-lg text-[#E7ECF6] max-w-2xl mx-auto leading-relaxed px-2"
+              data-i18n="cms.hero.subtitle"
+              data-i18n-fallback={subtitle}
+            >
               {subtitle}
             </p>
           </div>
@@ -311,12 +316,16 @@ export default async function HeroSection() {
           <div className="flex flex-wrap justify-center gap-4 md:gap-8 py-3 md:py-4">
             {/* {stats.map((stat, i) => (
               <div key={i} className="text-center space-y-1"> */}
-            {stats.map((stat) => (
-              <div key={stat.label} className="text-center space-y-1">
+            {stats.map((stat, index) => (
+              <div key={stat.label || index} className="text-center space-y-1">
                 <div className="text-3xl font-bold text-[#E7ECF6]">
                   {stat.value}
                 </div>
-                <div className="text-xs text-[#EEF2FA] border-b border-[#4A8FFF]/55 pb-1">
+                <div
+                  className="text-xs text-[#EEF2FA] border-b border-[#4A8FFF]/55 pb-1"
+                  data-i18n={`cms.hero.stat${index + 1}.label`}
+                  data-i18n-fallback={stat.label}
+                >
                   {stat.label}
                 </div>
               </div>
@@ -326,12 +335,12 @@ export default async function HeroSection() {
           {/* SEARCH CLIENT PART */}
           <HeroSearchClient providers={providers} />
 
+          <HeroSocialProof />
+
         </div>
       </div>
     </section>
-    </>
   );
-  
 }
 
 

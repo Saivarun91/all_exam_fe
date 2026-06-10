@@ -1,7 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import TipTapContent from "@/components/editor/TipTapContent";
+import ListPagination, {
+  CATEGORY_LIST_PAGE_SIZE,
+  getListPaginationSlice,
+} from "@/components/common/ListPagination";
 import { ArrowRight, Award, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -70,6 +75,7 @@ export default function CategoryDetail({
 
   const safeCourses = Array.isArray(courses) ? courses : [];
   const [searchTerm, setSearchTerm] = useState("");
+  const [listPage, setListPage] = useState(1);
   const filteredCourses = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
     if (!query) return safeCourses;
@@ -82,6 +88,55 @@ export default function CategoryDetail({
       );
     });
   }, [safeCourses, searchTerm]);
+
+  const coursePagination = useMemo(
+    () =>
+      getListPaginationSlice(filteredCourses, listPage, CATEGORY_LIST_PAGE_SIZE),
+    [filteredCourses, listPage]
+  );
+
+  useEffect(() => {
+    setListPage(1);
+  }, [searchTerm]);
+
+  useEffect(() => {
+    if (listPage > coursePagination.totalPages) {
+      setListPage(coursePagination.totalPages);
+    }
+  }, [coursePagination.totalPages, listPage]);
+
+  if (loading) {
+    return (
+      <div className={wrapperClass}>
+        <div className={`${innerClass} py-20 text-center`}>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#1A73E8] mx-auto mb-4"></div>
+          <p className="text-[#0C1A35]/70">Loading category...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !category) {
+    return (
+      <div className={wrapperClass}>
+        <div className={`${innerClass} py-20 text-center`}>
+          <h1 className="text-3xl font-bold text-[#0C1A35] mb-4">
+            Category Not Found
+          </h1>
+          <p className="text-[#0C1A35]/70 mb-6">
+            The category you're looking for doesn't exist.
+          </p>
+          <Button
+            asChild
+            className="bg-[#1A73E8] text-white hover:bg-[#1557B0]"
+          >
+            <Link href="/exams">Browse All Exams</Link>
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   const categoryContent = (category?.content || "").trim();
   const hasRenderableContent = Boolean(
     categoryContent.replace(/<[^>]*>/g, "").replace(/&nbsp;/g, "").trim()
@@ -179,8 +234,9 @@ export default function CategoryDetail({
         </div>
 
         {filteredCourses.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredCourses.map((course) => (
+          <>
+          <div id="category-exams-grid" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {coursePagination.items.map((course) => (
               <Card
                 key={course.id}
                 className="hover:shadow-lg hover:-translate-y-1 transition-all border-[#DDE7FF] cursor-pointer h-full"
@@ -263,6 +319,17 @@ export default function CategoryDetail({
               </Card>
             ))}
           </div>
+
+          <ListPagination
+            currentPage={coursePagination.page}
+            totalPages={coursePagination.totalPages}
+            onPageChange={setListPage}
+            totalItems={coursePagination.totalItems}
+            pageSize={CATEGORY_LIST_PAGE_SIZE}
+            itemLabel="exams"
+            scrollTargetId={embedded ? "courses" : "category-exams-grid"}
+          />
+          </>
         ) : (
           <div className="text-center py-20">
             <Filter className="w-16 h-16 text-gray-300 mx-auto mb-4" />
@@ -285,9 +352,9 @@ export default function CategoryDetail({
 
         {hasRenderableContent ? (
           <section className={contentSectionClass}>
-            <div
-              className="tiptap-editor-content w-full text-[#0C1A35]/85 leading-relaxed break-words [&_img]:max-w-full [&_img]:h-auto [&_table]:block [&_table]:max-w-full [&_table]:overflow-x-auto"
-              dangerouslySetInnerHTML={{ __html: categoryContent }}
+            <TipTapContent
+              content={categoryContent}
+              className="w-full text-[#0C1A35]/85 leading-relaxed break-words [&_img]:max-w-full [&_img]:h-auto [&_.tableWrapper]:overflow-x-auto [&_table]:w-full [&_table]:max-w-full"
             />
           </section>
         ) : null}

@@ -376,10 +376,11 @@
 
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Calendar, Clock } from "lucide-react";
+import { ArrowLeft, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import BlogJsonLd from "@/components/BlogJsonLd";
 import BreadcrumbJsonLd from "@/components/BreadcrumbJsonLd";
+
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -389,6 +390,10 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { getOptimizedImageUrl } from "@/utils/imageUtils";
+import BlogPostFaqs from "@/components/blog/BlogPostFaqs";
+import BlogInlineContentSlider from "@/components/blog/BlogInlineContentSlider";
+import TipTapContent from "@/components/editor/TipTapContent";
+import { splitBlogContentAtMiddle } from "@/lib/splitBlogContent";
 
 /** Prefer 127.0.0.1 on the server so Node does not resolve localhost to ::1 while Django listens on IPv4 only. */
 const API_BASE_URL = (
@@ -455,6 +460,29 @@ async function fetchBlog(slug) {
   }
 }
 
+async function fetchPublicBrandSettings() {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/settings/public/`, {
+      cache: "no-store",
+      headers: { Accept: "application/json" },
+    });
+
+    if (!res.ok) {
+      return { logoUrl: "" };
+    }
+
+    const data = await res.json();
+
+    return {
+      logoUrl: data.logo_url || "",
+    };
+  } catch {
+    return { logoUrl: "" };
+  }
+}
+
+
+
 // ✅ Corrected generateMetadata with `await params`
 export async function generateMetadata({ params }) {
   const resolvedParams = await params; // unwrap the Promise
@@ -467,6 +495,10 @@ export async function generateMetadata({ params }) {
       keywords: "blog",
       alternates: {
         canonical: "https://allexamquestions.com/blog",
+      },
+      robots: {
+        index: false,
+        follow: false,
       },
     };
   }
@@ -481,6 +513,10 @@ export async function generateMetadata({ params }) {
       keywords: "blog",
       alternates: {
         canonical: `${baseUrl}/blog`,
+      },
+      robots: {
+        index: false,
+        follow: false,
       },
     };
   }
@@ -510,6 +546,10 @@ export async function generateMetadata({ params }) {
 
     alternates: {
       canonical: pageUrl,
+    },
+    robots: {
+      index: true,
+      follow: true,
     },
 
     openGraph: {
@@ -548,6 +588,14 @@ export default async function BlogDetailPage({ params }) {
     notFound();
   }
   const relatedBlogs = await fetchRelatedBlogs(blog.category, blog.slug);
+  const { logoUrl } = await fetchPublicBrandSettings();
+  const contentSliderType = String(blog.content_slider_type || "").trim();
+  const contentSliderRef = String(blog.content_slider_ref || "").trim();
+  const hasContentSlider =
+    contentSliderType && contentSliderType.toLowerCase() !== "none";
+  const { before: contentBefore, after: contentAfter } = hasContentSlider
+    ? splitBlogContentAtMiddle(blog.content)
+    : { before: blog.content, after: "" };
 
   const breadcrumbItems = [
     { name: "Blogs", url: "/blog" },
@@ -621,21 +669,15 @@ export default async function BlogDetailPage({ params }) {
                       : "Date not available"}
                   </span>
                 </div>
-                {blog.reading_time && (
-                  <div className="flex items-center gap-2">
-                    <Clock className="w-4 h-4" />
-                    <span>{blog.reading_time}</span>
-                  </div>
-                )}
               </div>
               {blog.image_url && (
-                <div className="relative w-full aspect-[16/9] mb-8 rounded-lg overflow-hidden bg-gray-100">
+                <div className="relative w-full mb-8 rounded-xl overflow-hidden border border-slate-200/70 bg-white">
                   <img
                     src={getOptimizedImageUrl(blog.image_url, 1200, 675)}
                     alt={blog.title || "Blog Image"}
                     width={1200}
                     height={675}
-                    className="w-full h-full object-contain"
+                    className="w-full h-auto block"
                     loading="lazy"
                     sizes="(max-width: 768px) 100vw, (max-width: 1024px) 90vw, 1200px"
                     decoding="async"
@@ -645,17 +687,83 @@ export default async function BlogDetailPage({ params }) {
             </header>
 
             {/* Blog Content */}
-            <div className="prose prose-lg max-w-none w-full">
+            <div className="w-full">
               {blog.content && blog.content.trim() ? (
-                <div
-                  className="tiptap-editor-content text-[#0C1A35]/80 leading-relaxed"
-                  dangerouslySetInnerHTML={{ __html: blog.content }}
-                />
+                <>
+                  {contentBefore ? (
+                    <TipTapContent
+                      content={contentBefore}
+                      className="text-[#0C1A35]/80 leading-relaxed"
+                    />
+                  ) : null}
+                  {hasContentSlider ? (
+                    <BlogInlineContentSlider
+                      sliderType={contentSliderType}
+                      sliderRef={contentSliderRef}
+                    />
+                  ) : null}
+                  {contentAfter ? (
+                    <TipTapContent
+                      content={contentAfter}
+                      className="text-[#0C1A35]/80 leading-relaxed"
+                    />
+                  ) : null}
+                </>
               ) : (
                 <div className="text-[#0C1A35]/80 leading-relaxed whitespace-pre-wrap">
                   {blog.excerpt || "No content available for this blog post."}
                 </div>
               )}
+            </div>
+
+            <BlogPostFaqs faqs={blog.faqs} />
+
+            {/* Author Bio */}
+            {/* Author Bio */}
+            <div className="mt-16 mb-12">
+              <div className="rounded-3xl bg-gradient-to-r from-[#E8F1FF] via-[#F5F9FF] to-[#EEF6FF] border border-[#D6E6FF] shadow-lg p-6 md:p-8">
+
+                <div className="flex flex-row items-start gap-6">
+
+                  {/* Logo */}
+                  {logoUrl && (
+                    <div className="flex-shrink-0 -mt-8">
+                      <img
+                        src={logoUrl}
+                        alt="AllExamQuestions Editorial Team"
+                        className="w-24 h-24 md:w-28 md:h-28 object-contain"
+                      />
+                    </div>
+                  )}
+
+                  {/* Author Content */}
+                  <div className="flex-1">
+                    {/* <span className="inline-block text-sm font-medium text-[#1A73E8] bg-[#1A73E8]/10 px-3 py-1 rounded-full mb-3">
+                      Author
+                    </span> */}
+
+                    <h3 className="text-2xl font-bold text-[#0C1A35] mb-3">
+                      AllExamQuestions Editorial Team
+                    </h3>
+
+                    <p className="text-[#334155] leading-7 text-base md:text-lg">
+                      <span className="font-semibold text-[#0C1A35]">
+                        AllExamQuestions Editorial Team
+                      </span>{" "}
+                      creates high-quality exam preparation content, practice resources,
+                      and certification guides to help learners achieve their goals.
+
+                      <br />
+                      <br />
+
+                      Our content is carefully researched, regularly updated, and reviewed
+                      for accuracy and relevance.
+                    </p>
+                  </div>
+
+                </div>
+
+              </div>
             </div>
 
             {/* Back to Blog Button */}

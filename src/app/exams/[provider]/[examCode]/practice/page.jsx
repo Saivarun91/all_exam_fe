@@ -522,6 +522,11 @@ import RatingJsonLd from "@/components/RatingJsonLd";
 import BreadcrumbJsonLd from "@/components/BreadcrumbJsonLd";
 
 import PracticePageClient from "./PracticePageClient";
+import PracticeTopicsSection from "./PracticeTopicsSection";
+import PracticePageBreadcrumbs, {
+  PRACTICE_PAGE_CONTAINER,
+} from "./PracticePageBreadcrumbs";
+import { parseExamTopics } from "@/lib/parseExamTopics";
 
 export const dynamic = "force-dynamic";
 
@@ -644,9 +649,6 @@ export async function generateMetadata({ params }) {
 export default async function PracticePage(props) {
   const { provider, examCode } = await props.params;
 
-  // Keep old route working but enforce clean public URL (ASCII hyphens only).
-  // redirect(`/${normalizePathSegment(examCode)}/practice`);
-
   if (!provider || !examCode) return notFound();
 
   const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
@@ -666,6 +668,14 @@ export default async function PracticePage(props) {
     return notFound();
   }
 
+  const { getExamPracticePath } = await import("@/utils/practiceTestRouting");
+  const practicePath = getExamPracticePath({
+    slug: examData.slug || slug,
+    title: examData.title,
+    code: examData.code,
+  });
+  if (practicePath) redirect(practicePath);
+
   // Ensure arrays are always arrays
   const practiceTests = Array.isArray(examData.practice_tests_list)
     ? examData.practice_tests_list
@@ -673,25 +683,8 @@ export default async function PracticePage(props) {
     ? examData.practice_tests
     : [];
 
-  const topics = Array.isArray(examData.topics)
-    ? examData.topics.map((t) => {
-        const raw =
-          t.percentage ??
-          t.weightage ??
-          t.percent ??
-          t.topic_weightage ??
-          t.weightage_percentage ??
-          t.weight ??
-          0;
-        const cleanValue = typeof raw === "string" ? parseFloat(raw.replace("%", "").trim()) : raw;
-        const expl = t.explanation ?? t.description ?? "";
-        return {
-          name: t.name || "Topic",
-          percentage: isNaN(cleanValue) ? 0 : cleanValue,
-          explanation: typeof expl === "string" ? expl.trim() : "",
-        };
-      })
-    : [];
+  const topics = parseExamTopics(examData.topics);
+  const topicsHeading = examData.topics_heading || "";
 
   const faqs = Array.isArray(examData.faqs) ? examData.faqs : [];
   const testimonials = Array.isArray(examData.testimonials) ? examData.testimonials : [];
@@ -735,7 +728,7 @@ export default async function PracticePage(props) {
   ];
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-[#F5F8FC]">
       {/* JSON-LD SEO */}
       <PracticeTestJsonLd exam={exam} practiceTests={practiceTests} />
       {exam.rating && (
@@ -750,41 +743,43 @@ export default async function PracticePage(props) {
       {testimonials.length > 0 && <ReviewsJsonLd testimonials={testimonials} itemName={exam.title} />}
       <BreadcrumbJsonLd items={breadcrumbItems} />
 
-      {/* Hero Section */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-3 lg:px-1 py-4">
-        
-        <div className="flex flex-wrap gap-2 mb-4">
-          <span className="badge bg-[#1A73E8] text-white border-0">{exam.code}</span>
-          <span className="badge bg-[#1A73E8]/10 text-[#1A73E8] border-0">{exam.provider}</span>
-          {exam.category.map((cat, idx) => (
-            <span key={idx} className="badge bg-[#1A73E8]/10 text-[#1A73E8] border-0">{cat}</span>
-          ))}
-          <span className="badge bg-green-100 text-green-700 border-0">{exam.difficulty}</span>
-        </div>
-        <h1 className="text-4xl font-bold text-[#0C1A35] mb-4">{exam.title}</h1>
-        {/* <div className="flex flex-wrap items-center gap-6 text-sm text-[#0C1A35]/70">
-          <span>Updated {exam.lastUpdated}</span>
-          <span className="text-green-600 font-semibold">{exam.passRate}% Pass Rate</span>
-          <Link href={`/exams/${provider}/${examCode}/practice/pricing`}>
-            <button className="border-[#1A73E8] text-[#1A73E8] hover:bg-[#1A73E8]/10 border px-4 py-2 rounded">
-              View Pricing Plans →
-            </button>
-          </Link>
-        </div> */}
-      </div>
+      <div className={`${PRACTICE_PAGE_CONTAINER} py-6 pb-12`}>
+        <PracticePageBreadcrumbs items={breadcrumbItems} />
 
+        <header className="mb-8">
+          <div className="flex flex-wrap gap-2 mb-4">
+            <span className="inline-flex items-center rounded-full bg-[#1A73E8] px-3 py-1 text-xs font-semibold text-white">
+              {exam.code}
+            </span>
+            <span className="inline-flex items-center rounded-full bg-[#1A73E8]/10 px-3 py-1 text-xs font-medium text-[#1A73E8]">
+              {exam.provider}
+            </span>
+            {exam.category.map((cat, idx) => (
+              <span
+                key={idx}
+                className="inline-flex items-center rounded-full bg-[#1A73E8]/10 px-3 py-1 text-xs font-medium text-[#1A73E8]"
+              >
+                {cat}
+              </span>
+            ))}
+            <span className="inline-flex items-center rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-700">
+              {exam.difficulty}
+            </span>
+          </div>
+          <h1 className="text-3xl sm:text-4xl font-bold text-[#0C1A35] leading-tight">
+            {exam.title}
+          </h1>
+        </header>
 
-      {/* Client Component for interactions */}
       <PracticePageClient
-         exam={exam}                   // use `exam` object, not examData
-         practiceTests={practiceTests} // use the array we defined above
-         topics={topics}               // safe array
-         faqs={faqs}                   // safe array
-         testimonials={testimonials}   // safe array
-         provider={provider}
-         examCode={examCode}
-         breadcrumbItems={breadcrumbItems}
-      />
+        practiceTests={practiceTests}
+        provider={provider}
+        examCode={examCode}
+        examTitle={exam.title}
+      >
+        <PracticeTopicsSection topics={topics} topicsHeading={topicsHeading} />
+      </PracticePageClient>
+      </div>
     </div>
   );
 }

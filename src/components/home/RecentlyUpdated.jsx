@@ -243,12 +243,20 @@ export default async function RecentlyUpdated() {
 
       <div className="container mx-auto px-4">
 
-        <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-center mb-3 md:mb-4 text-[#0C1A35] px-2">
+        <h2
+          className="text-2xl sm:text-3xl md:text-4xl font-bold text-center mb-3 md:mb-4 text-[#0C1A35] px-2"
+          data-i18n="home.recent.heading"
+          data-i18n-fallback={sectionSettings.heading || ""}
+        >
           {sectionSettings.heading || "Recently Updated Exams"}
         </h2>
 
         {sectionSettings.subtitle && (
-          <p className="text-center text-[#0C1A35]/70 text-sm sm:text-base md:text-lg mb-8 md:mb-12 max-w-2xl mx-auto px-2">
+          <p
+            className="text-center text-[#0C1A35]/70 text-sm sm:text-base md:text-lg mb-8 md:mb-12 max-w-2xl mx-auto px-2"
+            data-i18n="home.recent.subtitle"
+            data-i18n-fallback={sectionSettings.subtitle}
+          >
             {sectionSettings.subtitle}
           </p>
         )}
@@ -298,7 +306,11 @@ export default async function RecentlyUpdated() {
                     <div className="flex-1">
 
                       <div className="flex items-center gap-2 mb-1 flex-wrap">
-                        <h3 className="font-bold text-[#0C1A35] text-lg">
+                        <h3
+                          className="font-bold text-[#0C1A35] text-lg"
+                          data-translate={exam.title || ""}
+                          suppressHydrationWarning
+                        >
                           {exam.title}
                         </h3>
 
@@ -310,20 +322,42 @@ export default async function RecentlyUpdated() {
                         </Badge>
                       </div>
 
-                      <p className="text-sm text-[#0C1A35]/60 mb-2">
+                      <p
+                        className="text-sm text-[#0C1A35]/60 mb-2"
+                        data-translate={exam.provider || ""}
+                        suppressHydrationWarning
+                      >
                         {exam.provider}
                       </p>
 
                       <div className="flex items-center gap-4 flex-wrap">
 
                         {exam.badge && (
-                          <Badge className="bg-[#1A73E8]/10 text-[#1A73E8] text-xs">
+                          <Badge
+                            className="bg-[#1A73E8]/10 text-[#1A73E8] text-xs"
+                            data-translate={exam.badge}
+                            suppressHydrationWarning
+                          >
                             {exam.badge}
                           </Badge>
                         )}
 
                         <p className="text-sm text-[#0C1A35]/60">
-                          {practiceCount} Practice Exams · {totalQuestions} Questions
+                          <span>{practiceCount}</span>{" "}
+                          <span
+                            data-i18n="home.featured.practice_exams"
+                            data-i18n-fallback="Practice Exams"
+                          >
+                            Practice Exams
+                          </span>
+                          {" · "}
+                          <span>{totalQuestions}</span>{" "}
+                          <span
+                            data-i18n="home.featured.questions"
+                            data-i18n-fallback="Questions"
+                          >
+                            Questions
+                          </span>
                         </p>
 
                       </div>
@@ -338,7 +372,12 @@ export default async function RecentlyUpdated() {
                       asChild
                     >
                       <Link href={getExamUrl(exam)}>
-                        Practice Now
+                        <span
+                          data-i18n="home.recent.practice_now"
+                          data-i18n-fallback="Practice Now"
+                        >
+                          Practice Now
+                        </span>
                         <ArrowRight className="ml-2 w-4 h-4" />
                       </Link>
                     </Button>

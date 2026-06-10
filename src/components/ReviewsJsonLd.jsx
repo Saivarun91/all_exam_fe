@@ -119,7 +119,9 @@ export default function ReviewsJsonLd({ testimonials, itemName }) {
       ratingValue: testimonial.rating || 5,
       bestRating: 5,
     },
-    datePublished: testimonial.created_at || new Date().toISOString(),
+    ...(testimonial.created_at
+      ? { datePublished: testimonial.created_at }
+      : null),
     reviewBody: testimonial.review || testimonial.text || testimonial.comment || "",
   }));
 

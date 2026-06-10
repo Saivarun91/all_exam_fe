@@ -166,6 +166,7 @@
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import BackButton from "./BackButton";
+import TipTapContent from "@/components/editor/TipTapContent";
 
 // ✅ Force static rendering
 export const dynamic = "force-dynamic";
@@ -271,9 +272,9 @@ export default async function Disclaimer() {
         <div className="prose prose-lg max-w-none">
           <div className="bg-card border border-border rounded-lg p-8 shadow-sm">
             {content && content.trim().startsWith("<") ? (
-              <div
-                className="text-foreground leading-relaxed text-base tiptap-editor-content prose prose-p:my-2 prose-ul:my-2 prose-ol:my-2 prose-li:my-0"
-                dangerouslySetInnerHTML={{ __html: content }}
+              <TipTapContent
+                content={content}
+                className="text-foreground leading-relaxed text-base"
               />
             ) : (
               <div className="text-foreground whitespace-pre-wrap leading-relaxed text-base">

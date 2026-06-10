@@ -312,6 +312,7 @@
 
 
 import BackButton from "./BackButton";
+import TipTapContent from "@/components/editor/TipTapContent";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
 
@@ -365,9 +366,9 @@ export default async function TermsAndConditions() {
         </div>
         <div className="prose prose-lg max-w-none">
           <div className="bg-card border border-border rounded-lg p-8 shadow-sm">
-            <div
-              className="text-foreground leading-relaxed text-base tiptap-editor-content prose prose-p:my-2 prose-ul:my-2 prose-ol:my-2 prose-li:my-0"
-              dangerouslySetInnerHTML={{ __html: data.content }}
+            <TipTapContent
+              content={data.content}
+              className="text-foreground leading-relaxed text-base"
             />
           </div>
         </div>

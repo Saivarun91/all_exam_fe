@@ -97,7 +97,8 @@ export default function AdminSettingsPage() {
 
     const fetchAdminProfile = async () => {
       try {
-        const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
+        const API_BASE_URL =
+          process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
         const res = await axios.get(`${API_BASE_URL}/api/users/admin/profile/`, {
           headers: {
             Authorization: `Bearer ${localStorage.getItem("token")}`,
@@ -106,13 +107,10 @@ export default function AdminSettingsPage() {
 
         if (res.data.admin) {
           setCurrentAdminEmail(res.data.admin.email || "");
-          // Update localStorage with current email
           localStorage.setItem("user_email", res.data.admin.email || "");
           localStorage.setItem("user_name", res.data.admin.name || "Admin");
         }
       } catch (err) {
-        console.error("Error fetching admin profile:", err);
-        // Fallback to localStorage if API fails
         const storedEmail = localStorage.getItem("user_email");
         if (storedEmail) {
           setCurrentAdminEmail(storedEmail);
@@ -725,7 +723,6 @@ export default function AdminSettingsPage() {
 
                   if (res.data.message) {
                     toast.success("✅ Credentials updated successfully!");
-                    // Fetch updated admin profile
                     const profileRes = await axios.get(
                       `${API_BASE_URL}/api/users/admin/profile/`,
                       {
@@ -736,15 +733,18 @@ export default function AdminSettingsPage() {
                     );
                     if (profileRes.data.admin) {
                       setCurrentAdminEmail(profileRes.data.admin.email || "");
-                      localStorage.setItem("user_email", profileRes.data.admin.email || "");
-                      localStorage.setItem("user_name", profileRes.data.admin.name || "Admin");
-                      // Update stored password if new password was set
+                      localStorage.setItem(
+                        "user_email",
+                        profileRes.data.admin.email || ""
+                      );
+                      localStorage.setItem(
+                        "user_name",
+                        profileRes.data.admin.name || "Admin"
+                      );
                       if (newPassword) {
                         localStorage.setItem("admin_password", newPassword);
                       }
-                      // Trigger custom event for navbar update
                       window.dispatchEvent(new CustomEvent("adminProfileUpdated"));
-                      // Also trigger storage event for cross-tab updates
                       window.dispatchEvent(new Event("storage"));
                     }
                     setCurrentPassword("");

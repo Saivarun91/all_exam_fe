@@ -501,6 +501,8 @@ export default async function AdminBlogPage() {
                   Meta Description: {blog.meta_description || "-"} <br />
                   Meta Keywords: {blog.meta_keywords || "-"}
                 </p>
+
+                
               </CardContent>
             </Card>
           ))

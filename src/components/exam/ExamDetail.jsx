@@ -14,6 +14,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 
+import TipTapContent from "@/components/editor/TipTapContent";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -38,7 +39,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import BreadcrumbJsonLd from "@/components/BreadcrumbJsonLd";
-import { pickPracticeTestPathSegment } from "@/utils/practiceTestRouting";
+import { buildPracticeTestSeoSegment } from "@/utils/practiceTestRouting";
 import RatingJsonLd from "@/components/RatingJsonLd";
 import ReviewsJsonLd from "@/components/ReviewsJsonLd";
 import {
@@ -59,14 +60,15 @@ export default function ExamDetail({ examData, provider, examCode }) {
     typeof window !== "undefined" && !!localStorage.getItem("token");
 
   const handleStartTest = (test, index = 0) => {
-    const testIdentifier = pickPracticeTestPathSegment(test, index);
-    const testUrl = `/exams/${provider}/${examCode}/practice/${testIdentifier}`;
-    if (!checkLogin()) {
-      setPendingTestUrl(testUrl);
-      setShowLoginModal(true);
-    } else {
-      router.push(testUrl);
-    }
+    const testIdentifier = buildPracticeTestSeoSegment({
+      examName: examData?.title,
+      examCode: examData?.code || examCode,
+      examSlug: examData?.slug,
+      test,
+      index,
+    });
+    const testUrl = `/${testIdentifier}`;
+    router.push(testUrl);
   };
 
   useEffect(() => {
@@ -271,9 +273,9 @@ export default function ExamDetail({ examData, provider, examCode }) {
                 )}
               </CardHeader>
               <CardContent>
-                <div
-                  className="tiptap-editor-content text-[#0C1A35]/80 leading-relaxed"
-                  dangerouslySetInnerHTML={{ __html: examData.about }}
+                <TipTapContent
+                  content={examData.about}
+                  className="text-[#0C1A35]/80 leading-relaxed"
                 />
               </CardContent>
             </Card>
@@ -349,10 +351,10 @@ export default function ExamDetail({ examData, provider, examCode }) {
               <CardContent>
                 <div className="space-y-3">
                   {examData.whatsIncluded.map((item, idx) => (
-                    <div
+                    <TipTapContent
                       key={idx}
-                      className="tiptap-editor-content text-[#0C1A35]/80"
-                      dangerouslySetInnerHTML={{ __html: item }}
+                      content={item}
+                      className="text-[#0C1A35]/80"
                     />
                   ))}
                 </div>
@@ -376,9 +378,9 @@ export default function ExamDetail({ examData, provider, examCode }) {
                 )}
               </CardHeader>
               <CardContent>
-                <div
-                  className="text-[#0C1A35]/80 leading-relaxed tiptap-editor-content"
-                  dangerouslySetInnerHTML={{ __html: examData.whyMatters }}
+                <TipTapContent
+                  content={examData.whyMatters}
+                  className="text-[#0C1A35]/80 leading-relaxed"
                 />
               </CardContent>
             </Card>
@@ -477,9 +479,9 @@ export default function ExamDetail({ examData, provider, examCode }) {
                           {faq.question}
                         </AccordionTrigger>
                         <AccordionContent>
-                          <div
-                            className="tiptap-editor-content text-[#0C1A35]/80"
-                            dangerouslySetInnerHTML={{ __html: faq.answer }}
+                          <TipTapContent
+                            content={faq.answer}
+                            className="text-[#0C1A35]/80"
                           />
                         </AccordionContent>
                       </AccordionItem>

@@ -1,9 +1,13 @@
 "use client";
 
 import { createContext, useContext, useState, useEffect } from "react";
+import { isAbortError } from "@/lib/isAbortError";
 
 const AuthContext = createContext();
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_BASE_URL ||
+  process.env.NEXT_PUBLIC_API_URL ||
+  "https://backendapi.allexamquestions.com";
 
 export const AuthProvider = ({ children }) => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -69,12 +73,14 @@ export const AuthProvider = ({ children }) => {
       }
     } catch (error) {
       clearTimeout(timeoutId);
+
+      if (isAbortError(error)) {
+        return;
+      }
+
       console.error("Error fetching user profile:", error);
-      
-      // Handle abort (timeout)
-      if (error.name === 'AbortError') {
-        console.warn("User profile fetch timed out, but keeping user logged in");
-      } else if (error.message?.includes('Failed to fetch') || error.message?.includes('NetworkError')) {
+
+      if (error.message?.includes('Failed to fetch') || error.message?.includes('NetworkError')) {
         // Network error - don't logout
         console.warn("Network error fetching user profile, but keeping user logged in");
       } else {

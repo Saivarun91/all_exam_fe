@@ -8,6 +8,10 @@ import { useSiteName } from "@/hooks/useSiteName";
 import { useContactDetails } from "@/hooks/useContactDetails";
 import { useLogoUrl } from "@/hooks/useLogoUrl";
 import { useSocialMediaUrls } from "@/hooks/useSocialMediaUrls";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { REACT_MANAGED_ATTR } from "@/lib/domTextUpdate";
+import { useProviderName } from "@/lib/entityI18n";
+import TranslatedAddress from "@/components/i18n/TranslatedAddress";
 import { getOptimizedImageUrl } from "@/utils/imageUtils";
 import Image from "next/image";
 /**
@@ -19,6 +23,20 @@ import Image from "next/image";
  * 
  * This footer dynamically fetches data from the API and only shows what exists in the website.
  */
+
+function FooterProviderLink({ provider, href }) {
+  const name = useProviderName(provider);
+
+  return (
+    <Link
+      href={href}
+      className="text-[#F0F4FF] hover:text-[#1A73E8] transition-colors text-xs md:text-sm inline-flex items-center py-0.5"
+    >
+      {name}
+    </Link>
+  );
+}
+
 const Footer = () => {
   const pathname = usePathname();
   const router = useRouter();
@@ -26,11 +44,11 @@ const Footer = () => {
   const contactDetails = useContactDetails();
   const logoUrl = useLogoUrl();
   const socialUrls = useSocialMediaUrls();
+  const { t, language, translations, translationsRefreshToken } = useLanguage();
+  void language;
+  void translations;
+  void translationsRefreshToken;
 
-  // Don't show footer on admin routes
-  if (pathname?.startsWith("/admin")) {
-    return null;
-  }
   const [providers, setProviders] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -60,9 +78,8 @@ const Footer = () => {
 
   // Available resources pages (only show what exists)
   const availableResources = [
-    { name: "Blogs", href: "/blog", exists: true },
-    // FAQ: handled with smooth scroll to home page section
-    { name: "FAQ", href: "/", exists: true },
+    { nameKey: "footer.blogs", href: "/blog", exists: true },
+    { nameKey: "footer.faq", href: "/", exists: true },
   ];
 
   // Company pages (only show if they exist - currently none exist, so empty)
@@ -70,12 +87,12 @@ const Footer = () => {
 
   // Legal pages (only show if they exist)
   const availableLegalPages = [
-    { name: "Privacy Policy", href: "/privacy-policy", exists: true },
-    { name: "Terms & Conditions", href: "/terms-and-conditions", exists: true },
-    { name: "Refund & Cancellation Policy", href: "/refund-and-cancellation-policy", exists: true },
-    { name: "Disclaimer", href: "/disclaimer", exists: true },
-    { name: "Editor Policy", href: "/editor-policy", exists: true },
-    { name: "Contact Us", href: "/contact-us", exists: true },
+    { nameKey: "footer.privacy_policy", href: "/privacy-policy", exists: true },
+    { nameKey: "footer.terms", href: "/terms-and-conditions", exists: true },
+    { nameKey: "footer.refund_policy", href: "/refund-and-cancellation-policy", exists: true },
+    { nameKey: "footer.disclaimer", href: "/disclaimer", exists: true },
+    { nameKey: "footer.editor_policy", href: "/editor-policy", exists: true },
+    { nameKey: "footer.contact_us", href: "/contact-us", exists: true },
   ];
 
   // Build social links array from admin-configured URLs
@@ -140,30 +157,35 @@ const Footer = () => {
     }
   };
 
+  if (pathname?.startsWith("/admin")) {
+    return null;
+  }
+
   return (
-    <footer className="bg-gradient-to-br from-[#0C1A35] to-[#0E2444] text-white border-t border-[#1A73E8]/20">
+    <footer
+      {...{ [REACT_MANAGED_ATTR]: "true" }}
+      className="bg-gradient-to-br from-[#0C1A35] to-[#0E2444] text-white border-t border-[#1A73E8]/20"
+    >
       <div className="container mx-auto px-4 py-6 md:py-8">
         <div className={`grid grid-cols-2 sm:grid-cols-3 ${gridCols} gap-4 md:gap-6 mb-6 md:mb-8`}>
           {/* Providers Section - Only show if providers exist */}
           {hasProviders && (
             <div>
-              <h3 className="font-bold text-base md:text-lg mb-2 md:mb-3 text-[#F5F8FF]">Exam Providers Covered</h3>
+              <h3 className="font-bold text-base md:text-lg mb-2 md:mb-3 text-[#F5F8FF]">{t("footer.providers_title")}</h3>
               <ul className="space-y-1 md:space-y-1.5">
                 {loading ? (
-                  <li className="text-[#F0F4FF] text-xs md:text-sm">Loading...</li>
+                  <li className="text-[#F0F4FF] text-xs md:text-sm">{t("footer.loading")}</li>
                 ) : providers.length > 0 ? (
                   providers.map((provider, index) => (
                     <li key={index}>
-                      <Link
+                      <FooterProviderLink
+                        provider={provider}
                         href={getProviderUrl(provider)}
-                        className="text-[#F0F4FF] hover:text-[#1A73E8] transition-colors text-xs md:text-sm inline-flex items-center py-0.5"
-                      >
-                        {provider.name}
-                      </Link>
+                      />
                     </li>
                   ))
                 ) : (
-                  <li className="text-[#F0F4FF]/85 text-xs md:text-sm">No providers available</li>
+                  <li className="text-[#F0F4FF]/85 text-xs md:text-sm">{t("footer.no_providers")}</li>
                 )}
               </ul>
             </div>
@@ -172,26 +194,26 @@ const Footer = () => {
           {/* Resources Section - Only show if resources exist */}
           {hasResources && (
             <div>
-              <h3 className="font-bold text-base md:text-lg mb-2 md:mb-3 text-[#F5F8FF]">Resources</h3>
+              <h3 className="font-bold text-base md:text-lg mb-2 md:mb-3 text-[#F5F8FF]">{t("footer.resources_title")}</h3>
               <ul className="space-y-1 md:space-y-1.5">
                 {availableResources
                   .filter((resource) => resource.exists)
                   .map((resource, index) => (
                     <li key={index}>
-                      {resource.name === "FAQ" ? (
+                      {resource.nameKey === "footer.faq" ? (
                         <button
                           type="button"
                           onClick={handleFooterFAQClick}
                           className="text-left text-[#F0F4FF] hover:text-[#1A73E8] transition-colors text-xs md:text-sm py-0.5 inline-flex items-center"
                         >
-                          {resource.name}
+                          {t(resource.nameKey)}
                         </button>
                       ) : (
                         <Link
                           href={resource.href}
                           className="text-[#F0F4FF] hover:text-[#1A73E8] transition-colors text-xs md:text-sm inline-flex items-center py-0.5"
                         >
-                          {resource.name}
+                          {t(resource.nameKey)}
                         </Link>
                       )}
                     </li>
@@ -222,7 +244,7 @@ const Footer = () => {
           {/* Legal Section - Only show if legal pages exist */}
           {hasLegal && (
             <div>
-              <h3 className="font-bold text-base md:text-lg mb-2 md:mb-3 text-[#F5F8FF]">Legal</h3>
+              <h3 className="font-bold text-base md:text-lg mb-2 md:mb-3 text-[#F5F8FF]">{t("footer.legal_title")}</h3>
               <ul className="space-y-1 md:space-y-1.5">
                 {availableLegalPages.map((page, index) => (
                   <li key={index}>
@@ -230,7 +252,7 @@ const Footer = () => {
                       href={page.href}
                       className="text-[#F0F4FF] hover:text-[#1A73E8] transition-colors text-xs md:text-sm inline-flex items-center py-0.5"
                     >
-                      {page.name}
+                      {t(page.nameKey)}
                     </Link>
                   </li>
                 ))}
@@ -241,7 +263,7 @@ const Footer = () => {
           {/* Contact Us Section */}
           {hasContactDetails && (
             <div>
-              <h3 className="font-bold text-base md:text-lg mb-2 md:mb-3 text-[#F5F8FF]">Contact Us</h3>
+              <h3 className="font-bold text-base md:text-lg mb-2 md:mb-3 text-[#F5F8FF]">{t("footer.contact_title")}</h3>
               <ul className="space-y-1.5 md:space-y-2">
                 {/* {hasEmail && (
                   <li className="flex items-start gap-2">
@@ -282,9 +304,10 @@ const Footer = () => {
                 {hasAddress && (
                   <li className="flex items-start gap-2">
                     <MapPin className="w-3.5 h-3.5 md:w-4 md:h-4 text-[#1A73E8] mt-0.5 flex-shrink-0" />
-                    <span className="text-[#F0F4FF] text-xs md:text-sm whitespace-pre-line">
-                      {contactDetails.address.trim()}
-                    </span>
+                    <TranslatedAddress
+                      address={contactDetails.address}
+                      className="text-[#F0F4FF] text-xs md:text-sm whitespace-pre-line"
+                    />
                   </li>
                 )}
                 {hasWebsite && (
@@ -371,22 +394,35 @@ const Footer = () => {
           <div className="flex items-center gap-2 md:gap-4">
             <div className="flex items-center gap-1.5 md:gap-2 text-xs md:text-sm text-[#F0F4FF]">
               <Shield className="w-3.5 h-3.5 md:w-4 md:h-4" />
-              <span>SSL Secure</span>
+              <span>{t("footer.ssl_secure")}</span>
             </div>
           </div>
         </div>
 
         <div className="text-center text-[#E8EDF7] text-xs md:text-sm mt-4 md:mt-5 space-y-0.5 md:space-y-1">
-          <p>© 2025 AllExamQuestions. All rights reserved.</p>
+          <p>{t("footer.copyright")}</p>
           <p className="text-[10px] md:text-xs text-[#D4DFF0]">
-            A Brand of TutorKhoj Private Limited
+            {t("footer.brand_line")}
           </p>
         </div>
 
         <div className="border-t border-[#1A73E8]/15 pt-4 md:pt-5 mt-4 md:mt-5">
           <p className="text-[#D8E3F5] text-[10px] md:text-xs leading-relaxed max-w-4xl mx-auto text-left">
-            <strong className="text-[#F5F8FF]">Disclaimer:</strong> <br></br>All trademarks, certification names, course titles, and logos displayed on this website are the property of their respective owners and are used solely for identification and informational purposes.<br></br>AllExamQuestions is an independent exam preparation platform and is not affiliated with, endorsed by, authorized by, or sponsored by any exam provider, certification body, or brand mentioned on this website.<br></br>Any brand names, product names, or service names are used only to describe the corresponding exams or content. Some graphics used on this website are sourced from royalty-free or publicly available resources and are believed to be free for commercial use.
-            
+            <strong
+              className="text-[#F5F8FF]"
+              data-i18n="footer.disclaimer"
+              data-i18n-fallback="Disclaimer:"
+            >
+              Disclaimer:
+            </strong>{" "}
+            <span
+              data-i18n="footer.disclaimer_text"
+              data-i18n-fallback="All trademarks, certification names, course titles, and logos displayed on this website are the property of their respective owners and are used solely for identification and informational purposes. AllExamQuestions is an independent exam preparation platform and is not affiliated with, endorsed by, authorized by, or sponsored by any exam provider, certification body, or brand mentioned on this website."
+            >
+              All trademarks, certification names, course titles, and logos displayed on this website are the property of their respective owners and are used solely for identification and informational purposes.
+              AllExamQuestions is an independent exam preparation platform and is not affiliated with, endorsed by, authorized by, or sponsored by any exam provider, certification body, or brand mentioned on this website.
+              Any brand names, product names, or service names are used only to describe the corresponding exams or content. Some graphics used on this website are sourced from royalty-free or publicly available resources and are believed to be free for commercial use.
+            </span>
           </p>
         </div>
       </div>

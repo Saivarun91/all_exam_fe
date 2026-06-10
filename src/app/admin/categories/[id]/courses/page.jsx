@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { PlusCircle, Edit, Trash2, Eye, ArrowLeft, Check, ChevronsUpDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Command,
   CommandEmpty,
@@ -69,14 +70,14 @@ export default function AdminCategoryCoursesPage() {
     description: "",
     code: "",
     provider: "",
-    price: 0,
-    offer_price: null,
     badge: "",
     meta_title: "",
     meta_keywords: "",
     meta_description: "",
-  });
+    is_featured: false,
+    show_in_official_details: false,
 
+  });
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
 
   // ✅ Fetch category, providers, and courses
@@ -111,6 +112,10 @@ export default function AdminCategoryCoursesPage() {
           name: course.title || course.name,
           description: course.short_description || course.description,
           provider: providerIdForAdminForm(course, providersList),
+          show_in_official_details:
+            course.show_in_official_details === true ||
+            course.show_in_official_details === "true",
+
         }));
         setCourses(mappedCourses);
       } catch (err) {
@@ -126,16 +131,11 @@ export default function AdminCategoryCoursesPage() {
   // ✅ Add new course
   const handleAddCourse = async (e) => {
     e.preventDefault();
-    const { name, description, provider, price, offer_price } = newCourse;
+    const { name, description, provider } = newCourse;
     if (!name) {
       alert("Please enter course name");
       return;
     }
-    if (!provider) {
-      alert("Please select a provider");
-      return;
-    }
-
     try {
       // Generate slug from name
       const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
@@ -147,23 +147,34 @@ export default function AdminCategoryCoursesPage() {
           "Authorization": `Bearer ${localStorage.getItem("token")}`
         },
         body: JSON.stringify({
-          provider: provider,  // Use selected provider ID
+          provider: provider || null,
           title: name,  // Backend expects 'title' not 'name'
           code: newCourse.code || slug.toUpperCase().substring(0, 10),  // Generate code if not provided
           slug: slug,
           category: categorySlug || id,  // Category slug or ID
           short_description: description || "",  // Backend expects 'short_description'
           badge: newCourse.badge || "",
-          actual_price: price || 0,
-          offer_price: offer_price || 0,
+          actual_price: 0,
+          offer_price: 0,
           meta_title: newCourse.meta_title || "",
           meta_keywords: newCourse.meta_keywords || "",
           meta_description: newCourse.meta_description || "",
+          is_featured: !!newCourse.is_featured,
+          show_in_official_details:!!newCourse.show_in_official_details,
+          
         }),
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to create course");
+      if (!res.ok) {
+        const fieldError =
+          data?.errors?.slug?.[0] ||
+          data?.errors?.code?.[0] ||
+          data?.errors?.title?.[0];
+        throw new Error(
+          data?.error || data?.message || fieldError || "Failed to create course"
+        );
+      }
 
       // Backend returns {success: true, data: {...}}
       const newCourseData = data.data || data;
@@ -177,7 +188,7 @@ export default function AdminCategoryCoursesPage() {
       setCourses((prev) => [...prev, mappedCourse]);
       setShowAddModal(false);
       setProviderDropdownOpen(false);
-      setNewCourse({ name: "", slug: "", description: "", code: "", provider: "", price: 0, offer_price: null, badge: "", meta_title: "", meta_keywords: "", meta_description: "" });
+      setNewCourse({ name: "", slug: "", description: "", code: "", provider: "", badge: "", meta_title: "", meta_keywords: "", meta_description: "", is_featured: false, show_in_official_details: false });
       setMessage("✅ Course added successfully!");
       setTimeout(() => setMessage(""), 3000);
     } catch (err) {
@@ -208,7 +219,7 @@ export default function AdminCategoryCoursesPage() {
           title: editingCourse.name || editingCourse.title,  // Backend expects 'title'
           slug: editingCourse.slug,
           code: editingCourse.code || "",
-          provider: editingCourse.provider,
+          provider: editingCourse.provider || null,
           short_description: editingCourse.short_description || "",  // Backend expects 'short_description'
           badge: editingCourse.badge || "",
           actual_price: editingCourse.actual_price || 0,
@@ -216,11 +227,21 @@ export default function AdminCategoryCoursesPage() {
           meta_title: editingCourse.meta_title || "",
           meta_keywords: editingCourse.meta_keywords || "",
           meta_description: editingCourse.meta_description || "",
+          is_featured: !!editingCourse.is_featured,
+          show_in_official_details: !!editingCourse.show_in_official_details,
         }),
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to update course");
+      if (!res.ok) {
+        const fieldError =
+          data?.errors?.slug?.[0] ||
+          data?.errors?.code?.[0] ||
+          data?.errors?.title?.[0];
+        throw new Error(
+          data?.error || data?.message || fieldError || "Failed to update course"
+        );
+      }
 
       // Backend returns {success: true, message: "..."}
       // Fetch updated course or use existing data
@@ -354,6 +375,11 @@ export default function AdminCategoryCoursesPage() {
                       ) : (
                         <span className="text-gray-400 text-xs">—</span>
                       )}
+                      {course.is_featured ? (
+                        <Badge className="ml-2 bg-green-100 text-green-700 border-0">
+                          Popular
+                        </Badge>
+                      ) : null}
                     </td>
                     <td className="px-4 py-3 align-middle">
                       <div className="flex flex-wrap items-center gap-2">
@@ -411,7 +437,7 @@ export default function AdminCategoryCoursesPage() {
                         id="name"
                         value={newCourse.name}
                         onChange={(e) =>
-                          setNewCourse({ ...newCourse, name: e.target.value ,slug: generateSlug(e.target.value) })
+                          setNewCourse({ ...newCourse, name: e.target.value })
                         }
                         placeholder="AWS Solutions Architect Associate"
                         required
@@ -457,7 +483,7 @@ export default function AdminCategoryCoursesPage() {
                     </div>
 
                     <div>
-                      <Label htmlFor="provider">Provider *</Label>
+                      <Label htmlFor="provider">Provider (Optional)</Label>
                       <Popover open={providerDropdownOpen} onOpenChange={setProviderDropdownOpen}>
                         <PopoverTrigger asChild>
                           <Button
@@ -480,6 +506,21 @@ export default function AdminCategoryCoursesPage() {
                             <CommandList>
                               <CommandEmpty>No provider found.</CommandEmpty>
                               <CommandGroup>
+                                <CommandItem
+                                  value="no provider"
+                                  onSelect={() => {
+                                    setNewCourse({ ...newCourse, provider: "" });
+                                    setProviderDropdownOpen(false);
+                                  }}
+                                >
+                                  <Check
+                                    className={cn(
+                                      "mr-2 h-4 w-4",
+                                      !newCourse.provider ? "opacity-100" : "opacity-0"
+                                    )}
+                                  />
+                                  No provider
+                                </CommandItem>
                                 {providers.map((provider) => (
                                   <CommandItem
                                     key={provider.id}
@@ -505,7 +546,7 @@ export default function AdminCategoryCoursesPage() {
                           </Command>
                         </PopoverContent>
                       </Popover>
-                      <p className="text-xs text-gray-500 mt-1">Search and select the certification provider</p>
+                      <p className="text-xs text-gray-500 mt-1">Search and select the certification provider (optional)</p>
                     </div>
                   </div>
 
@@ -538,46 +579,46 @@ export default function AdminCategoryCoursesPage() {
                       Optional badge text to display on the course card (e.g., "New", "Updated this week", "Best Seller")
                     </p>
                   </div>
-                </div>
 
-                {/* Pricing Section */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-[#0C1A35] pb-2 border-b">Pricing</h3>
-                  
-                  <div className="grid grid-cols-2 gap-4">
-                <div>
-                      <Label htmlFor="price">Regular Price (₹) *</Label>
-                  <Input
-                        id="price"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={newCourse.price || 0}
-                    onChange={(e) =>
-                      setNewCourse({ ...newCourse, price: parseFloat(e.target.value) || 0 })
-                    }
-                        placeholder="999.00"
-                    required
-                        className="mt-1"
-                  />
-                      <p className="text-xs text-gray-500 mt-1">Base price for the course</p>
-                </div>
-                    
-                <div>
-                      <Label htmlFor="offer_price">Offer Price (₹) <span className="text-gray-500 text-sm">(Optional)</span></Label>
-                  <Input
-                        id="offer_price"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={newCourse.offer_price || ""}
-                    onChange={(e) =>
-                      setNewCourse({ ...newCourse, offer_price: e.target.value ? parseFloat(e.target.value) : null })
-                    }
-                    placeholder="Leave empty if no offer"
-                        className="mt-1"
-                  />
-                      <p className="text-xs text-gray-500 mt-1">Discounted price (if applicable)</p>
+                  <div className="flex items-start gap-3 pt-2">
+                    <Checkbox
+                      id="is_featured"
+                      checked={!!newCourse.is_featured}
+                      onCheckedChange={(checked) =>
+                        setNewCourse({
+                          ...newCourse,
+                          is_featured: checked === true,
+                        })
+                      }
+                    />
+                    <div>
+                      <Label htmlFor="is_featured">Popular Exam (Featured)</Label>
+                      <p className="text-xs text-gray-500">
+                        If enabled, this exam will appear in the Home page Featured Exams and the
+                        Exam sidebar Popular Exams.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3 pt-2">
+                    <Checkbox
+                      id="show_in_official_details"
+                      checked={!!newCourse.show_in_official_details}
+                      onCheckedChange={(checked) =>
+                        setNewCourse({
+                          ...newCourse,
+                          show_in_official_details: checked === true,
+                        })
+                      }
+                    />
+
+                    <div>
+                      <Label htmlFor="show_in_official_details">
+                        Add To Official Details
+                      </Label>
+
+                      <p className="text-xs text-gray-500">
+                        If enabled, this exam will appear in Official Details Manager.
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -648,7 +689,7 @@ export default function AdminCategoryCoursesPage() {
                     onClick={() => {
                       setShowAddModal(false);
                       setProviderDropdownOpen(false);
-                      setNewCourse({ name: "", slug: "", description: "", code: "", provider: "", price: 0, offer_price: null, badge: "", meta_title: "", meta_keywords: "", meta_description: "" });
+                      setNewCourse({ name: "", slug: "", description: "", code: "", provider: "", badge: "", meta_title: "", meta_keywords: "", meta_description: "", is_featured: false , show_in_official_details: false });
                     }}
                     className="px-6"
                   >
@@ -682,7 +723,7 @@ export default function AdminCategoryCoursesPage() {
                         id="edit_name"
                     value={editingCourse.name}
                     onChange={(e) =>
-                      setEditingCourse({ ...editingCourse, name: e.target.value , slug: generateSlug(e.target.value) })
+                      setEditingCourse({ ...editingCourse, name: e.target.value  })
                     }
                     placeholder="Enter course name"
                     required
@@ -717,7 +758,7 @@ export default function AdminCategoryCoursesPage() {
                     <div></div>
                   </div>
                   <div>
-                    <Label htmlFor="edit_provider">Provider *</Label>
+                    <Label htmlFor="edit_provider">Provider (Optional)</Label>
 
                     <Popover>
                       <PopoverTrigger asChild>
@@ -745,6 +786,23 @@ export default function AdminCategoryCoursesPage() {
                             <CommandEmpty>No provider found.</CommandEmpty>
 
                             <CommandGroup>
+                              <CommandItem
+                                value="no provider"
+                                onSelect={() => {
+                                  setEditingCourse({
+                                    ...editingCourse,
+                                    provider: "",
+                                  });
+                                }}
+                              >
+                                <Check
+                                  className={cn(
+                                    "mr-2 h-4 w-4",
+                                    !editingCourse.provider ? "opacity-100" : "opacity-0"
+                                  )}
+                                />
+                                No provider
+                              </CommandItem>
                               {providers.map((provider) => (
                                 <CommandItem
                                   key={provider.id}
@@ -788,6 +846,47 @@ export default function AdminCategoryCoursesPage() {
                     <p className="text-xs text-gray-500 mt-1">
                       Optional badge text to display on the course card (e.g., "New", "Updated this week", "Best Seller")
                     </p>
+                  </div>
+
+                  <div className="flex items-start gap-3 pt-2">
+                    <Checkbox
+                      id="edit_is_featured"
+                      checked={!!editingCourse.is_featured}
+                      onCheckedChange={(checked) =>
+                        setEditingCourse({
+                          ...editingCourse,
+                          is_featured: checked === true,
+                        })
+                      }
+                    />
+                    <div>
+                      <Label htmlFor="edit_is_featured">Popular Exam (Featured)</Label>
+                      <p className="text-xs text-gray-500">
+                        Shows this exam in the Home page Featured Exams and the Exam sidebar Popular Exams.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3 pt-2">
+                    <Checkbox
+                      id="edit_show_in_official_details"
+                      checked={!!editingCourse.show_in_official_details}
+                      onCheckedChange={(checked) =>
+                        setEditingCourse({
+                          ...editingCourse,
+                          show_in_official_details: checked === true,
+                        })
+                      }
+                    />
+
+                    <div>
+                      <Label htmlFor="edit_show_in_official_details">
+                        Add To Official Details
+                      </Label>
+
+                      <p className="text-xs text-gray-500">
+                        If enabled, this exam will appear in Official Details Manager.
+                      </p>
+                    </div>
                   </div>
                 </div>
 

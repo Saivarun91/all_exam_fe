@@ -1,254 +1,130 @@
-// "use client";
-
-// import { Card, CardContent } from "@/components/ui/card";
-// import { Button } from "@/components/ui/button";
-// import { Cloud, Shield, Briefcase, Database, Code, TrendingUp, ChevronLeft, ChevronRight } from "lucide-react";
-// import { useEffect, useState, useRef } from "react";
-// import { useRouter } from "next/navigation";
-// import ItemListJsonLd from "@/components/ItemListJsonLd";
-
-// const ICON_MAP = {
-//   Cloud,
-//   Shield,
-//   Briefcase,
-//   Database,
-//   Code,
-//   TrendingUp,
-// };
-
-// export default function TopCategories() {
-//   const [categories, setCategories] = useState([]);
-//   const [sectionSettings, setSectionSettings] = useState(null);
-//   const [currentIndex, setCurrentIndex] = useState(0);
-//   const carouselRef = useRef(null);
-//   const router = useRouter();
-
-//   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
-
-//   // Fetch categories and section settings
-//   useEffect(() => {
-//     // Fetch categories
-//     fetch(`${API_BASE_URL}/api/categories/`)
-//       .then((res) => res.json())
-//       .then((data) => {
-//         if (Array.isArray(data)) {
-//           setCategories(data);
-//         }
-//       })
-//       .catch(() => console.error("Failed to fetch categories"));
-
-//     // Fetch section settings
-//     fetch(`${API_BASE_URL}/api/home/top-categories-section/`)
-//       .then((res) => res.json())
-//       .then((data) => {
-//         if (data.success) {
-//           setSectionSettings(data.data);
-//         }
-//       })
-//       .catch(() => console.error("Failed to fetch section settings"));
-//   }, [API_BASE_URL]);
-
-//   // Items to show at once (responsive)
-//   const [itemsPerView, setItemsPerView] = useState(3);
-
-//   useEffect(() => {
-//     const handleResize = () => {
-//       if (window.innerWidth < 768) {
-//         setItemsPerView(1);
-//       } else if (window.innerWidth < 1024) {
-//         setItemsPerView(2);
-//       } else {
-//         setItemsPerView(3);
-//       }
-//     };
-
-//     handleResize();
-//     window.addEventListener('resize', handleResize);
-//     return () => window.removeEventListener('resize', handleResize);
-//   }, []);
-
-//   const maxIndex = Math.max(0, categories.length - itemsPerView);
-
-//   const handlePrev = () => {
-//     setCurrentIndex((prev) => Math.max(0, prev - 1));
-//   };
-
-//   const handleNext = () => {
-//     setCurrentIndex((prev) => Math.min(maxIndex, prev + 1));
-//   };
-
-//   const settings = sectionSettings || {
-//     heading: "Top Certification Categories",
-//     subtitle: "Explore certifications by category",
-//     heading_font_family: "font-bold",
-//     heading_font_size: "text-4xl",
-//     heading_color: "text-[#0C1A35]",
-//     subtitle_font_size: "text-lg",
-//     subtitle_color: "text-[#0C1A35]/70",
-//   };
-
-//   // Prepare items for schema
-//   const schemaItems = categories.map((cat) => ({
-//     name: cat.name,
-//     description: cat.description || "",
-//     url: `/categories/${cat.slug}`,
-//   }));
-
-//   return (
-//     <section className="py-12 md:py-20 bg-[#F5F8FC]">
-//       {categories.length > 0 && (
-//         <ItemListJsonLd
-//           items={schemaItems}
-//           listName={settings.heading || "Top Certification Categories"}
-//           itemType="Category"
-//           schemaId="top-categories-json-ld-schema"
-//         />
-//       )}
-//       <div className="container mx-auto px-4">
-//         <div className="text-center mb-8 md:mb-12">
-//           <h2 className={`text-2xl sm:text-3xl md:${settings.heading_font_size} ${settings.heading_font_family} ${settings.heading_color} mb-3 md:mb-4`}>
-//             {settings.heading}
-//           </h2>
-//           {settings.subtitle && (
-//             <p className={`text-sm sm:text-base md:${settings.subtitle_font_size} ${settings.subtitle_color} max-w-2xl mx-auto px-2`}>
-//               {settings.subtitle}
-//             </p>
-//           )}
-//         </div>
-
-//         {/* Carousel Container */}
-//         <div className="relative">
-//           {/* Navigation Buttons */}
-//           {categories.length > itemsPerView && (
-//             <>
-//               <Button
-//                 onClick={handlePrev}
-//                 disabled={currentIndex === 0}
-//                 className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 z-10 rounded-full w-12 h-12 bg-white hover:bg-gray-100 text-[#1A73E8] shadow-lg disabled:opacity-30 disabled:cursor-not-allowed border border-gray-200"
-//                 size="icon"
-//               >
-//                 <ChevronLeft className="w-6 h-6" />
-//               </Button>
-//               <Button
-//                 onClick={handleNext}
-//                 disabled={currentIndex >= maxIndex}
-//                 className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 z-10 rounded-full w-12 h-12 bg-white hover:bg-gray-100 text-[#1A73E8] shadow-lg disabled:opacity-30 disabled:cursor-not-allowed border border-gray-200"
-//                 size="icon"
-//               >
-//                 <ChevronRight className="w-6 h-6" />
-//               </Button>
-//             </>
-//           )}
-
-//           {/* Carousel Track */}
-//           <div className="overflow-hidden" ref={carouselRef}>
-//             <div
-//               className="flex transition-transform duration-500 ease-in-out gap-6"
-//               style={{
-//                 transform: `translateX(-${currentIndex * (100 / itemsPerView)}%)`,
-//               }}
-//             >
-//               {categories.map((category, index) => {
-//                 const Icon = ICON_MAP[category.icon] || Cloud;
-
-//                 return (
-//                   <div
-//                     key={index}
-//                     className="flex-shrink-0"
-//                     style={{ width: `calc(${100 / itemsPerView}% - ${(itemsPerView - 1) * 24 / itemsPerView}px)` }}
-//                   >
-//                     <Card
-//                       className="hover:shadow-[0_8px_24px_rgba(26,115,232,0.15)] hover:-translate-y-1 transition-all cursor-pointer border-[#DDE7FF] bg-white h-full"
-//                       onClick={() => router.push(`/categories/${category.slug}`)}
-//                     >
-//                       <CardContent className="p-6 space-y-4">
-//                         <div className="w-12 h-12 rounded-lg bg-[#1A73E8]/10 flex items-center justify-center">
-//                           <Icon className="w-6 h-6 text-[#1A73E8]" />
-//                         </div>
-
-//                         <h3 className="text-xl font-bold text-[#0C1A35]">
-//                           {category.title}
-//                         </h3>
-
-//                         <p className="text-[#0C1A35]/70 line-clamp-2">
-//                           {category.description}
-//                         </p>
-//                       </CardContent>
-//                     </Card>
-//                   </div>
-//                 );
-//               })}
-//             </div>
-//           </div>
-
-//           {/* Dots Indicator */}
-//           {categories.length > itemsPerView && (
-//             <div className="flex justify-center gap-2 mt-8">
-//               {Array.from({ length: maxIndex + 1 }).map((_, idx) => (
-//                 <button
-//                   key={idx}
-//                   onClick={() => setCurrentIndex(idx)}
-//                   className={`w-2 h-2 rounded-full transition-all ${
-//                     idx === currentIndex
-//                       ? "bg-[#1A73E8] w-8"
-//                       : "bg-gray-300 hover:bg-gray-400"
-//                   }`}
-//                   aria-label={`Go to slide ${idx + 1}`}
-//                 />
-//               ))}
-//             </div>
-//           )}
-//         </div>
-//       </div>
-//     </section>
-//   );
-// }
-
-
-
-
 "use client";
 
-import { Card, CardContent } from "@/components/ui/card";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import {
-  Cloud,
-  Shield,
-  Briefcase,
-  Database,
-  Code,
-  TrendingUp,
-  ChevronLeft,
-  ChevronRight,
-} from "lucide-react";
-
-import { useState, useRef } from "react";
-import Link from "next/link";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useCarouselItemsPerView } from "@/hooks/useCarouselItemsPerView";
+import CategoryCard from "@/components/category/CategoryCard";
 
-const ICON_MAP = {
-  Cloud,
-  Shield,
-  Briefcase,
-  Database,
-  Code,
-  TrendingUp,
-};
+const GAP_PX = 16;
 
-export default function TopCategoriesClient({ categories = [], sectionSettings }) {
+function isInteractiveCarouselTarget(target) {
+  if (!target || typeof target.closest !== "function") return false;
+  return Boolean(
+    target.closest('a, button, input, textarea, select, [role="button"]')
+  );
+}
 
+export default function TopCategoriesClient({
+  categories = [],
+  sectionSettings,
+}) {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const itemsPerView = useCarouselItemsPerView(3);
-  const carouselRef = useRef(null);
+  const itemsPerView = useCarouselItemsPerView(4);
+  const scrollRef = useRef(null);
+  const dragRef = useRef({
+    active: false,
+    startX: 0,
+    scrollLeft: 0,
+    moved: false,
+  });
 
   const maxIndex = Math.max(0, categories.length - itemsPerView);
 
-  const handlePrev = () => {
-    setCurrentIndex((p) => Math.max(0, p - 1));
+  const getStepWidth = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return 0;
+    const card = el.querySelector("[data-carousel-card]");
+    if (!card) return 0;
+    return card.getBoundingClientRect().width + GAP_PX;
+  }, []);
+
+  const scrollToIndex = useCallback(
+    (index, behavior = "smooth") => {
+      const el = scrollRef.current;
+      if (!el) return;
+      const clamped = Math.max(0, Math.min(maxIndex, index));
+      const step = getStepWidth();
+      if (step <= 0) return;
+      el.scrollTo({ left: clamped * step, behavior });
+      setCurrentIndex(clamped);
+    },
+    [getStepWidth, maxIndex]
+  );
+
+  const handlePrev = () => scrollToIndex(currentIndex - 1);
+  const handleNext = () => scrollToIndex(currentIndex + 1);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+
+    const onScroll = () => {
+      const step = getStepWidth();
+      if (step <= 0) return;
+      const idx = Math.round(el.scrollLeft / step);
+      setCurrentIndex(Math.max(0, Math.min(maxIndex, idx)));
+    };
+
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => el.removeEventListener("scroll", onScroll);
+  }, [getStepWidth, maxIndex, categories.length, itemsPerView]);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (el) el.scrollTo({ left: 0, behavior: "auto" });
+    setCurrentIndex(0);
+  }, [itemsPerView, categories.length]);
+
+  const onPointerDown = (e) => {
+    if (e.button !== 0) return;
+    // Do not capture pointer on links/buttons — that blocks Next.js <Link> navigation.
+    if (isInteractiveCarouselTarget(e.target)) {
+      dragRef.current.active = false;
+      dragRef.current.moved = false;
+      return;
+    }
+    const el = scrollRef.current;
+    if (!el) return;
+    dragRef.current = {
+      active: true,
+      startX: e.clientX,
+      scrollLeft: el.scrollLeft,
+      moved: false,
+    };
+    el.setPointerCapture(e.pointerId);
   };
 
-  const handleNext = () => {
-    setCurrentIndex((p) => Math.min(maxIndex, p + 1));
+  const onPointerMove = (e) => {
+    if (!dragRef.current.active) return;
+    const el = scrollRef.current;
+    if (!el) return;
+    const dx = e.clientX - dragRef.current.startX;
+    if (Math.abs(dx) > 8) dragRef.current.moved = true;
+    if (dragRef.current.moved) {
+      e.preventDefault();
+      el.scrollLeft = dragRef.current.scrollLeft - dx;
+    }
+  };
+
+  const onPointerUp = (e) => {
+    const el = scrollRef.current;
+    if (!dragRef.current.active) return;
+    const wasDrag = dragRef.current.moved;
+    dragRef.current.active = false;
+    dragRef.current.moved = false;
+    try {
+      el?.releasePointerCapture(e.pointerId);
+    } catch {
+      /* ignore */
+    }
+    if (!wasDrag && el) {
+      const step = getStepWidth();
+      if (step > 0) {
+        const idx = Math.round(el.scrollLeft / step);
+        scrollToIndex(idx);
+      }
+    }
   };
 
   const settings = sectionSettings || {
@@ -261,122 +137,84 @@ export default function TopCategoriesClient({ categories = [], sectionSettings }
     subtitle_color: "text-[#0C1A35]/70",
   };
 
+  const heading = settings.heading;
+  const subtitle = settings.subtitle;
+
+  const cardWidthPercent = 100 / itemsPerView;
+  const cardWidthCalc = `calc(${cardWidthPercent}% - ${
+    ((itemsPerView - 1) * GAP_PX) / itemsPerView
+  }px)`;
+
   return (
     <section className="py-12 md:py-20 bg-[#F5F8FC]">
-
       <div className="container mx-auto px-4">
-
-        {/* Heading */}
         <div className="text-center mb-8 md:mb-12">
-
-          <h2 className={`text-2xl sm:text-3xl md:${settings.heading_font_size} ${settings.heading_font_family} ${settings.heading_color} mb-3 md:mb-4`}>
-            {settings.heading}
+          <h2
+            className={`text-2xl sm:text-3xl md:${settings.heading_font_size} ${settings.heading_font_family} ${settings.heading_color} mb-3 md:mb-4`}
+            data-i18n="cms.categories.heading"
+            data-i18n-fallback={heading}
+          >
+            {heading}
           </h2>
-
-          {settings.subtitle && (
-            <p className={`text-sm sm:text-base md:${settings.subtitle_font_size} ${settings.subtitle_color} max-w-2xl mx-auto`}>
-              {settings.subtitle}
+          {subtitle && (
+            <p
+              className={`text-sm sm:text-base md:${settings.subtitle_font_size} ${settings.subtitle_color} max-w-2xl mx-auto`}
+              data-i18n="cms.categories.subtitle"
+              data-i18n-fallback={subtitle}
+            >
+              {subtitle}
             </p>
           )}
-
         </div>
 
-
-        {/* ===== CAROUSEL ===== */}
-
         <div className="relative">
-
-          {/* LEFT BUTTON */}
           {categories.length > itemsPerView && (
-            <Button
-              type="button"
-              onClick={handlePrev}
-              disabled={currentIndex === 0}
-              className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 z-10 rounded-full w-12 h-12 min-h-[44px] min-w-[44px] bg-white shadow border"
-              size="icon"
-              aria-label="Show previous categories"
-            >
-              <ChevronLeft className="w-6 h-6 text-[#1A73E8]" aria-hidden />
-            </Button>
+            <>
+              <Button
+                type="button"
+                onClick={handlePrev}
+                disabled={currentIndex === 0}
+                className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 z-10 rounded-full w-12 h-12 min-h-[44px] min-w-[44px] bg-white shadow border disabled:opacity-30"
+                size="icon"
+                aria-label="Show previous categories"
+              >
+                <ChevronLeft className="w-6 h-6 text-[#1A73E8]" aria-hidden />
+              </Button>
+              <Button
+                type="button"
+                onClick={handleNext}
+                disabled={currentIndex >= maxIndex}
+                className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 z-10 rounded-full w-12 h-12 min-h-[44px] min-w-[44px] bg-white shadow border disabled:opacity-30"
+                size="icon"
+                aria-label="Show next categories"
+              >
+                <ChevronRight className="w-6 h-6 text-[#1A73E8]" aria-hidden />
+              </Button>
+            </>
           )}
 
-          {/* RIGHT BUTTON */}
-          {categories.length > itemsPerView && (
-            <Button
-              type="button"
-              onClick={handleNext}
-              disabled={currentIndex >= maxIndex}
-              className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 z-10 rounded-full w-12 h-12 min-h-[44px] min-w-[44px] bg-white shadow border"
-              size="icon"
-              aria-label="Show next categories"
-            >
-              <ChevronRight className="w-6 h-6 text-[#1A73E8]" aria-hidden />
-            </Button>
-          )}
-
-
-          {/* TRACK */}
-          <div className="overflow-hidden" ref={carouselRef}>
-
-            <div
-              className="flex transition-transform duration-500 ease-in-out gap-6"
-              style={{
-                transform: `translateX(-${currentIndex * (100 / itemsPerView)}%)`,
-              }}
-            >
-
-              {categories.map((category, index) => {
-
-                const Icon = ICON_MAP[category.icon] || Cloud;
-
-                return (
-                  <div
-                    key={index}
-                    className="flex-shrink-0"
-                    style={{
-                      width: `calc(${100 / itemsPerView}% - ${(itemsPerView - 1) * 24 / itemsPerView}px)`
-                    }}
-                  >
-
-                    <Link
-                      href={`/${category.slug}`}
-                      className="block h-full rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1A73E8] focus-visible:ring-offset-2"
-                      aria-label={`Open ${category.name} certification category`}
-                    >
-                    <Card
-                      className="hover:shadow-[0_8px_24px_rgba(26,115,232,0.15)] hover:-translate-y-1 transition-all cursor-pointer border-[#DDE7FF] bg-white h-full"
-                    >
-
-                      <CardContent className="p-6 space-y-4">
-
-                        <div className="w-12 h-12 rounded-lg bg-[#1A73E8]/10 flex items-center justify-center">
-                          <Icon className="w-6 h-6 text-[#1A73E8]" />
-                        </div>
-
-                        <h3 className="text-xl font-bold text-[#0C1A35]">
-                          {category.name}
-                        </h3>
-
-                        <p className="text-[#0C1A35]/70 line-clamp-2">
-                          {category.description}
-                        </p>
-
-                      </CardContent>
-
-                    </Card>
-                    </Link>
-
-                  </div>
-                );
-
-              })}
-
-            </div>
-
+          <div
+            ref={scrollRef}
+            className="flex gap-4 overflow-x-auto scroll-smooth snap-x snap-mandatory pb-2 cursor-grab active:cursor-grabbing [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden touch-pan-x"
+            onPointerDown={onPointerDown}
+            onPointerMove={onPointerMove}
+            onPointerUp={onPointerUp}
+            onPointerLeave={onPointerUp}
+            onPointerCancel={onPointerUp}
+            aria-label="Top certification categories carousel"
+          >
+            {categories.map((category, index) => (
+              <div
+                key={category.id || category.slug || index}
+                data-carousel-card
+                className="flex-shrink-0 snap-start"
+                style={{ width: cardWidthCalc }}
+              >
+                <CategoryCard category={category} imageFit="contain" />
+              </div>
+            ))}
           </div>
 
-
-          {/* DOTS */}
           {categories.length > itemsPerView && (
             <div
               className="flex justify-center gap-2 mt-8"
@@ -386,7 +224,7 @@ export default function TopCategoriesClient({ categories = [], sectionSettings }
                 <button
                   type="button"
                   key={idx}
-                  onClick={() => setCurrentIndex(idx)}
+                  onClick={() => scrollToIndex(idx)}
                   aria-label={`Go to categories slide ${idx + 1} of ${maxIndex + 1}`}
                   aria-current={idx === currentIndex ? "true" : "false"}
                   className="min-h-[44px] min-w-[11px] flex items-center justify-center px-1"
@@ -402,9 +240,7 @@ export default function TopCategoriesClient({ categories = [], sectionSettings }
               ))}
             </div>
           )}
-
         </div>
-
       </div>
     </section>
   );

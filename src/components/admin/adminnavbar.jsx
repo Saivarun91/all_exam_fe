@@ -10,9 +10,10 @@ export default function AdminNavbar() {
 
   const fetchAdminProfile = async () => {
     try {
-      const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
+      const API_BASE_URL =
+        process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
       const token = localStorage.getItem("token");
-      
+
       if (!token) return;
 
       const res = await axios.get(`${API_BASE_URL}/api/users/admin/profile/`, {
@@ -24,20 +25,19 @@ export default function AdminNavbar() {
       if (res.data.admin) {
         const adminName = res.data.admin.name || "Admin";
         const adminEmail = res.data.admin.email || "";
-        
+
         setUserName(adminName);
         setUserEmail(adminEmail);
         setUserInitial(adminName.charAt(0).toUpperCase());
-        
-        // Update localStorage
+
         localStorage.setItem("user_name", adminName);
         localStorage.setItem("user_email", adminEmail);
       }
     } catch (err) {
-      console.error("Error fetching admin profile:", err);
-      // Fallback to localStorage if API fails
-      const name = localStorage.getItem("user_name") || localStorage.getItem("name");
-      const email = localStorage.getItem("user_email") || localStorage.getItem("email");
+      const name =
+        localStorage.getItem("user_name") || localStorage.getItem("name");
+      const email =
+        localStorage.getItem("user_email") || localStorage.getItem("email");
       const role = localStorage.getItem("role");
 
       if (name) {
@@ -50,34 +50,43 @@ export default function AdminNavbar() {
       } else if (role) {
         setUserEmail(role);
       }
+
+      if (err?.response?.status !== 401 && err?.response?.status !== 403) {
+        console.warn("Admin profile fetch failed, using stored values");
+      }
     }
   };
 
   useEffect(() => {
-    // Initial fetch from API
-    fetchAdminProfile();
-
-    // Get user data from localStorage as fallback
     const name = localStorage.getItem("user_name") || localStorage.getItem("name");
     const email = localStorage.getItem("user_email") || localStorage.getItem("email");
     const role = localStorage.getItem("role");
 
-    if (name && !userName) {
+    if (name) {
       setUserName(name);
       setUserInitial(name.charAt(0).toUpperCase());
     }
 
-    if (email && !userEmail) {
+    if (email) {
       setUserEmail(email);
-    } else if (role && !userEmail) {
+    } else if (role) {
       setUserEmail(role);
     }
 
-    // Listen for storage changes
+    fetchAdminProfile();
+
     const handleStorageChange = (e) => {
-      if (e.key === "user_name" || e.key === "name" || e.key === "user_email" || e.key === "email" || e.key === "role") {
-        const updatedName = localStorage.getItem("user_name") || localStorage.getItem("name");
-        const updatedEmail = localStorage.getItem("user_email") || localStorage.getItem("email");
+      if (
+        e.key === "user_name" ||
+        e.key === "name" ||
+        e.key === "user_email" ||
+        e.key === "email" ||
+        e.key === "role"
+      ) {
+        const updatedName =
+          localStorage.getItem("user_name") || localStorage.getItem("name");
+        const updatedEmail =
+          localStorage.getItem("user_email") || localStorage.getItem("email");
         const updatedRole = localStorage.getItem("role");
 
         if (updatedName) {
@@ -93,7 +102,6 @@ export default function AdminNavbar() {
       }
     };
 
-    // Listen for custom event to refresh profile
     const handleProfileUpdate = () => {
       fetchAdminProfile();
     };
@@ -109,14 +117,9 @@ export default function AdminNavbar() {
 
   return (
     <div className="h-full flex items-center justify-between px-6 bg-gradient-to-r from-white to-gray-50">
-      {/* Left side - Empty for clean look */}
-      <div className="flex items-center">
-        {/* Empty - Logo is in sidebar now */}
-      </div>
+      <div className="flex items-center" />
 
-      {/* Right side actions */}
       <div className="flex items-center gap-4">
-        {/* User Profile */}
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white font-semibold text-sm">
             {userInitial}
@@ -130,4 +133,3 @@ export default function AdminNavbar() {
     </div>
   );
 }
-

@@ -32,6 +32,46 @@ const nextConfig = {
         source: '/sitemap.xml',
         destination: '/sitemap',
       },
+      {
+        source: '/sitemap-:locale.xml',
+        destination: '/sitemap/pages/:locale',
+      },
+      {
+        source: '/categories-sitemap.xml',
+        destination: '/categories-sitemap',
+      },
+      {
+        source: '/providers-sitemap.xml',
+        destination: '/providers-sitemap',
+      },
+      {
+        source: '/exams-sitemap.xml',
+        destination: '/exams-sitemap',
+      },
+      {
+        source: '/blogs-sitemap.xml',
+        destination: '/blogs-sitemap',
+      },
+      {
+        source: '/:locale/sitemap.xml',
+        destination: '/sitemap/:locale',
+      },
+      {
+        source: '/:locale/categories-sitemap.xml',
+        destination: '/categories-sitemap?locale=:locale',
+      },
+      {
+        source: '/:locale/providers-sitemap.xml',
+        destination: '/providers-sitemap?locale=:locale',
+      },
+      {
+        source: '/:locale/exams-sitemap.xml',
+        destination: '/exams-sitemap?locale=:locale',
+      },
+      {
+        source: '/:locale/blogs-sitemap.xml',
+        destination: '/blogs-sitemap?locale=:locale',
+      },
       // {
       //   source: '/:slug',
       //   destination: '/categories/:slug',
@@ -42,6 +82,16 @@ const nextConfig = {
   },
   async redirects() {
     return [
+      {
+        source: '/exams/microsoft/az-900',
+        destination: '/microsoft-azure-fundamentals',
+        permanent: true,
+      },
+      {
+        source: '/exams/istqb/ct-act',
+        destination: '/istqb-acceptance-testing-ct-act',
+        permanent: true,
+      },
       {
         source: '/:path*',
         has: [
@@ -55,6 +105,14 @@ const nextConfig = {
       },
       
     ];
+  },
+  // Next.js 16 uses Turbopack by default — aliases must live here, not in `webpack`.
+  turbopack: {
+    resolveAlias: {
+      "@/components/i18n/CourseTitleText": "./src/components/i18n/AutoText.jsx",
+      "@/components/i18n/ProviderNameText": "./src/components/i18n/AutoText.jsx",
+      "@/components/i18n/CategoryTitleText": "./src/components/i18n/AutoText.jsx",
+    },
   },
   images: {
     remotePatterns: [

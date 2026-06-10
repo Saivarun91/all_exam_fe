@@ -16,6 +16,11 @@ import TipTapEditor from "@/components/editor/TipTapEditor";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 const EMPTY_FAQ = { question: "", answer: "" };
+const PROVIDER_DESCRIPTION_LIMIT = 150;
+
+function clampProviderDescription(value) {
+  return String(value || "").slice(0, PROVIDER_DESCRIPTION_LIMIT);
+}
 
 function normalizeContentForEditor(str) {
   if (!str || !String(str).trim()) return "";
@@ -57,6 +62,7 @@ export default function AdminProvidersPage() {
     slug: "",
     logo_url: "",
     page_title: "",
+    description: "",
     content: "",
     faqs: [],
     meta_title: "",
@@ -160,6 +166,7 @@ export default function AdminProvidersPage() {
         icon: formData.icon || "Building2",
         slug: formData.slug || "",
         page_title: formData.page_title || "",
+        description: clampProviderDescription(formData.description || ""),
         content: formData.content || "",
         faqs: normalizedFaqs,
         meta_title: formData.meta_title || "",
@@ -196,7 +203,17 @@ export default function AdminProvidersPage() {
         body,
       });
       const result = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(result?.error || "Failed to save provider");
+      if (!res.ok) {
+        const nameError = result?.errors?.name;
+        const slugError = result?.errors?.slug;
+        throw new Error(
+          result?.error ||
+            result?.message ||
+            (Array.isArray(nameError) ? nameError[0] : nameError) ||
+            (Array.isArray(slugError) ? slugError[0] : slugError) ||
+            "Failed to save provider"
+        );
+      }
 
       const savedProvider = result?.data || null;
       if (savedProvider?.id) {
@@ -219,6 +236,7 @@ export default function AdminProvidersPage() {
         slug: "",
         logo_url: "",
         page_title: "",
+        description: "",
         content: "",
         faqs: [],
         meta_title: "",
@@ -231,7 +249,9 @@ export default function AdminProvidersPage() {
       fetchProviders();
     } catch (error) {
       console.error("Error saving provider:", error);
-      setMessage("❌ Error saving provider");
+      setMessage(
+        `❌ ${error instanceof Error ? error.message : "Error saving provider"}`
+      );
     }
   };
 
@@ -243,6 +263,7 @@ export default function AdminProvidersPage() {
       slug: provider.slug || "",
       logo_url: provider.logo_url || "",
       page_title: provider.page_title || "",
+      description: clampProviderDescription(provider.description || ""),
       content: normalizeContentForEditor(provider.content || ""),
       faqs: Array.isArray(provider.faqs) ? provider.faqs : [],
       meta_title: provider.meta_title || "",
@@ -314,6 +335,7 @@ export default function AdminProvidersPage() {
                     slug: "",
                     logo_url: "",
                     page_title: "",
+                    description: "",
                     content: "",
                     faqs: [],
                     meta_title: "",
@@ -341,10 +363,9 @@ export default function AdminProvidersPage() {
                       value={formData.name}
                       onChange={(e) => {
                         const name = e.target.value;
-                        setFormData({ 
-                          ...formData, 
-                          name,
-                          slug: !editing ? name.toLowerCase().replace(/[^a-z0-9]+/g, '-') : formData.slug
+                        setFormData({
+                          ...formData,
+                          name
                         });
                       }}
                       placeholder="Microsoft, AWS, Google, etc."
@@ -387,6 +408,25 @@ export default function AdminProvidersPage() {
                     onChange={(e) => setFormData({ ...formData, page_title: e.target.value })}
                     placeholder="Provider detail page title..."
                   />
+                </div>
+                <div>
+                  <Label htmlFor="description">Description</Label>
+                  <Textarea
+                    id="description"
+                    value={formData.description}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        description: clampProviderDescription(e.target.value),
+                      })
+                    }
+                    maxLength={PROVIDER_DESCRIPTION_LIMIT}
+                    placeholder="Short description shown below the page title on the public provider page..."
+                    rows={3}
+                  />
+                  <p className="text-xs text-[#0C1A35]/50 mt-1">
+                    Displayed as hero text under the provider page heading. ({(formData.description || "").length}/{PROVIDER_DESCRIPTION_LIMIT} characters)
+                  </p>
                 </div>
                 <div>
                   <Label>Content</Label>

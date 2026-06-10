@@ -283,6 +283,9 @@ import { Badge } from "@/components/ui/badge";
 import { ArrowRight, Award, ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { createSlug, getExamUrl } from "@/lib/utils";
+import AutoText from "@/components/i18n/AutoText";
+import CourseTitleText from "@/components/i18n/CourseTitleText";
+import ProviderNameText from "@/components/i18n/ProviderNameText";
 
 export default function FeaturedExamsClient({
   courses,
@@ -304,16 +307,27 @@ export default function FeaturedExamsClient({
     return `/providers/${canonicalSlug || exam?.provider_slug || createSlug(exam?.provider || "")}`;
   };
 
+  const heading = sectionSettings?.heading || "";
+  const subtitle = sectionSettings?.subtitle || "";
+
   return (
     <div className="container mx-auto px-4">
 
-      <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-center mb-3 md:mb-4 text-[#0C1A35] px-2">
-        {sectionSettings.heading || "Featured Exams"}
+      <h2
+        className="text-2xl sm:text-3xl md:text-4xl font-bold text-center mb-3 md:mb-4 text-[#0C1A35] px-2"
+        data-i18n="cms.featured.heading"
+        data-i18n-fallback={heading}
+      >
+        {heading}
       </h2>
 
-      {sectionSettings.subtitle && (
-        <p className="text-center text-[#0C1A35]/70 text-sm sm:text-base md:text-lg mb-8 md:mb-12 max-w-2xl mx-auto px-2">
-          {sectionSettings.subtitle}
+      {subtitle && (
+        <p
+          className="text-center text-[#0C1A35]/70 text-sm sm:text-base md:text-lg mb-8 md:mb-12 max-w-2xl mx-auto px-2"
+          data-i18n="cms.featured.subtitle"
+          data-i18n-fallback={subtitle}
+        >
+          {subtitle}
         </p>
       )}
 
@@ -372,7 +386,7 @@ export default function FeaturedExamsClient({
 
                       {exam.badge && (
                         <Badge className="bg-[#1A73E8]/10 text-[#1A73E8] text-xs">
-                          {exam.badge}
+                          <AutoText text={exam.badge} />
                         </Badge>
                       )}
                     </div>
@@ -384,7 +398,7 @@ export default function FeaturedExamsClient({
                           className="hover:text-[#1A73E8] transition-colors"
                           aria-label={`View ${exam.provider || "provider"} page`}
                         >
-                          {exam.provider || "Unknown Provider"}
+                          <ProviderNameText name={exam.provider} />
                         </Link>
                       </p>
 
@@ -394,7 +408,7 @@ export default function FeaturedExamsClient({
                           className="hover:text-[#1A73E8] transition-colors"
                           aria-label={`Open ${exam.title || "exam"} page`}
                         >
-                          {exam.title || "Untitled Exam"}
+                          <CourseTitleText course={exam} />
                         </Link>
                       </h3>
 
@@ -406,12 +420,24 @@ export default function FeaturedExamsClient({
                       <p className="text-sm text-[#0C1A35]/60">
                         {(exam.practice_tests_list?.length ||
                           exam.practice_exams ||
-                          0)} Practice Exams ·{" "}
+                          0)}{" "}
+                        <span
+                          data-i18n="home.featured.practice_exams"
+                          data-i18n-fallback="Practice Exams"
+                        >
+                          Practice Exams
+                        </span>{" "}
+                        ·{" "}
                         {exam.practice_tests_list?.reduce(
-                          (s, t) => s + (parseInt(t.questions) || 0),
+                          (s, item) => s + (parseInt(item.questions) || 0),
                           0
                         ) || exam.questions || 0}{" "}
-                        Questions
+                        <span
+                          data-i18n="home.featured.questions"
+                          data-i18n-fallback="Questions"
+                        >
+                          Questions
+                        </span>
                       </p>
 
                       {(exam.offer_price > 0 || exam.actual_price > 0) && (
@@ -434,7 +460,12 @@ export default function FeaturedExamsClient({
                         asChild
                       >
                         <Link href={getExamUrl(exam)}>
-                          Start Practicing
+                          <span
+                            data-i18n="home.featured.start_practicing"
+                            data-i18n-fallback="Start Practicing"
+                          >
+                            Start Practicing
+                          </span>
                           <ArrowRight className="ml-2 w-4 h-4" />
                         </Link>
                       </Button>

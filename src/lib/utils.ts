@@ -1,5 +1,6 @@
 import { clsx } from "clsx";
-import { twMerge } from "tailwind-merge"
+import { twMerge } from "tailwind-merge";
+import { getExamLandingPath } from "@/utils/practiceTestRouting";
 
 export function cn(...inputs) {
   return twMerge(clsx(inputs));
@@ -19,8 +20,13 @@ export function createSlug(text) {
 }
 
 export function getExamUrl(exam) {
-  // Generate URL in format: /exams/[provider-slug]/[code-slug]
   if (!exam) return "#";
+
+  const landingPath = getExamLandingPath(exam);
+  if (landingPath) {
+    return landingPath;
+  }
+
   if (exam.slug) {
     return `/${exam.slug}`;
   }

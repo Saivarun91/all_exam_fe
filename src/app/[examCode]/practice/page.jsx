@@ -1,21 +1,20 @@
-import { notFound } from "next/navigation";
-import Link from "next/link";
-
+import { notFound, redirect } from "next/navigation";
 import PracticeTestJsonLd from "@/components/PracticeTestJsonLd";
 import ReviewsJsonLd from "@/components/ReviewsJsonLd";
 import RatingJsonLd from "@/components/RatingJsonLd";
 import BreadcrumbJsonLd from "@/components/BreadcrumbJsonLd";
 
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
-
 import PracticePageClient from "@/app/exams/[provider]/[examCode]/practice/PracticePageClient";
+import PracticeTopicsSection from "@/app/exams/[provider]/[examCode]/practice/PracticeTopicsSection";
+import PracticePageBreadcrumbs, {
+  PRACTICE_PAGE_CONTAINER,
+} from "@/app/exams/[provider]/[examCode]/practice/PracticePageBreadcrumbs";
+import { parseExamTopics } from "@/lib/parseExamTopics";
+import {
+  getExamPracticePath,
+  probeExamLookupCandidates,
+  resolveExamPublicPathBase,
+} from "@/utils/practiceTestRouting";
 
 export const dynamic = "force-dynamic";
 
@@ -41,7 +40,9 @@ function toSlug(value = "") {
 
 async function getExamByCode(examCode) {
   try {
-    const res = await fetch(`${API_BASE}/api/courses/exams/${examCode}/`, { cache: "no-store" });
+    const res = await fetch(`${API_BASE}/api/courses/exams/${examCode}/`, {
+      cache: "no-store",
+    });
     if (!res.ok) return null;
     return await res.json();
   } catch (error) {
@@ -49,20 +50,29 @@ async function getExamByCode(examCode) {
   }
 }
 
+async function resolveExamFromPathSegment(pathSegment) {
+  for (const candidate of probeExamLookupCandidates(pathSegment)) {
+    const exam = await getExamByCode(candidate);
+    if (exam) return exam;
+  }
+  return null;
+}
+
 export async function generateMetadata({ params }) {
   const { examCode } = await params;
   const normalizedExamCode = toSlug(examCode);
-  const exam = await getExamByCode(normalizedExamCode);
+  const exam = await resolveExamFromPathSegment(normalizedExamCode);
 
   if (!exam) {
     return { title: "Practice Tests | AllExamQuestions" };
   }
 
+  const practicePath = getExamPracticePath(exam);
   const pageTitle = exam.meta_title
     ? `${exam.meta_title} | All Exam Questions`
     : exam.title || `${normalizedExamCode} Certification Exam`;
   const pageDescription = exam.meta_description || `Practice tests for ${exam.title}.`;
-  const pageUrl = `https://allexamquestions.com/${normalizedExamCode}/practice`;
+  const pageUrl = `https://allexamquestions.com${practicePath}`;
 
   return {
     title: pageTitle,
@@ -89,10 +99,16 @@ export async function generateMetadata({ params }) {
 export default async function CleanPracticePage({ params }) {
   const { examCode } = await params;
   const normalizedExamCode = toSlug(examCode);
-  const examData = await getExamByCode(normalizedExamCode);
+  const examData = await resolveExamFromPathSegment(normalizedExamCode);
 
   if (!examData) return notFound();
 
+  const canonicalPracticePath = getExamPracticePath(examData);
+  if (canonicalPracticePath && canonicalPracticePath !== `/${normalizedExamCode}/practice`) {
+    redirect(canonicalPracticePath);
+  }
+
+  const publicPathBase = resolveExamPublicPathBase(examData);
   const provider = toSlug(examData.provider || "");
 
   const practiceTests = Array.isArray(examData.practice_tests_list)
@@ -101,25 +117,8 @@ export default async function CleanPracticePage({ params }) {
     ? examData.practice_tests
     : [];
 
-  const topics = Array.isArray(examData.topics)
-    ? examData.topics.map((t) => {
-        const raw =
-          t.percentage ??
-          t.weightage ??
-          t.percent ??
-          t.topic_weightage ??
-          t.weightage_percentage ??
-          t.weight ??
-          0;
-        const cleanValue = typeof raw === "string" ? parseFloat(raw.replace("%", "").trim()) : raw;
-        const expl = t.explanation ?? t.description ?? "";
-        return {
-          name: t.name || "Topic",
-          percentage: isNaN(cleanValue) ? 0 : cleanValue,
-          explanation: typeof expl === "string" ? expl.trim() : "",
-        };
-      })
-    : [];
+  const topics = parseExamTopics(examData.topics);
+  const topicsHeading = examData.topics_heading || "";
 
   const faqs = Array.isArray(examData.faqs) ? examData.faqs : [];
   const testimonials = Array.isArray(examData.testimonials) ? examData.testimonials : [];
@@ -158,11 +157,11 @@ export default async function CleanPracticePage({ params }) {
     { name: "Home", url: "/" },
     { name: "Exams", url: "/exams" },
     { name: exam.title || exam.code, url: `/exams/${provider}/${normalizedExamCode}` },
-    { name: "Practice Tests", url: `/${normalizedExamCode}/practice` },
+    { name: "Practice Tests", url: canonicalPracticePath || `/${publicPathBase}/practice` },
   ];
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-[#F5F8FC]">
       <PracticeTestJsonLd exam={exam} practiceTests={practiceTests} />
       {exam.rating && (
         <RatingJsonLd
@@ -176,63 +175,44 @@ export default async function CleanPracticePage({ params }) {
       {testimonials.length > 0 && <ReviewsJsonLd testimonials={testimonials} itemName={exam.title} />}
       <BreadcrumbJsonLd items={breadcrumbItems} />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-3 lg:px-1 py-4">
-        {/* Visible Breadcrumb Navigation */}
-        <Breadcrumb className="mb-6">
-          <BreadcrumbList>
-            {breadcrumbItems.map((item, idx) => {
-              const isLast = idx === breadcrumbItems.length - 1;
+      <div className={`${PRACTICE_PAGE_CONTAINER} py-6 pb-12`}>
+        <PracticePageBreadcrumbs items={breadcrumbItems} />
 
-              return (
-                <BreadcrumbItem key={`${item.name}-${idx}`}>
-                  {isLast ? (
-                    <BreadcrumbPage className="text-[#0C1A35]">{item.name}</BreadcrumbPage>
-                  ) : (
-                    <>
-                      <BreadcrumbLink asChild>
-                        <Link
-                          href={item.url}
-                          className="text-[#0C1A35] hover:text-[#1A73E8]"
-                        >
-                          {item.name}
-                        </Link>
-                      </BreadcrumbLink>
-                      <BreadcrumbSeparator />
-                    </>
-                  )}
-                </BreadcrumbItem>
-              );
-            })}
-          </BreadcrumbList>
-        </Breadcrumb>
-
-        <div className="flex flex-wrap gap-2 mb-4">
-          <span className="badge bg-[#1A73E8] text-white border-0">{exam.code}</span>
-          <span className="badge bg-[#1A73E8]/10 text-[#1A73E8] border-0">{exam.provider}</span>
-          {exam.category.map((cat, idx) => (
-            <span key={idx} className="badge bg-[#1A73E8]/10 text-[#1A73E8] border-0">
-              {cat}
+        <header className="mb-8">
+          <div className="flex flex-wrap gap-2 mb-4">
+            <span className="inline-flex items-center rounded-full bg-[#1A73E8] px-3 py-1 text-xs font-semibold text-white">
+              {exam.code}
             </span>
-          ))}
-          <span className="badge bg-green-100 text-green-700 border-0">{exam.difficulty}</span>
-        </div>
-        <h1 className="text-4xl font-bold text-[#0C1A35] mb-4">{exam.title}</h1>
-      </div>
+            <span className="inline-flex items-center rounded-full bg-[#1A73E8]/10 px-3 py-1 text-xs font-medium text-[#1A73E8]">
+              {exam.provider}
+            </span>
+            {exam.category.map((cat, idx) => (
+              <span
+                key={idx}
+                className="inline-flex items-center rounded-full bg-[#1A73E8]/10 px-3 py-1 text-xs font-medium text-[#1A73E8]"
+              >
+                {cat}
+              </span>
+            ))}
+            <span className="inline-flex items-center rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-700">
+              {exam.difficulty}
+            </span>
+          </div>
+          <h1 className="text-3xl sm:text-4xl font-bold text-[#0C1A35] leading-tight">
+            {exam.title}
+          </h1>
+        </header>
 
       <PracticePageClient
-        exam={exam}
         practiceTests={practiceTests}
-        topics={topics}
-        faqs={faqs}
-        testimonials={testimonials}
         provider={provider}
-        examCode={normalizedExamCode}
-        breadcrumbItems={breadcrumbItems}
-        practicePageSection1Heading={examData.practice_page_section_1_heading || ""}
-        practicePageSection1Content={examData.practice_page_section_1_content || ""}
-        practicePageSection2Heading={examData.practice_page_section_2_heading || ""}
-        practicePageSection2Content={examData.practice_page_section_2_content || ""}
-      />
+        examCode={examData.code || normalizedExamCode}
+        examTitle={exam.title}
+        examSlug={examData.slug || publicPathBase}
+      >
+        <PracticeTopicsSection topics={topics} topicsHeading={topicsHeading} />
+      </PracticePageClient>
+      </div>
     </div>
   );
 }

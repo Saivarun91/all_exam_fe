@@ -1,3 +1,5 @@
+import TipTapContent from "@/components/editor/TipTapContent";
+
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000";
 
@@ -34,7 +36,11 @@ export default async function SeoIntroSection() {
 
         {/* Heading */}
         <div className="text-center mb-10">
-          <h2 className="text-3xl md:text-4xl font-bold text-gray-900 leading-tight">
+          <h2
+            className="text-3xl md:text-4xl font-bold text-gray-900 leading-tight"
+            data-i18n="cms.seo.heading"
+            data-i18n-fallback={seoIntro.heading}
+          >
             {seoIntro.heading}
           </h2>
 
@@ -44,9 +50,12 @@ export default async function SeoIntroSection() {
         {/* Content Card — same HTML as admin (tables, lists, not only </p>-split text) */}
         {hasHtmlBody ? (
           <div className="bg-white border border-gray-100 shadow-sm rounded-xl p-8 md:p-10">
-            <div
-              className="tiptap-editor-content text-gray-700 text-lg leading-relaxed max-w-none"
-              dangerouslySetInnerHTML={{ __html: rawContent }}
+            <TipTapContent
+              content={rawContent}
+              className="text-gray-700 text-lg leading-relaxed max-w-none"
+              data-i18n-html="cms.seo.content"
+              data-i18n-fallback={rawContent}
+              suppressHydrationWarning
             />
           </div>
         ) : null}

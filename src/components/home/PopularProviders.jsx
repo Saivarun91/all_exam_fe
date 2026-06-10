@@ -72,12 +72,20 @@ export default async function PopularProviders() {
 
       <div className="container mx-auto px-4">
 
-        <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-center mb-3 md:mb-4 text-[#0C1A35] px-2">
+        <h2
+          className="text-2xl sm:text-3xl md:text-4xl font-bold text-center mb-3 md:mb-4 text-[#0C1A35] px-2"
+          data-i18n="home.providers.heading"
+          data-i18n-fallback={sectionSettings.heading || ""}
+        >
           {sectionSettings.heading || "Popular Providers"}
         </h2>
 
         {sectionSettings.subtitle && (
-          <p className="text-center text-[#0C1A35]/70 mb-8 md:mb-12 text-sm sm:text-base md:text-lg px-2">
+          <p
+            className="text-center text-[#0C1A35]/70 mb-8 md:mb-12 text-sm sm:text-base md:text-lg px-2"
+            data-i18n="home.providers.subtitle"
+            data-i18n-fallback={sectionSettings.subtitle}
+          >
             {sectionSettings.subtitle}
           </p>
         )}
@@ -88,7 +96,11 @@ export default async function PopularProviders() {
           logoSize={settings.providers_logo_size || 80}
         />
 
-        <p className="text-left text-[#0C1A35]/60 text-xs md:text-sm mt-6 md:mt-8 px-2">
+        <p
+          className="text-left text-[#0C1A35]/60 text-xs md:text-sm mt-6 md:mt-8 px-2"
+          data-i18n="home.providers.disclaimer"
+          data-i18n-fallback="Logos and trademarks are the property of their respective owners. AllExamQuestions is not affiliated with or endorsed by these organizations."
+        >
           Logos and trademarks are the property of their respective owners.
           AllExamQuestions is not affiliated with or endorsed by these organizations.
         </p>

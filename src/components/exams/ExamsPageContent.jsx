@@ -298,7 +298,7 @@
 //       <div className="min-h-screen bg-white flex items-center justify-center">
 //         <div className="text-center">
 //           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#1A73E8] mx-auto mb-4"></div>
-//           <p className="text-[#0C1A35]/70">Loading exams...</p>
+//           <p className="text-[#0C1A35]/70">{t("common.loading_exams")}</p>
 //         </div>
 //       </div>
 //     );
@@ -346,7 +346,7 @@
 //               <div className="flex-1 relative">
 //                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#1A73E8] z-10" />
 //                 <Input
-//                   placeholder="Search by exam name, code, or keyword..."
+//                   placeholder={t("exams.page.search_placeholder")}
 //                   className="pl-12 pr-4 bg-gray-100 border-0 h-12 text-sm text-gray-700 placeholder:text-gray-400 rounded-lg min-h-12"
 //                   value={searchKeyword}
 //                   onChange={(e) => setSearchKeyword(e.target.value)}
@@ -359,7 +359,7 @@
 //                 onClick={handleSearch}
 //                 className="bg-[#1A73E8] text-white hover:bg-[#1557B0] w-full md:w-auto px-8 h-12 text-sm font-medium rounded-lg shadow-lg transition-all min-h-12"
 //               >
-//                 Search
+//                 {t("home.search.button")}
 //               </Button>
 //             </div>
 //           </div>
@@ -415,7 +415,7 @@
 //             {/* LEFT FILTERS */}
 //             <div className="lg:col-span-1">
 //               <Card className="p-6 bg-white border border-gray-200 shadow-sm">
-//                 <h3 className="text-lg font-semibold text-[#0C1A35] mb-6">Filters</h3>
+//                 <h3 className="text-lg font-semibold text-[#0C1A35] mb-6">{t("common.filters")}</h3>
 
 //                 {/* Providers - Using Checkboxes */}
 //                 <div className="mb-6">
@@ -469,7 +469,7 @@
 //                       ))
 //                     ) : (
 //                       <div className="text-sm text-gray-500 py-2">
-//                         No categories available. Admin can add categories from the admin panel.
+//                         {t("categories.admin_empty_hint")}
 //                       </div>
 //                     )}
 //                   </div>
@@ -492,7 +492,7 @@
 
 //                 {/* Minimum Questions */}
 //                 <div>
-//                   <Label className="text-[#0C1A35] font-medium mb-3 block text-sm">Minimum Questions</Label>
+//                   <Label className="text-[#0C1A35] font-medium mb-3 block text-sm">{t("common.minimum_questions")}</Label>
 //                   <Input
 //                     type="number"
 //                     value={minQuestions}
@@ -559,7 +559,7 @@
 //                       asChild
 //                     >
 //                       <Link href={getExamUrl(exam)}>
-//                         Start Practicing
+//                         {t("home.featured.start_practicing")}
 //                         <ArrowRight className="ml-2 w-4 h-4" />
 //                       </Link>
 //                     </Button>
@@ -583,7 +583,7 @@
 //                     }}
 //                     className="bg-[#1A73E8] text-white hover:bg-[#1557B0] rounded-lg"
 //                   >
-//                     Reset Filters
+//                     {t("common.reset_filters")}
 //                   </Button>
 //                 </Card>
 //               )}
@@ -646,8 +646,71 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { createSlug, getExamUrl } from "@/lib/utils";
+import ListPagination, {
+  DEFAULT_LIST_PAGE_SIZE,
+  getListPaginationSlice,
+} from "@/components/common/ListPagination";
+import { useLanguage } from "@/contexts/LanguageContext";
+import AutoText from "@/components/i18n/AutoText";
+import TipTapContent from "@/components/editor/TipTapContent";
+import CourseTitleText from "@/components/i18n/CourseTitleText";
+import ProviderNameText from "@/components/i18n/ProviderNameText";
+import { filterPublicExamListings } from "@/lib/examListingFilters";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
+
+function getTrustBarGridClass(count) {
+  if (count <= 1) return "grid-cols-1";
+  if (count === 2) return "grid-cols-2";
+  if (count === 3) return "grid-cols-1 sm:grid-cols-3";
+  return "grid-cols-2 lg:grid-cols-4";
+}
+
+/** Trust bar: distinct color theme per item (cycles if more than 4) */
+const TRUST_BAR_ACCENTS = [
+  {
+    cell: "bg-gradient-to-br from-[#EFF6FF] via-[#F5F9FF] to-[#FAFCFF]",
+    iconWrap: "bg-gradient-to-br from-[#1A73E8] to-[#1557B0] shadow-lg shadow-blue-500/30",
+    iconColor: "text-white",
+    label: "text-[#1557B0]",
+  },
+  {
+    cell: "bg-gradient-to-br from-[#EEF2FF] via-[#F5F3FF] to-[#FAFAFF]",
+    iconWrap: "bg-gradient-to-br from-[#4F46E5] to-[#6366F1] shadow-lg shadow-indigo-500/30",
+    iconColor: "text-white",
+    label: "text-[#4338CA]",
+  },
+  {
+    cell: "bg-gradient-to-br from-[#ECFDF5] via-[#F0FDF9] to-[#F8FFFE]",
+    iconWrap: "bg-gradient-to-br from-[#059669] to-[#10B981] shadow-lg shadow-emerald-500/30",
+    iconColor: "text-white",
+    label: "text-[#047857]",
+  },
+  {
+    cell: "bg-gradient-to-br from-[#F5F3FF] via-[#FAF5FF] to-[#FDFCFF]",
+    iconWrap: "bg-gradient-to-br from-[#7C3AED] to-[#8B5CF6] shadow-lg shadow-violet-500/30",
+    iconColor: "text-white",
+    label: "text-[#6D28D9]",
+  },
+  {
+    cell: "bg-gradient-to-br from-[#F0F9FF] via-[#F8FCFF] to-white",
+    iconWrap: "bg-gradient-to-br from-[#0284C7] to-[#0EA5E9] shadow-lg shadow-sky-500/30",
+    iconColor: "text-white",
+    label: "text-[#0369A1]",
+  },
+  {
+    cell: "bg-gradient-to-br from-[#FFF7ED] via-[#FFFBEB] to-white",
+    iconWrap: "bg-gradient-to-br from-[#C2410C] to-[#EA580C] shadow-lg shadow-orange-500/25",
+    iconColor: "text-white",
+    label: "text-[#C2410C]",
+  },
+];
+
+const PROVIDER_BADGE_CLASS =
+  "border border-[#93B8E8] bg-gradient-to-r from-[#E8F1FD] to-[#F4F9FF] text-[#1557B0] text-xs font-semibold shadow-sm hover:from-[#D6E8FA] hover:to-[#E8F1FD] hover:text-[#1A73E8] hover:border-[#1A73E8]/40 transition-all";
+
+const CATEGORY_BADGE_CLASS =
+  "border border-[#B8C8E0] bg-gradient-to-r from-[#EEF2F9] to-[#F8FAFD] text-[#0C1A35] text-xs font-semibold shadow-sm hover:from-[#E2E9F5] hover:to-[#EEF2F9] hover:text-[#1A73E8] hover:border-[#1A73E8]/30 transition-all";
 
 export default function ExamsPageContent({
   initialProvider = [],
@@ -664,6 +727,7 @@ export default function ExamsPageContent({
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { t, tf } = useLanguage();
   
   const [searchKeyword, setSearchKeyword] = useState(initialKeyword);
   const [selectedProviders, setSelectedProviders] = useState(initialProvider);
@@ -672,11 +736,14 @@ export default function ExamsPageContent({
   const [minQuestions, setMinQuestions] = useState(0);
   const [providers, setProviders] = useState(initialProvidersData);
   const [categories, setCategories] = useState(initialCategoriesData);
-  const [allExams, setAllExams] = useState(initialExamsData);
+  const [allExams, setAllExams] = useState(
+    filterPublicExamListings(initialExamsData)
+  );
   const [trustBarItems, setTrustBarItems] = useState(initialTrustBarData);
   const [aboutSection, setAboutSection] = useState(initialAboutData);
   const [pageHeading] = useState(initialPageHeading);
   const [loading, setLoading] = useState(false);
+  const [listPage, setListPage] = useState(1);
   const isInitializing = useRef(true);
   const hasInitialized = useRef(false);
 
@@ -817,6 +884,25 @@ export default function ExamsPageContent({
       handleSearch();
     }
   };
+
+  const pageLastUpdatedLabel = useMemo(() => {
+    const parse = (v) => {
+      if (!v) return null;
+      const d = new Date(v);
+      return Number.isNaN(d.getTime()) ? null : d;
+    };
+    const bestDate = (allExams || []).reduce(
+      (best, exam) => {
+        const d = parse(exam?.updated_at || exam?.updatedAt || exam?.updated);
+        if (!d) return best;
+        return !best || d > best ? d : best;
+      },
+      null
+    );
+    if (!bestDate) return null;
+    const month = bestDate.toLocaleString("en-US", { month: "short" });
+    // return `Last updated: ${month}, ${bestDate.getDate()} ${bestDate.getFullYear()}`;
+  }, [allExams]);
 
   /** Normalize provider display names so EC-Council (ASCII hyphen) matches EC–Council (unicode dash) for filtering. */
   const normalizeProviderNameKey = (name) => {
@@ -1054,12 +1140,27 @@ export default function ExamsPageContent({
 
   const updatedThisWeek = filteredExams.length;
 
+  const examPagination = useMemo(
+    () => getListPaginationSlice(filteredExams, listPage, DEFAULT_LIST_PAGE_SIZE),
+    [filteredExams, listPage]
+  );
+
+  useEffect(() => {
+    setListPage(1);
+  }, [searchKeyword, selectedProviders, selectedCategories, minQuestions, selectedTimeframe]);
+
+  useEffect(() => {
+    if (listPage > examPagination.totalPages) {
+      setListPage(examPagination.totalPages);
+    }
+  }, [examPagination.totalPages, listPage]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#1A73E8] mx-auto mb-4"></div>
-          <p className="text-[#0C1A35]/70">Loading exams...</p>
+          <p className="text-[#0C1A35]/70">{t("common.loading_exams")}</p>
         </div>
       </div>
     );
@@ -1072,20 +1173,19 @@ export default function ExamsPageContent({
           <div className="container mx-auto max-w-7xl">
             <div className="mb-8 md:mb-10 rounded-2xl border border-[#DDE7FF] bg-white p-6 md:p-8 shadow-sm">
               <h1 className="text-3xl md:text-4xl font-bold text-[#0C1A35] mb-3">
-                {(pageHeading && String(pageHeading).trim()) || "All Popular Exams"}
+                {(pageHeading && String(pageHeading).trim()) || t("common.all_popular_exams")}
               </h1>
               <p className="text-sm md:text-base text-[#0C1A35]/70 max-w-3xl">
-                Explore categories and exams quickly. Click any link below to open the
-                relevant page.
+                {t("common.explore_links_intro")}
               </p>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <Card className="border border-[#DDE7FF] bg-white shadow-sm overflow-hidden">
                 <div className="px-5 md:px-6 py-4 border-b border-[#E8EEFF] bg-[#F8FBFF]">
-                  <h2 className="text-xl font-semibold text-[#0C1A35]">Categories</h2>
+                  <h2 className="text-xl font-semibold text-[#0C1A35]">{t("common.categories")}</h2>
                   <p className="text-xs text-[#0C1A35]/60 mt-1">
-                    {categoryLinkItems.length} available
+                    {tf("common.available", { count: categoryLinkItems.length })}
                   </p>
                 </div>
                 <div className="p-5 md:p-6">
@@ -1102,16 +1202,16 @@ export default function ExamsPageContent({
                     ))}
                   </div>
                 ) : (
-                  <p className="text-sm text-[#0C1A35]/60">No categories available.</p>
+                  <p className="text-sm text-[#0C1A35]/60">{t("common.no_categories")}</p>
                 )}
                 </div>
               </Card>
 
               <Card className="border border-[#DDE7FF] bg-white shadow-sm overflow-hidden">
                 <div className="px-5 md:px-6 py-4 border-b border-[#E8EEFF] bg-[#F8FBFF]">
-                  <h2 className="text-xl font-semibold text-[#0C1A35]">Popular Exams</h2>
+                  <h2 className="text-xl font-semibold text-[#0C1A35]">{t("common.popular_exams")}</h2>
                   <p className="text-xs text-[#0C1A35]/60 mt-1">
-                    {examLinkItems.length} available
+                    {tf("common.available", { count: examLinkItems.length })}
                   </p>
                 </div>
                 <div className="p-5 md:p-6">
@@ -1128,7 +1228,7 @@ export default function ExamsPageContent({
                     ))}
                   </div>
                 ) : (
-                  <p className="text-sm text-[#0C1A35]/60">No exams available.</p>
+                  <p className="text-sm text-[#0C1A35]/60">{t("common.no_exams")}</p>
                 )}
                 </div>
               </Card>
@@ -1149,8 +1249,13 @@ export default function ExamsPageContent({
         
         <div className="container mx-auto px-4 max-w-5xl relative z-10">
           <h1 className="text-3xl md:text-4xl font-bold text-white text-center mb-6">
-            {(pageHeading && String(pageHeading).trim()) || "All Popular Exams"}
+            {(pageHeading && String(pageHeading).trim()) || t("common.all_popular_exams")}
           </h1>
+          {pageLastUpdatedLabel ? (
+            <p className="-mt-3 mb-6 text-center text-sm text-white/80">
+              {pageLastUpdatedLabel}
+            </p>
+          ) : null}
           {/* Semi-transparent dark blue container with rounded corners and shadow */}
           <div className="bg-[#0C1A35]/80 backdrop-blur-sm rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] border border-white/10 p-5">
             <div className="flex flex-col md:flex-row gap-3 items-stretch">
@@ -1168,13 +1273,13 @@ export default function ExamsPageContent({
                 }}
               >
                 <SelectTrigger className="w-full md:w-[200px] bg-gray-100 border-0 h-12 text-sm text-gray-700 font-medium rounded-lg min-h-12">
-                  <SelectValue placeholder="All Providers" />
+                  <SelectValue placeholder={t("common.all_providers")} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Providers</SelectItem>
+                  <SelectItem value="all">{t("common.all_providers")}</SelectItem>
                   {providers.map((provider) => (
                     <SelectItem key={provider.id} value={provider.slug}>
-                      {provider.name}
+                      <ProviderNameText provider={provider} />
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -1184,7 +1289,7 @@ export default function ExamsPageContent({
               <div className="flex-1 relative">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#1A73E8] z-10" />
                 <Input
-                  placeholder="Search by exam name, code, or keyword..."
+                  placeholder={t("exams.page.search_placeholder")}
                   className="pl-12 pr-4 bg-gray-100 border-0 h-12 text-sm text-gray-700 placeholder:text-gray-400 rounded-lg min-h-12"
                   value={searchKeyword}
                   onChange={(e) => setSearchKeyword(e.target.value)}
@@ -1197,7 +1302,7 @@ export default function ExamsPageContent({
                 onClick={handleSearch}
                 className="bg-[#1A73E8] text-white hover:bg-[#1557B0] w-full md:w-auto px-8 h-12 text-sm font-medium rounded-lg shadow-lg transition-all min-h-12"
               >
-                Search
+                {t("home.search.button")}
               </Button>
             </div>
           </div>
@@ -1205,7 +1310,7 @@ export default function ExamsPageContent({
       </section>
 
       {/* MAIN CONTENT */}
-      <section id="results-section" className="py-8 px-4 bg-white -mt-8">
+      <section id="results-section" className="py-8 px-4 bg-gradient-to-b from-[#F5F8FC] via-white to-white -mt-8">
         <div className="container mx-auto max-w-7xl">
           {showBrowseLinks && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
@@ -1226,7 +1331,7 @@ export default function ExamsPageContent({
                     ))}
                   </div>
                 ) : (
-                  <p className="text-sm text-[#0C1A35]/60">No categories available.</p>
+                  <p className="text-sm text-[#0C1A35]/60">{t("common.no_categories")}</p>
                 )}
               </Card>
 
@@ -1247,14 +1352,14 @@ export default function ExamsPageContent({
                     ))}
                   </div>
                 ) : (
-                  <p className="text-sm text-[#0C1A35]/60">No exams available.</p>
+                  <p className="text-sm text-[#0C1A35]/60">{t("common.no_exams")}</p>
                 )}
               </Card>
             </div>
           )}
 
           {/* Intro Section */}
-          <Card className="p-5 md:p-6 mb-6 border border-[#DDE7FF] bg-[#F8FBFF] shadow-sm">
+          <Card className="p-5 md:p-6 mb-6 border border-[#DDE7FF] bg-gradient-to-br from-[#F8FBFF] via-white to-[#F0F4FF] shadow-sm ring-1 ring-[#1A73E8]/5">
             {aboutSection?.heading ? (
               <div
                 className="text-[#0C1A35] mb-2"
@@ -1267,9 +1372,9 @@ export default function ExamsPageContent({
             )}
 
             {aboutSection?.content ? (
-              <div
-                className="text-sm md:text-base text-[#0C1A35]/75 leading-relaxed tiptap-editor-content"
-                dangerouslySetInnerHTML={{ __html: aboutSection.content }}
+              <TipTapContent
+                content={aboutSection.content}
+                className="text-sm md:text-base text-[#0C1A35]/75 leading-relaxed"
               />
             ) : (
               <p className="text-sm md:text-base text-[#0C1A35]/75 leading-relaxed">
@@ -1283,7 +1388,7 @@ export default function ExamsPageContent({
           {/* Results Header */}
           <div className="mb-6">
             <p className="text-3xl font-bold text-[#0C1A35] mb-2">
-              Showing {filteredExams.length} results for All Popular Exams
+              Showing {filteredExams.length} results 
             </p>
             {/* <div className="flex flex-wrap gap-4 text-sm text-[#0C1A35]/70"> */}
               {/* <span>{updatedThisWeek} exams updated this week</span> */}
@@ -1294,10 +1399,11 @@ export default function ExamsPageContent({
 
           {/* Trust Bar - Dynamic from Admin */}
           {trustBarItems.length > 0 && (
-            <Card className="p-4 mb-6 border border-gray-200 bg-white shadow-sm">
-              <div className={`grid grid-cols-2 md:grid-cols-${Math.min(trustBarItems.length, 4)} gap-4 text-center`}>
+            <Card className="mb-6 overflow-hidden rounded-2xl border border-[#E2E8F0] bg-white shadow-md">
+              <div
+                className={`grid ${getTrustBarGridClass(trustBarItems.length)}`}
+              >
                 {trustBarItems.map((item, index) => {
-                  // Map icon names to components
                   const IconComponent = {
                     CheckCircle2,
                     Clock,
@@ -1307,13 +1413,28 @@ export default function ExamsPageContent({
                     Star,
                     Sparkles,
                   }[item.icon] || CheckCircle2;
+                  const accent =
+                    TRUST_BAR_ACCENTS[index % TRUST_BAR_ACCENTS.length];
 
                   return (
-                    <div key={index} className="flex flex-col items-center gap-2">
-                      <IconComponent className="w-5 h-5 text-[#1A73E8]" />
+                    <div
+                      key={index}
+                      className={`flex flex-col items-center gap-3 px-4 py-7 text-center transition-colors ${accent.cell}`}
+                    >
+                      <div
+                        className={`flex h-[52px] w-[52px] items-center justify-center rounded-2xl ${accent.iconWrap}`}
+                      >
+                        <IconComponent className={`h-6 w-6 ${accent.iconColor}`} />
+                      </div>
                       <div>
-                        <div className="font-semibold text-[#0C1A35]">{item.label}</div>
-                        <div className="text-xs text-[#0C1A35]/60">{item.description}</div>
+                        <div className={`text-sm font-bold ${accent.label}`}>
+                          {item.label}
+                        </div>
+                        {item.description ? (
+                          <div className="mt-1 text-xs leading-relaxed text-[#0C1A35]/60">
+                            {item.description}
+                          </div>
+                        ) : null}
                       </div>
                     </div>
                   );
@@ -1325,8 +1446,9 @@ export default function ExamsPageContent({
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
             {/* LEFT FILTERS */}
             <div className="lg:col-span-1">
-              <Card className="p-6 bg-white border border-gray-200 shadow-sm">
-                <h3 className="text-lg font-semibold text-[#0C1A35] mb-6">Filters</h3>
+              <div className="sticky top-24">
+              <Card className="p-6 bg-gradient-to-b from-white to-[#F8FBFF] border border-[#DDE7FF] shadow-sm ring-1 ring-[#1A73E8]/5">
+                <h3 className="text-lg font-semibold text-[#0C1A35] mb-6">{t("common.filters")}</h3>
 
                 {/* Providers - Using Checkboxes */}
                 <div className="mb-6">
@@ -1345,7 +1467,7 @@ export default function ExamsPageContent({
                             htmlFor={`provider-${provider.slug}`} 
                             className="text-sm text-[#0C1A35] cursor-pointer font-normal"
                           >
-                            {provider.name}
+                            <ProviderNameText provider={provider} />
                           </Label>
                         </div>
                       ))
@@ -1380,7 +1502,7 @@ export default function ExamsPageContent({
                       ))
                     ) : (
                       <div className="text-sm text-gray-500 py-2">
-                        No categories available. Admin can add categories from the admin panel.
+                        {t("categories.admin_empty_hint")}
                       </div>
                     )}
                   </div>
@@ -1391,10 +1513,10 @@ export default function ExamsPageContent({
                   <Label className="text-[#0C1A35] font-medium mb-3 block text-sm">Updated</Label>
                   <Select value={selectedTimeframe} onValueChange={setSelectedTimeframe}>
                     <SelectTrigger className="bg-white border-gray-300 h-10 text-sm">
-                      <SelectValue placeholder="All time" />
+                      <SelectValue placeholder={t("common.all_time")} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All time</SelectItem>
+                      <SelectItem value="all">{t("common.all_time")}</SelectItem>
                       <SelectItem value="week">This week</SelectItem>
                       <SelectItem value="month">This month</SelectItem>
                     </SelectContent>
@@ -1403,7 +1525,7 @@ export default function ExamsPageContent({
 
                 {/* Minimum Questions */}
                 {/* <div>
-                  <Label className="text-[#0C1A35] font-medium mb-3 block text-sm">Minimum Questions</Label>
+                  <Label className="text-[#0C1A35] font-medium mb-3 block text-sm">{t("common.minimum_questions")}</Label>
                   <Input
                     type="number"
                     value={minQuestions}
@@ -1413,26 +1535,31 @@ export default function ExamsPageContent({
                   />
                 </div> */}
               </Card>
+              </div>
             </div>
 
             {/* EXAM GRID */}
             <div className="lg:col-span-3">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {filteredExams.map((exam) => (
+                {examPagination.items.map((exam) => (
                   <Card
                     key={exam.id}
-                    className="p-6 border border-gray-200 hover:shadow-lg hover:-translate-y-1 transition-all bg-white shadow-sm h-full flex flex-col"
+                    className="group relative overflow-hidden p-6 border border-[#DDE7FF] bg-white hover:shadow-xl hover:shadow-[#1A73E8]/10 hover:-translate-y-1 hover:border-[#1A73E8]/35 transition-all h-full flex flex-col ring-1 ring-transparent hover:ring-[#1A73E8]/10"
                   >
-                    <div className="flex gap-2 mb-3">
+                    <div
+                      className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[#1A73E8] via-[#4A90D9] to-[#1557B0] opacity-80"
+                      aria-hidden
+                    />
+                    <div className="flex flex-wrap gap-2 mb-3 pt-1">
                       <Link
                         href={getProviderPageUrl(exam)}
                         className="inline-flex"
                       >
                         <Badge
                           variant="secondary"
-                          className="bg-gray-100 text-[#0C1A35] border-0 text-xs font-medium hover:text-[#1A73E8] transition-colors"
+                          className={PROVIDER_BADGE_CLASS}
                         >
-                          {exam.provider}
+                          <AutoText text={exam.provider} />
                         </Badge>
                       </Link>
                       {exam.category && (
@@ -1442,9 +1569,9 @@ export default function ExamsPageContent({
                         >
                           <Badge
                             variant="secondary"
-                            className="bg-gray-100 text-[#0C1A35] border-0 text-xs font-medium hover:text-[#1A73E8] transition-colors"
+                            className={CATEGORY_BADGE_CLASS}
                           >
-                            {exam.category}
+                            <AutoText text={exam.category} />
                           </Badge>
                         </Link>
                       )}
@@ -1456,7 +1583,7 @@ export default function ExamsPageContent({
                         className="hover:text-[#1A73E8] transition-colors"
                         aria-label={`Open ${exam.title || exam.name || "exam"} details`}
                       >
-                        {exam.title || exam.name}
+                        <CourseTitleText course={exam} />
                       </Link>
                     </h3>
                     <p className="text-sm text-[#0C1A35]/60 mb-3">
@@ -1477,7 +1604,7 @@ export default function ExamsPageContent({
                       )}
                     </div>
 
-                    <p className="text-sm text-[#0C1A35]/70 mb-4">
+                    <p className="text-sm text-[#0C1A35]/70 mb-4 rounded-lg bg-[#F5F8FC] border border-[#DDE7FF]/60 px-3 py-2">
                       {(() => {
                         // Use actual count from practice_tests_list if available
                         if (exam.practice_tests_list && Array.isArray(exam.practice_tests_list) && exam.practice_tests_list.length > 0) {
@@ -1498,11 +1625,11 @@ export default function ExamsPageContent({
                     </p>
 
                     <Button
-                      className="w-full mt-auto bg-[#1A73E8] text-white hover:bg-[#1557B0] h-10 rounded-lg font-medium"
+                      className="w-full mt-auto bg-gradient-to-r from-[#1A73E8] to-[#1557B0] text-white hover:from-[#1557B0] hover:to-[#0C1A35] h-10 rounded-lg font-medium shadow-md shadow-[#1A73E8]/20"
                       asChild
                     >
                       <Link href={getExamUrl(exam)}>
-                        Start Practicing
+                        {t("home.featured.start_practicing")}
                         <ArrowRight className="ml-2 w-4 h-4" />
                       </Link>
                     </Button>
@@ -1510,11 +1637,21 @@ export default function ExamsPageContent({
                 ))}
               </div>
 
+              <ListPagination
+                currentPage={examPagination.page}
+                totalPages={examPagination.totalPages}
+                onPageChange={setListPage}
+                totalItems={examPagination.totalItems}
+                pageSize={DEFAULT_LIST_PAGE_SIZE}
+                itemLabelKey="pagination.exams"
+                scrollTargetId="results-section"
+              />
+
               {filteredExams.length === 0 && (
-                <Card className="p-10 text-center border border-gray-200 bg-white shadow-sm">
-                  <h3 className="text-xl font-semibold text-[#0C1A35] mb-2">No exams found</h3>
+                <Card className="p-10 text-center border border-[#DDE7FF] bg-gradient-to-br from-[#F8FBFF] to-white shadow-sm">
+                  <h3 className="text-xl font-semibold text-[#0C1A35] mb-2">{t("exams.page.no_exams_found")}</h3>
                   <p className="text-sm text-[#0C1A35]/70 mb-4">
-                    Try adjusting your filters or search criteria
+                    {t("common.try_adjusting_filters")}
                   </p>
                   <Button
                     onClick={() => {
@@ -1526,7 +1663,7 @@ export default function ExamsPageContent({
                     }}
                     className="bg-[#1A73E8] text-white hover:bg-[#1557B0] rounded-lg"
                   >
-                    Reset Filters
+                    {t("common.reset_filters")}
                   </Button>
                 </Card>
               )}
@@ -1543,9 +1680,9 @@ export default function ExamsPageContent({
                     __html: aboutSection.heading || "<h2 class=\"text-2xl font-bold\">About All Popular Exams Preparation</h2>"
                   }}
                 />
-                <div 
-                  className="space-y-4 text-[#0C1A35]/80 leading-relaxed tiptap-editor-content"
-                  dangerouslySetInnerHTML={{ __html: aboutSection.content }}
+                <TipTapContent
+                  content={aboutSection.content}
+                  className="space-y-4 text-[#0C1A35]/80 leading-relaxed"
                 />
               </Card>
             </section>

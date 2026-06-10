@@ -519,12 +519,20 @@ export default async function BlogSection() {
       <div className="container mx-auto px-4">
 
         {/* Heading */}
-        <h2 className="text-3xl md:text-4xl font-bold text-center mb-3 text-[#0C1A35]">
+        <h2
+          className="text-3xl md:text-4xl font-bold text-center mb-3 text-[#0C1A35]"
+          data-i18n="home.blog.heading"
+          data-i18n-fallback={sectionSettings.heading || ""}
+        >
           {sectionSettings.heading || "Latest Blog Posts"}
         </h2>
 
         {sectionSettings.subtitle && (
-          <p className="text-center text-[#0C1A35]/70 mb-12">
+          <p
+            className="text-center text-[#0C1A35]/70 mb-12"
+            data-i18n="home.blog.subtitle"
+            data-i18n-fallback={sectionSettings.subtitle || ""}
+          >
             {sectionSettings.subtitle}
           </p>
         )}
@@ -584,7 +592,12 @@ export default async function BlogSection() {
                     </p>
 
                     <div className="flex items-center text-[#1A73E8] font-semibold pt-4">
-                      Read More
+                      <span
+                        data-i18n="home.blog.read_more"
+                        data-i18n-fallback="Read More"
+                      >
+                        Read More
+                      </span>
                       <ArrowRight className="ml-2 w-4 h-4" />
                     </div>
 
