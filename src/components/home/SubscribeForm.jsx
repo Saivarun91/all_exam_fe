@@ -127,6 +127,9 @@ import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Mail } from "lucide-react";
+import { useLanguage } from "@/contexts/LanguageContext";
+import Trans from "@/components/i18n/Trans";
+import { REACT_I18N_ATTR } from "@/lib/domI18nUtils";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
@@ -134,6 +137,7 @@ const API_BASE_URL =
 const SUBSCRIBE_PLACEHOLDER = "Enter your email address";
 
 export default function SubscribeForm({ buttonText }) {
+  const { t, lt } = useLanguage();
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -182,10 +186,9 @@ export default function SubscribeForm({ buttonText }) {
           <Input
             id="footer-subscribe-email"
             type="email"
-            placeholder={SUBSCRIBE_PLACEHOLDER}
-            data-i18n-placeholder="home.subscribe.placeholder"
-            data-i18n-fallback={SUBSCRIBE_PLACEHOLDER}
+            placeholder={t("home.subscribe.placeholder")}
             autoComplete="email"
+            {...{ [REACT_I18N_ATTR]: "" }}
             aria-label="Email address for weekly exam updates"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -202,16 +205,10 @@ export default function SubscribeForm({ buttonText }) {
           disabled={loading}
         >
           {loading ? (
-            <span data-i18n="home.subscribe.loading" suppressHydrationWarning>
-              Subscribing...
-            </span>
+            <Trans i18nKey="home.subscribe.loading" suppressHydrationWarning />
           ) : (
-            <span
-              data-i18n="home.subscribe.button"
-              data-i18n-fallback={buttonText || ""}
-              suppressHydrationWarning
-            >
-              {buttonText || "Subscribe"}
+            <span {...{ [REACT_I18N_ATTR]: "" }} suppressHydrationWarning>
+              {lt("home.subscribe.button", buttonText || "Subscribe")}
             </span>
           )}
         </Button>
@@ -220,15 +217,13 @@ export default function SubscribeForm({ buttonText }) {
 
       {status === "success" && (
         <p className="text-sm text-green-400 mt-2">
-          <span data-i18n="home.subscribe.success">Successfully subscribed!</span> 🎉
+          <Trans i18nKey="home.subscribe.success" /> 🎉
         </p>
       )}
 
       {status === "error" && (
         <p className="text-sm text-red-400 mt-2">
-          <span data-i18n="home.subscribe.error">
-            Subscription failed. Please try again.
-          </span>
+          <Trans i18nKey="home.subscribe.error" />
         </p>
       )}
     </>

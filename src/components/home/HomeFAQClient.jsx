@@ -8,12 +8,14 @@ import {
 } from "@/components/ui/accordion";
 import { useHydrated } from "@/lib/useHydrated";
 import TipTapContent from "@/components/editor/TipTapContent";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { REACT_I18N_ATTR } from "@/lib/domI18nUtils";
 
 const DEFAULT_FAQ_HEADING = "Frequently Asked Questions";
 const DEFAULT_FAQ_SUBTITLE =
   "Clear answers to the most common questions our learners ask.";
 
-function FaqStaticList({ faqs }) {
+function FaqStaticList({ faqs, lt }) {
   return (
     <div className="space-y-4 w-full">
       {faqs.map((faq, index) => (
@@ -23,19 +25,17 @@ function FaqStaticList({ faqs }) {
         >
           <h3
             className="text-left font-semibold text-[#0C1A35] py-4"
-            data-i18n={`cms.faq.${faq.id}.question`}
-            data-i18n-fallback={faq.question}
+            {...{ [REACT_I18N_ATTR]: "" }}
             suppressHydrationWarning
           >
-            {faq.question}
+            {lt(`cms.faq.${faq.id}.question`, faq.question)}
           </h3>
           <p
             className="text-[#0C1A35]/80 pb-4"
-            data-i18n={`cms.faq.${faq.id}.answer`}
-            data-i18n-fallback={faq.answer}
+            {...{ [REACT_I18N_ATTR]: "" }}
             suppressHydrationWarning
           >
-            {faq.answer}
+            {lt(`cms.faq.${faq.id}.answer`, faq.answer)}
           </p>
         </div>
       ))}
@@ -43,7 +43,7 @@ function FaqStaticList({ faqs }) {
   );
 }
 
-function FaqAccordion({ faqs }) {
+function FaqAccordion({ faqs, lt }) {
   return (
     <Accordion type="single" collapsible className="space-y-4 w-full">
       {faqs.map((faq, index) => (
@@ -54,20 +54,15 @@ function FaqAccordion({ faqs }) {
         >
           <AccordionTrigger
             className="text-left font-semibold text-[#0C1A35] py-4 hover:no-underline hover:text-[#1A73E8]"
-            data-i18n={`cms.faq.${faq.id}.question`}
-            data-i18n-fallback={faq.question}
+            {...{ [REACT_I18N_ATTR]: "" }}
             suppressHydrationWarning
           >
-            {faq.question}
+            {lt(`cms.faq.${faq.id}.question`, faq.question)}
           </AccordionTrigger>
 
           <AccordionContent className="text-[#0C1A35]/80 pb-4">
-            <span
-              data-i18n={`cms.faq.${faq.id}.answer`}
-              data-i18n-fallback={faq.answer}
-              suppressHydrationWarning
-            >
-              {faq.answer}
+            <span {...{ [REACT_I18N_ATTR]: "" }} suppressHydrationWarning>
+              {lt(`cms.faq.${faq.id}.answer`, faq.answer)}
             </span>
           </AccordionContent>
         </AccordionItem>
@@ -77,6 +72,7 @@ function FaqAccordion({ faqs }) {
 }
 
 export default function HomeFAQClient({ faqs, section, sectionContent }) {
+  const { lt } = useLanguage();
   const hydrated = useHydrated();
   const faqHeading = section?.heading?.trim() || DEFAULT_FAQ_HEADING;
   const faqSubtitle = section?.subtitle?.trim() || DEFAULT_FAQ_SUBTITLE;
@@ -88,11 +84,10 @@ export default function HomeFAQClient({ faqs, section, sectionContent }) {
           {sectionContent?.heading && (
             <h2
               className="text-2xl md:text-4xl font-bold mb-3 text-[#0C1A35] text-center"
-              data-i18n="cms.faq.section.heading"
-              data-i18n-fallback={sectionContent.heading}
+              {...{ [REACT_I18N_ATTR]: "" }}
               suppressHydrationWarning
             >
-              {sectionContent.heading}
+              {lt("cms.faq.section.heading", sectionContent.heading)}
             </h2>
           )}
 
@@ -113,21 +108,19 @@ export default function HomeFAQClient({ faqs, section, sectionContent }) {
           <div className="mb-8 text-center w-full">
             <h2
               className="text-2xl md:text-4xl font-bold mb-3 text-[#0C1A35]"
-              data-i18n="cms.faq.heading"
-              data-i18n-fallback={faqHeading}
+              {...{ [REACT_I18N_ATTR]: "" }}
               suppressHydrationWarning
             >
-              {faqHeading}
+              {lt("cms.faq.heading", faqHeading)}
             </h2>
 
             {faqSubtitle && (
               <p
                 className="text-[#0C1A35]/80 md:text-lg"
-                data-i18n="cms.faq.subtitle"
-                data-i18n-fallback={faqSubtitle}
+                {...{ [REACT_I18N_ATTR]: "" }}
                 suppressHydrationWarning
               >
-                {faqSubtitle}
+                {lt("cms.faq.subtitle", faqSubtitle)}
               </p>
             )}
           </div>
@@ -135,9 +128,9 @@ export default function HomeFAQClient({ faqs, section, sectionContent }) {
           {faqs?.length > 0 ? (
             <div id="faq-list" className="w-full">
               {hydrated ? (
-                <FaqAccordion faqs={faqs} />
+                <FaqAccordion faqs={faqs} lt={lt} />
               ) : (
-                <FaqStaticList faqs={faqs} />
+                <FaqStaticList faqs={faqs} lt={lt} />
               )}
             </div>
           ) : (

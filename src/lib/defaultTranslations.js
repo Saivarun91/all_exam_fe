@@ -246,6 +246,7 @@ export function resolveTranslation(translations, key, language = "en") {
   return "";
 }
 
+// Phase D: prefer API per-lang fields when backend adds them (e.g. hero.title_hi).
 export function getLocalizedContent(translations, language, key, apiValue = "") {
   const adminValue = (apiValue || "").trim();
 

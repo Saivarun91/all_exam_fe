@@ -467,6 +467,59 @@ async function runSectionPageTranslation(
   return changed;
 }
 
+async function runFullPageLanguageTranslation(
+  translations,
+  language,
+  requestId,
+  refs,
+  { showSectionProgress = false } = {}
+) {
+  let changed = false;
+  const pagePath = window.location?.pathname || "";
+  const root = document.body;
+
+  captureOriginalTexts(root);
+  captureOriginalPageMeta(pagePath);
+
+  if (showSectionProgress) {
+    markSectionTranslating(root, true);
+  }
+
+  try {
+    applyDirectLanguageTranslations(pagePath, language, root);
+    changed =
+      (await translateSection(
+        root,
+        translations,
+        language,
+        requestId,
+        refs,
+        pagePath
+      )) || changed;
+  } finally {
+    if (showSectionProgress) {
+      markSectionTranslating(root, false);
+    }
+  }
+
+  syncBreadcrumbDom(translations, language);
+  await syncLocalizedPageMeta(language);
+  applyCachedLocalizedPageMeta(language);
+  reconcileTranslatedTextNodes(language, root);
+
+  return changed;
+}
+
+function dispatchViewportComplete(language) {
+  if (typeof window === "undefined") return;
+
+  window.dispatchEvent(
+    new CustomEvent("languageTranslationViewportComplete", {
+      detail: { language },
+    })
+  );
+}
+
 function dispatchTranslationComplete(language, changed) {
   if (typeof window === "undefined") return;
 
@@ -478,6 +531,20 @@ function dispatchTranslationComplete(language, changed) {
   endLanguageSwitch();
 }
 
+function applySyncTier12(catalog, lang, visiblePath, scopeRoot = null) {
+  const root = scopeRoot || document.body;
+
+  captureOriginalPageMeta(visiblePath);
+  restoreAutoTranslatedEnglish(document.body);
+  captureOriginalTexts(document.body);
+
+  applyDirectLanguageTranslations(visiblePath, lang, root);
+  applyI18nDomSync(catalog, lang, root);
+  syncBreadcrumbDom(catalog, lang);
+  reconcileTranslatedTextNodes(lang, root);
+  applyCachedLocalizedPageMeta(lang);
+}
+
 export default function I18nDomSync() {
   const { translations, language, languages } = useLanguage();
   const pathname = usePathname();
@@ -487,6 +554,8 @@ export default function I18nDomSync() {
   const sectionTranslationInFlightRef = useRef(false);
   const debounceTimerRef = useRef(null);
   const prevLanguageRef = useRef(null);
+  const instantCoalesceFrameRef = useRef(0);
+  const pendingInstantArgsRef = useRef(null);
   const hydrated = useHydrated();
 
   const isAdminRoute = (pathname || "").startsWith("/admin");
@@ -570,17 +639,16 @@ export default function I18nDomSync() {
     }
   }, [translations, language, hydrated, isAdminRoute]);
 
-  const applyInstantToPage = useCallback(
+  const applyInstantToPageInner = useCallback(
     (pack, lang) => {
       if (typeof document === "undefined" || !isDomAutoTranslateReady()) return;
 
       const catalog = pack || translations;
       const visiblePath = window.location?.pathname || pathname || "";
-
-      captureOriginalPageMeta(visiblePath);
+      const switchLocked = isLanguageSwitchLocked();
 
       if (isEnglishLanguage(lang)) {
-        if (isLanguageSwitchLocked()) return;
+        if (switchLocked) return;
         restoreEnglishPageMeta();
         restoreAutoTranslatedEnglish(document.body);
         applyI18nDomSync(catalog, lang);
@@ -590,37 +658,30 @@ export default function I18nDomSync() {
 
       if (!shouldApplyDomTranslation(lang)) return;
 
-      restoreAutoTranslatedEnglish(document.body);
-      captureOriginalTexts(document.body);
-
-      applyDirectLanguageTranslations(visiblePath, lang, document.body);
-      captureOriginalTexts(document.body);
-      applyI18nDomSync(catalog, lang);
-      syncBreadcrumbDom(catalog, lang);
-      reconcileTranslatedTextNodes(lang, document.body);
+      applySyncTier12(catalog, lang, visiblePath, document.body);
+      dispatchViewportComplete(lang);
 
       const requestId = runtimeRequestRef.current + 1;
       runtimeRequestRef.current = requestId;
       sectionTranslationInFlightRef.current = true;
 
-      void runSectionPageTranslation(
-        catalog,
-        lang,
-        requestId,
-        { runtimeRequestRef },
-        {
-          showSectionProgress: true,
-          onViewportSectionsComplete: () => {
-            if (typeof window !== "undefined") {
-              window.dispatchEvent(
-                new CustomEvent("languageTranslationViewportComplete", {
-                  detail: { language: lang },
-                })
-              );
-            }
-          },
-        }
-      )
+      const runTranslation = switchLocked
+        ? runFullPageLanguageTranslation(
+            catalog,
+            lang,
+            requestId,
+            { runtimeRequestRef },
+            { showSectionProgress: true }
+          )
+        : runSectionPageTranslation(
+            catalog,
+            lang,
+            requestId,
+            { runtimeRequestRef },
+            { showSectionProgress: true }
+          );
+
+      void runTranslation
         .then((changed) => {
           if (runtimeRequestRef.current !== requestId) return;
 
@@ -647,6 +708,25 @@ export default function I18nDomSync() {
         });
     },
     [translations, pathname]
+  );
+
+  const applyInstantToPage = useCallback(
+    (pack, lang) => {
+      pendingInstantArgsRef.current = { pack, lang };
+
+      if (instantCoalesceFrameRef.current) {
+        return;
+      }
+
+      instantCoalesceFrameRef.current = window.requestAnimationFrame(() => {
+        instantCoalesceFrameRef.current = 0;
+        const args = pendingInstantArgsRef.current;
+        pendingInstantArgsRef.current = null;
+        if (!args) return;
+        applyInstantToPageInner(args.pack, args.lang);
+      });
+    },
+    [applyInstantToPageInner]
   );
 
   const applyCatalogImmediately = useCallback(
@@ -715,31 +795,8 @@ export default function I18nDomSync() {
     };
     window.addEventListener("languageChanged", handleLanguageChange);
 
-    if (isEnglishLanguage(language)) {
-      return () => {
-        window.removeEventListener("languageChanged", handleLanguageChange);
-      };
-    }
-
-    const followUps = [100, 300, 800, 2000].map((delay) =>
-      window.setTimeout(() => scheduleSync(), delay)
-    );
-
-    const reconcileInterval = window.setInterval(() => {
-      if (isLanguageSwitchLocked()) return;
-      if (reconcileTranslatedTextNodes(language, document.body)) {
-        window.dispatchEvent(
-          new CustomEvent("translationsApplied", {
-            detail: { language, source: "runtime-dom" },
-          })
-        );
-      }
-    }, 2500);
-
     return () => {
       window.removeEventListener("languageChanged", handleLanguageChange);
-      followUps.forEach((timerId) => clearTimeout(timerId));
-      clearInterval(reconcileInterval);
     };
   }, [
     translations,
@@ -840,6 +897,8 @@ export default function I18nDomSync() {
         captureOriginalTexts(document.body);
 
         if (!isEnglishLanguage(language)) {
+          const cachedMap = readStoredPageRuntimeMap(visiblePath, language);
+          hydrateRuntimeCacheFromMap(language, cachedMap);
           const pack = translations;
           applyDirectLanguageTranslations(visiblePath, language, document.body);
           applyI18nDomSync(pack, language);
@@ -854,6 +913,10 @@ export default function I18nDomSync() {
       cancelled = true;
       window.cancelAnimationFrame(outerFrame);
       window.cancelAnimationFrame(innerFrame);
+      if (instantCoalesceFrameRef.current) {
+        window.cancelAnimationFrame(instantCoalesceFrameRef.current);
+        instantCoalesceFrameRef.current = 0;
+      }
     };
   }, [pathname, language, hydrated, isAdminRoute, translations, scheduleSync]);
 

@@ -408,21 +408,8 @@ const Footer = () => {
 
         <div className="border-t border-[#1A73E8]/15 pt-4 md:pt-5 mt-4 md:mt-5">
           <p className="text-[#D8E3F5] text-[10px] md:text-xs leading-relaxed max-w-4xl mx-auto text-left">
-            <strong
-              className="text-[#F5F8FF]"
-              data-i18n="footer.disclaimer"
-              data-i18n-fallback="Disclaimer:"
-            >
-              Disclaimer:
-            </strong>{" "}
-            <span
-              data-i18n="footer.disclaimer_text"
-              data-i18n-fallback="All trademarks, certification names, course titles, and logos displayed on this website are the property of their respective owners and are used solely for identification and informational purposes. AllExamQuestions is an independent exam preparation platform and is not affiliated with, endorsed by, authorized by, or sponsored by any exam provider, certification body, or brand mentioned on this website."
-            >
-              All trademarks, certification names, course titles, and logos displayed on this website are the property of their respective owners and are used solely for identification and informational purposes.
-              AllExamQuestions is an independent exam preparation platform and is not affiliated with, endorsed by, authorized by, or sponsored by any exam provider, certification body, or brand mentioned on this website.
-              Any brand names, product names, or service names are used only to describe the corresponding exams or content. Some graphics used on this website are sourced from royalty-free or publicly available resources and are believed to be free for commercial use.
-            </span>
+            <strong className="text-[#F5F8FF]">{t("footer.disclaimer")}</strong>{" "}
+            <span>{t("footer.disclaimer_text")}</span>
           </p>
         </div>
       </div>

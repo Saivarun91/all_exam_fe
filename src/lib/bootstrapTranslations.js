@@ -9,6 +9,7 @@ import {
 } from "@/lib/defaultTranslations";
 
 import { SITE_UI_EN } from "@/lib/siteUiTranslations";
+import { CMS_KEY_ALIASES } from "@/lib/i18nAliases";
 
 import { normalizeLanguageCode } from "@/lib/supportedLocales";
 
@@ -110,6 +111,13 @@ const PRIORITY_UI_KEYS = [
   "home.subscribe.subtitle",
   "home.subscribe.button",
   "home.subscribe.placeholder",
+  "home.hero.stat1.label",
+  "home.hero.stat2.label",
+  "home.hero.stat3.label",
+  "home.hero.stat4.label",
+  "home.hero.stat5.label",
+  "home.hero.stat6.label",
+  ...Object.values(CMS_KEY_ALIASES).filter((key) => key.startsWith("home.")),
 ];
 
 

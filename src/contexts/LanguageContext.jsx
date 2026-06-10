@@ -48,8 +48,8 @@ import {
 } from "@/lib/localeRouting";
 import {
   applyCachedLocalizedPageMeta,
-  applyDirectLanguageTranslations,
   captureOriginalPageMeta,
+  prefetchPageRuntimeTranslations,
   restoreAutoTranslatedEnglish,
   restoreEnglishPageMeta,
 } from "@/lib/domAutoTranslate";
@@ -59,9 +59,12 @@ import {
   getActiveSwitchTargetLanguage,
   isLanguageSwitchLocked,
 } from "@/lib/i18nSwitchGuard";
-import { isDomAutoTranslateReady } from "@/lib/i18nHydrationGate";
 import { readStoredPageRuntimeMap } from "@/lib/pageRuntimeStorage";
 import { runInstantLanguageSync } from "@/lib/i18nSyncBridge";
+import {
+  prepareDomAfterLanguageRemount,
+  waitForReactRemount,
+} from "@/lib/i18nSwitchCoordinator";
 import { hydrateRuntimeCacheFromMap } from "@/lib/runtimeTranslate";
 
 const LanguageContext = createContext();
@@ -554,6 +557,16 @@ export function LanguageProvider({ children }) {
       const langCode = normalizeLanguageCode(lang.code);
       prefetchLanguagePack(langCode);
     });
+
+    const savedLanguage = normalizeLanguageCode(
+      localStorage.getItem("language") || DEFAULT_LANGUAGE_CODE
+    );
+    if (
+      !isEnglishLanguage(savedLanguage) &&
+      typeof document !== "undefined"
+    ) {
+      void prefetchPageRuntimeTranslations(savedLanguage, document.body);
+    }
   }, [languageOptions, hydrated, prefetchLanguagePack]);
 
   useEffect(() => {
@@ -564,8 +577,15 @@ export function LanguageProvider({ children }) {
     if (typeof window === "undefined") return;
 
     const handleSwitchBegin = () => setLoading(true);
-    const handleViewportComplete = () => setLoading(false);
-    const handleTranslationComplete = () => setLoading(false);
+    const handleViewportComplete = () => {
+      setLoading(false);
+    };
+    const handleTranslationComplete = (event) => {
+      const lang = normalizeLanguageCode(event?.detail?.language);
+      if (isEnglishLanguage(lang)) {
+        setLoading(false);
+      }
+    };
 
     window.addEventListener("languageSwitchBegin", handleSwitchBegin);
     window.addEventListener(
@@ -687,18 +707,14 @@ export function LanguageProvider({ children }) {
           setTranslationsRefreshToken((token) => token + 1);
         });
 
-        const instantPack = translationsCacheRef.current[nextLanguage];
-        if (
-          typeof document !== "undefined" &&
-          !isEnglishLanguage(nextLanguage) &&
-          isDomAutoTranslateReady()
-        ) {
-          applyDirectLanguageTranslations(
-            getVisiblePathname(pathname),
-            nextLanguage,
-            document.body
-          );
+        if (typeof window !== "undefined") {
+          await waitForReactRemount();
+          if (languageCodesMatch(activeLanguageRef.current, nextLanguage)) {
+            prepareDomAfterLanguageRemount(nextLanguage);
+          }
         }
+
+        const instantPack = translationsCacheRef.current[nextLanguage];
         runInstantLanguageSync(instantPack, nextLanguage);
 
         if (typeof window !== "undefined") {

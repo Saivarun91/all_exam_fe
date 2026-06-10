@@ -80,16 +80,18 @@ export async function translateRuntimeTexts(texts, language) {
             ? data.translations
             : unique;
 
-          unique.forEach((source, idx) => {
-            const result = localizeRuntimeTranslation(
-              source,
-              translated[idx],
-              language
-            );
-            if (result && result !== source) {
-              rememberRuntimeTranslation(language, source, result);
-            }
-          });
+          if (!isStaleLanguageSwitch(requestGeneration, language)) {
+            unique.forEach((source, idx) => {
+              const result = localizeRuntimeTranslation(
+                source,
+                translated[idx],
+                language
+              );
+              if (result && result !== source) {
+                rememberRuntimeTranslation(language, source, result);
+              }
+            });
+          }
 
           return translated;
         })

@@ -6,9 +6,13 @@ import { Button } from "@/components/ui/button";
 import { ChevronDown, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { createSlug } from "@/lib/utils";
+import { useLanguage } from "@/contexts/LanguageContext";
+import Trans from "@/components/i18n/Trans";
+import { REACT_I18N_ATTR } from "@/lib/domI18nUtils";
 
 export default function HeroSearchClient({ providers }) {
   const router = useRouter();
+  const { t } = useLanguage();
   const [selectedProvider, setSelectedProvider] = useState("");
   const [searchKeyword, setSearchKeyword] = useState("");
 
@@ -46,9 +50,7 @@ export default function HeroSearchClient({ providers }) {
             onChange={(e) => setSelectedProvider(e.target.value)}
             className="w-full appearance-none bg-white/95 h-11 min-h-[44px] rounded-md border border-input px-3 pr-9 text-sm text-[#0C1A35] shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <option value="" data-i18n="home.search.provider">
-              Select Provider
-            </option>
+            <option value="">{t("home.search.provider")}</option>
             {providers.map((provider) => (
               <option key={provider.id} value={provider.slug}>
                 {provider.name}
@@ -63,9 +65,10 @@ export default function HeroSearchClient({ providers }) {
 
         <Input
           id="hero-search-query"
-          data-i18n-placeholder="home.search.placeholder"
+          placeholder={t("home.search.placeholder")}
           aria-label="Search by exam name, code, or keyword"
           className="flex-1 bg-white/95 h-11 min-h-[44px] text-sm text-[#0C1A35]"
+          {...{ [REACT_I18N_ATTR]: "" }}
           value={searchKeyword}
           onChange={(e) => setSearchKeyword(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleSearch()}
@@ -77,7 +80,7 @@ export default function HeroSearchClient({ providers }) {
           className="bg-[#1A73E8] text-white hover:bg-[#1557B0] px-6 h-11 min-h-[44px] min-w-[44px] text-sm"
         >
           <Search className="w-4 h-4 mr-2" />
-          <span data-i18n="home.search.button">Search</span>
+          <Trans i18nKey="home.search.button" />
         </Button>
 
       </div>

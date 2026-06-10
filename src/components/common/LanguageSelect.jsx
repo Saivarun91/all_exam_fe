@@ -4,12 +4,17 @@
   import { Globe } from "lucide-react";
   import { prefetchPageRuntimeTranslations } from "@/lib/domAutoTranslate";
   import { isEnglishLanguage } from "@/lib/defaultTranslations";
+  import { getVisiblePathname } from "@/lib/localeRouting";
+  import { readStoredPageRuntimeMap } from "@/lib/pageRuntimeStorage";
+  import { hydrateRuntimeCacheFromMap } from "@/lib/runtimeTranslate";
   import {
     languageCodesMatch,
     normalizeLanguageCode,
   } from "@/lib/supportedLocales";
+  import { usePathname } from "next/navigation";
 
   export default function LanguageSelect({ className = "" }) {
+    const pathname = usePathname();
     const {
       language,
       setLanguage,
@@ -35,6 +40,11 @@
     const warmLanguageRuntime = (code) => {
       const langCode = normalizeLanguageCode(code);
       if (isEnglishLanguage(langCode) || typeof document === "undefined") return;
+      const visiblePath = getVisiblePathname(pathname);
+      hydrateRuntimeCacheFromMap(
+        langCode,
+        readStoredPageRuntimeMap(visiblePath, langCode)
+      );
       void prefetchPageRuntimeTranslations(langCode, document.body);
     };
 
@@ -57,7 +67,7 @@
         <select
           value={selectedCode}
           onFocus={() => {
-            selectableLanguages.forEach((lang) => warmLanguageRuntime(lang.code));
+            warmLanguageRuntime(language);
           }}
           onChange={(e) => {
             const picked = selectableLanguages.find(

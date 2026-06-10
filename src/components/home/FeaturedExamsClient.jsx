@@ -286,6 +286,9 @@ import { createSlug, getExamUrl } from "@/lib/utils";
 import AutoText from "@/components/i18n/AutoText";
 import CourseTitleText from "@/components/i18n/CourseTitleText";
 import ProviderNameText from "@/components/i18n/ProviderNameText";
+import Trans from "@/components/i18n/Trans";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { REACT_I18N_ATTR } from "@/lib/domI18nUtils";
 
 export default function FeaturedExamsClient({
   courses,
@@ -293,6 +296,7 @@ export default function FeaturedExamsClient({
   providerSlugByName = {},
 }) {
 
+  const { lt } = useLanguage();
   const [currentIndex, setCurrentIndex] = useState(0);
   const itemsPerView = useCarouselItemsPerView(3);
   const carouselRef = useRef(null);
@@ -315,19 +319,17 @@ export default function FeaturedExamsClient({
 
       <h2
         className="text-2xl sm:text-3xl md:text-4xl font-bold text-center mb-3 md:mb-4 text-[#0C1A35] px-2"
-        data-i18n="cms.featured.heading"
-        data-i18n-fallback={heading}
+        {...{ [REACT_I18N_ATTR]: "" }}
       >
-        {heading}
+        {lt("cms.featured.heading", heading)}
       </h2>
 
       {subtitle && (
         <p
           className="text-center text-[#0C1A35]/70 text-sm sm:text-base md:text-lg mb-8 md:mb-12 max-w-2xl mx-auto px-2"
-          data-i18n="cms.featured.subtitle"
-          data-i18n-fallback={subtitle}
+          {...{ [REACT_I18N_ATTR]: "" }}
         >
-          {subtitle}
+          {lt("cms.featured.subtitle", subtitle)}
         </p>
       )}
 
@@ -421,23 +423,12 @@ export default function FeaturedExamsClient({
                         {(exam.practice_tests_list?.length ||
                           exam.practice_exams ||
                           0)}{" "}
-                        <span
-                          data-i18n="home.featured.practice_exams"
-                          data-i18n-fallback="Practice Exams"
-                        >
-                          Practice Exams
-                        </span>{" "}
-                        ·{" "}
+                        <Trans i18nKey="home.featured.practice_exams" /> ·{" "}
                         {exam.practice_tests_list?.reduce(
                           (s, item) => s + (parseInt(item.questions) || 0),
                           0
                         ) || exam.questions || 0}{" "}
-                        <span
-                          data-i18n="home.featured.questions"
-                          data-i18n-fallback="Questions"
-                        >
-                          Questions
-                        </span>
+                        <Trans i18nKey="home.featured.questions" />
                       </p>
 
                       {(exam.offer_price > 0 || exam.actual_price > 0) && (
@@ -460,12 +451,7 @@ export default function FeaturedExamsClient({
                         asChild
                       >
                         <Link href={getExamUrl(exam)}>
-                          <span
-                            data-i18n="home.featured.start_practicing"
-                            data-i18n-fallback="Start Practicing"
-                          >
-                            Start Practicing
-                          </span>
+                          <Trans i18nKey="home.featured.start_practicing" />
                           <ArrowRight className="ml-2 w-4 h-4" />
                         </Link>
                       </Button>

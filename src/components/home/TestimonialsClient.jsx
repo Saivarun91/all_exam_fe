@@ -211,8 +211,11 @@ import { useCarouselItemsPerView } from "@/hooks/useCarouselItemsPerView";
 import { Card, CardContent } from "@/components/ui/card";
 import { Star, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { REACT_I18N_ATTR } from "@/lib/domI18nUtils";
 
 export default function TestimonialsClient({ testimonials, section }) {
+  const { lt } = useLanguage();
   const [currentIndex, setCurrentIndex] = useState(0);
   const itemsPerView = useCarouselItemsPerView(4);
   const carouselRef = useRef(null);
@@ -229,21 +232,19 @@ export default function TestimonialsClient({ testimonials, section }) {
         <div className="text-center mb-10">
           <h2
             className="text-3xl md:text-4xl font-bold text-white mb-3"
-            data-i18n="cms.testimonials.heading"
-            data-i18n-fallback={heading}
+            {...{ [REACT_I18N_ATTR]: "" }}
             suppressHydrationWarning
           >
-            {heading}
+            {lt("cms.testimonials.heading", heading)}
           </h2>
 
           {subtitle && (
             <p
               className="text-[#E4EAF8] max-w-3xl mx-auto"
-              data-i18n="cms.testimonials.subtitle"
-              data-i18n-fallback={subtitle}
+              {...{ [REACT_I18N_ATTR]: "" }}
               suppressHydrationWarning
             >
-              {subtitle}
+              {lt("cms.testimonials.subtitle", subtitle)}
             </p>
           )}
         </div>
@@ -313,11 +314,13 @@ export default function TestimonialsClient({ testimonials, section }) {
                           </h3>
                           <p
                             className="text-sm text-[#0C1A35]/60"
-                            data-i18n={`cms.testimonial.${testimonial.id}.role`}
-                            data-i18n-fallback={testimonial.role}
+                            {...{ [REACT_I18N_ATTR]: "" }}
                             suppressHydrationWarning
                           >
-                            {testimonial.role}
+                            {lt(
+                              `cms.testimonial.${testimonial.id}.role`,
+                              testimonial.role
+                            )}
                           </p>
                         </div>
 
@@ -339,11 +342,13 @@ export default function TestimonialsClient({ testimonials, section }) {
 
                       <p
                         className="text-[#0C1A35]/70 text-center text-sm before:content-['\201C'] after:content-['\201D']"
-                        data-i18n={`cms.testimonial.${testimonial.id}.text`}
-                        data-i18n-fallback={reviewText}
+                        {...{ [REACT_I18N_ATTR]: "" }}
                         suppressHydrationWarning
                       >
-                        {reviewText}
+                        {lt(
+                          `cms.testimonial.${testimonial.id}.text`,
+                          reviewText
+                        )}
                       </p>
 
                     </CardContent>

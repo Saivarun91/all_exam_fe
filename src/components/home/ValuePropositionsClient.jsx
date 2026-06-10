@@ -250,6 +250,8 @@ import {
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { REACT_I18N_ATTR } from "@/lib/domI18nUtils";
 
 const iconMap = {
   Gift,
@@ -288,6 +290,7 @@ function isInteractiveCarouselTarget(target) {
 }
 
 export default function ValuePropositionsClient({ section, features }) {
+  const { lt } = useLanguage();
   const [currentIndex, setCurrentIndex] = useState(0);
   const itemsPerView = useCarouselItemsPerView(3);
   const scrollRef = useRef(null);
@@ -412,10 +415,9 @@ export default function ValuePropositionsClient({ section, features }) {
         } ${section.heading_font_family || "font-bold"} ${
           section.heading_color || "text-[#0C1A35]"
         } text-center mb-3 md:mb-4`}
-        data-i18n="cms.value.heading"
-        data-i18n-fallback={heading}
+        {...{ [REACT_I18N_ATTR]: "" }}
       >
-        {heading}
+        {lt("cms.value.heading", heading)}
       </h2>
 
       <p
@@ -424,10 +426,9 @@ export default function ValuePropositionsClient({ section, features }) {
         } text-sm sm:text-base md:${
           section.subtitle_font_size || "text-lg"
         } mb-8 md:mb-12 max-w-2xl mx-auto`}
-        data-i18n="cms.value.subtitle"
-        data-i18n-fallback={subtitle}
+        {...{ [REACT_I18N_ATTR]: "" }}
       >
-        {subtitle}
+        {lt("cms.value.subtitle", subtitle)}
       </p>
 
       {/* Carousel */}
@@ -507,18 +508,19 @@ export default function ValuePropositionsClient({ section, features }) {
                       {/* Title */}
                       <h3
                         className="text-lg md:text-xl font-bold text-[#0F172A] mb-3"
-                        data-i18n={`cms.value.${feature.id}.title`}
-                        data-i18n-fallback={feature.title}
+                        {...{ [REACT_I18N_ATTR]: "" }}
                       >
-                        {feature.title}
+                        {lt(`cms.value.${feature.id}.title`, feature.title)}
                       </h3>
 
                       <p
                         className="text-[#475569] text-sm md:text-base leading-relaxed flex-grow"
-                        data-i18n={`cms.value.${feature.id}.description`}
-                        data-i18n-fallback={feature.description}
+                        {...{ [REACT_I18N_ATTR]: "" }}
                       >
-                        {feature.description}
+                        {lt(
+                          `cms.value.${feature.id}.description`,
+                          feature.description
+                        )}
                       </p>
 
                       <div className="mt-5 flex justify-center">

@@ -123,6 +123,17 @@ const PARALLEL_BATCHES = 3;
 /** Original English text per DOM text node (never overwritten after first capture). */
 const originalTextByNode = new WeakMap();
 
+/** When false, never lock live DOM text as the English source outside captureOriginalTexts. */
+let originalTextCapturePhase = false;
+
+function beginOriginalTextCapture() {
+  originalTextCapturePhase = true;
+}
+
+function endOriginalTextCapture() {
+  originalTextCapturePhase = false;
+}
+
 export function shouldAutoTranslateText(text) {
   const value = (text || "").trim();
   if (value.length < 2) return false;
@@ -196,16 +207,20 @@ function getOriginalText(textNode) {
   const stored = originalTextByNode.get(textNode);
   if (stored) return stored;
 
-  const current = (textNode.textContent || "").trim();
-  if (shouldAutoTranslateText(current)) {
-    originalTextByNode.set(textNode, current);
-    return current;
-  }
-
   const fromAncestor = readFallbackFromAncestors(textNode);
   if (fromAncestor) {
     originalTextByNode.set(textNode, fromAncestor);
     return fromAncestor;
+  }
+
+  if (!originalTextCapturePhase) {
+    return "";
+  }
+
+  const current = (textNode.textContent || "").trim();
+  if (shouldAutoTranslateText(current)) {
+    originalTextByNode.set(textNode, current);
+    return current;
   }
 
   return "";
@@ -236,13 +251,18 @@ function captureTextNodesInTree(root, shouldSkip) {
 export function captureOriginalTexts(root = document.body) {
   if (!root) return;
 
-  captureTextNodesInTree(root, shouldSkipTextParent);
+  beginOriginalTextCapture();
+  try {
+    captureTextNodesInTree(root, shouldSkipTextParent);
 
-  root.querySelectorAll("[data-i18n-html], [data-i18n]").forEach((host) => {
-    captureTextNodesInTree(host, (parent) =>
-      shouldSkipTextParentInsideHost(host, parent)
-    );
-  });
+    root.querySelectorAll("[data-i18n-html], [data-i18n]").forEach((host) => {
+      captureTextNodesInTree(host, (parent) =>
+        shouldSkipTextParentInsideHost(host, parent)
+      );
+    });
+  } finally {
+    endOriginalTextCapture();
+  }
 }
 
 function reconcileTextNodesInTree(language, root, shouldSkip) {

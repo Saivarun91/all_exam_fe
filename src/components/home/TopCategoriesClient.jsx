@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useCarouselItemsPerView } from "@/hooks/useCarouselItemsPerView";
 import CategoryCard from "@/components/category/CategoryCard";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { REACT_I18N_ATTR } from "@/lib/domI18nUtils";
 
 const GAP_PX = 16;
 
@@ -19,6 +21,7 @@ export default function TopCategoriesClient({
   categories = [],
   sectionSettings,
 }) {
+  const { lt } = useLanguage();
   const [currentIndex, setCurrentIndex] = useState(0);
   const itemsPerView = useCarouselItemsPerView(4);
   const scrollRef = useRef(null);
@@ -151,18 +154,16 @@ export default function TopCategoriesClient({
         <div className="text-center mb-8 md:mb-12">
           <h2
             className={`text-2xl sm:text-3xl md:${settings.heading_font_size} ${settings.heading_font_family} ${settings.heading_color} mb-3 md:mb-4`}
-            data-i18n="cms.categories.heading"
-            data-i18n-fallback={heading}
+            {...{ [REACT_I18N_ATTR]: "" }}
           >
-            {heading}
+            {lt("cms.categories.heading", heading)}
           </h2>
           {subtitle && (
             <p
               className={`text-sm sm:text-base md:${settings.subtitle_font_size} ${settings.subtitle_color} max-w-2xl mx-auto`}
-              data-i18n="cms.categories.subtitle"
-              data-i18n-fallback={subtitle}
+              {...{ [REACT_I18N_ATTR]: "" }}
             >
-              {subtitle}
+              {lt("cms.categories.subtitle", subtitle)}
             </p>
           )}
         </div>

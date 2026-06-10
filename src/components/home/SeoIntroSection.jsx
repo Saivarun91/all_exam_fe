@@ -1,4 +1,5 @@
 import TipTapContent from "@/components/editor/TipTapContent";
+import SeoIntroHeadingClient from "./SeoIntroHeadingClient";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000";
@@ -36,13 +37,7 @@ export default async function SeoIntroSection() {
 
         {/* Heading */}
         <div className="text-center mb-10">
-          <h2
-            className="text-3xl md:text-4xl font-bold text-gray-900 leading-tight"
-            data-i18n="cms.seo.heading"
-            data-i18n-fallback={seoIntro.heading}
-          >
-            {seoIntro.heading}
-          </h2>
+          <SeoIntroHeadingClient heading={seoIntro.heading} />
 
           {/* <div className="w-20 h-1 bg-blue-600 mx-auto mt-4 rounded-full"></div> */}
         </div>
