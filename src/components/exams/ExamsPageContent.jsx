@@ -650,11 +650,12 @@ import ListPagination, {
   DEFAULT_LIST_PAGE_SIZE,
   getListPaginationSlice,
 } from "@/components/common/ListPagination";
-import { useLanguage } from "@/contexts/LanguageContext";
-import AutoText from "@/components/i18n/AutoText";
+import { t, tf } from "@/lib/uiStrings";
+import EntityText, {
+  CourseTitleText,
+  ProviderNameText,
+} from "@/components/common/EntityText";
 import TipTapContent from "@/components/editor/TipTapContent";
-import CourseTitleText from "@/components/i18n/CourseTitleText";
-import ProviderNameText from "@/components/i18n/ProviderNameText";
 import { filterPublicExamListings } from "@/lib/examListingFilters";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
@@ -727,8 +728,6 @@ export default function ExamsPageContent({
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { t, tf } = useLanguage();
-  
   const [searchKeyword, setSearchKeyword] = useState(initialKeyword);
   const [selectedProviders, setSelectedProviders] = useState(initialProvider);
   const [selectedCategories, setSelectedCategories] = useState([]);
@@ -1559,7 +1558,7 @@ export default function ExamsPageContent({
                           variant="secondary"
                           className={PROVIDER_BADGE_CLASS}
                         >
-                          <AutoText text={exam.provider} />
+                          <EntityText text={exam.provider} />
                         </Badge>
                       </Link>
                       {exam.category && (
@@ -1571,7 +1570,7 @@ export default function ExamsPageContent({
                             variant="secondary"
                             className={CATEGORY_BADGE_CLASS}
                           >
-                            <AutoText text={exam.category} />
+                            <EntityText text={exam.category} />
                           </Badge>
                         </Link>
                       )}

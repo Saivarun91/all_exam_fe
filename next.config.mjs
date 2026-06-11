@@ -15,6 +15,10 @@ const nextConfig = {
   // into the initial load → higher script eval time and worse TBT).
   // Enable experimental features for better optimization
   experimental: {
+    staleTimes: {
+      dynamic: 30,
+      static: 180,
+    },
     optimizePackageImports: [
       'lucide-react',
       '@radix-ui/react-accordion',
@@ -33,10 +37,6 @@ const nextConfig = {
         destination: '/sitemap',
       },
       {
-        source: '/sitemap-:locale.xml',
-        destination: '/sitemap/pages/:locale',
-      },
-      {
         source: '/categories-sitemap.xml',
         destination: '/categories-sitemap',
       },
@@ -51,26 +51,6 @@ const nextConfig = {
       {
         source: '/blogs-sitemap.xml',
         destination: '/blogs-sitemap',
-      },
-      {
-        source: '/:locale/sitemap.xml',
-        destination: '/sitemap/:locale',
-      },
-      {
-        source: '/:locale/categories-sitemap.xml',
-        destination: '/categories-sitemap?locale=:locale',
-      },
-      {
-        source: '/:locale/providers-sitemap.xml',
-        destination: '/providers-sitemap?locale=:locale',
-      },
-      {
-        source: '/:locale/exams-sitemap.xml',
-        destination: '/exams-sitemap?locale=:locale',
-      },
-      {
-        source: '/:locale/blogs-sitemap.xml',
-        destination: '/blogs-sitemap?locale=:locale',
       },
       // {
       //   source: '/:slug',
@@ -105,14 +85,6 @@ const nextConfig = {
       },
       
     ];
-  },
-  // Next.js 16 uses Turbopack by default — aliases must live here, not in `webpack`.
-  turbopack: {
-    resolveAlias: {
-      "@/components/i18n/CourseTitleText": "./src/components/i18n/AutoText.jsx",
-      "@/components/i18n/ProviderNameText": "./src/components/i18n/AutoText.jsx",
-      "@/components/i18n/CategoryTitleText": "./src/components/i18n/AutoText.jsx",
-    },
   },
   images: {
     remotePatterns: [

@@ -48,6 +48,8 @@ import {
   providerIdForAdminForm,
 } from "@/components/admin/providerIdForAdminForm";
 import { hasOfficialDetailsData } from "@/components/exam/OfficialExamDetailsView";
+import AdminTablePagination, { ADMIN_TABLE_PAGE_SIZE } from "@/components/admin/AdminTablePagination";
+import { getListPaginationSlice } from "@/components/common/ListPagination";
 import {
   belongsInExamDetailsManager,
   courseHasExamDetails,
@@ -124,6 +126,7 @@ export default function ExamDetailsManager() {
   const [providers, setProviders] = useState([]);
   const [selectedCourse, setSelectedCourse] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [listPage, setListPage] = useState(1);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showAddExamModal, setShowAddExamModal] = useState(false);
   const [activeEditTab, setActiveEditTab] = useState("basic");
@@ -1125,6 +1128,15 @@ export default function ExamDetailsManager() {
     });
   }, [courses, searchQuery]);
 
+  useEffect(() => {
+    setListPage(1);
+  }, [searchQuery]);
+
+  const paginatedCourses = useMemo(
+    () => getListPaginationSlice(filteredCourses, listPage, ADMIN_TABLE_PAGE_SIZE),
+    [filteredCourses, listPage]
+  );
+
   const handleAddExam = async (e) => {
     e.preventDefault();
     const { name, category } = newExamForm;
@@ -1654,7 +1666,7 @@ export default function ExamDetailsManager() {
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredCourses.map((course) => {
+                paginatedCourses.items.map((course) => {
                   const hasData = courseHasExamDetails(course);
                   return (
                     <TableRow key={course.id}>
@@ -1700,6 +1712,13 @@ export default function ExamDetailsManager() {
               )}
             </TableBody>
           </Table>
+          <AdminTablePagination
+            currentPage={paginatedCourses.page}
+            totalPages={paginatedCourses.totalPages}
+            totalItems={paginatedCourses.totalItems}
+            onPageChange={setListPage}
+            itemLabel="exams"
+          />
         </CardContent>
       </Card>
 

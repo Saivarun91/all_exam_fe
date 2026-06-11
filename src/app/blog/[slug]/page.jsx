@@ -380,15 +380,9 @@ import { ArrowLeft, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import BlogJsonLd from "@/components/BlogJsonLd";
 import BreadcrumbJsonLd from "@/components/BreadcrumbJsonLd";
-
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
+import SiteBreadcrumbs, {
+  toBreadcrumbJsonLdItems,
+} from "@/components/common/SiteBreadcrumbs";
 import { getOptimizedImageUrl } from "@/utils/imageUtils";
 import BlogPostFaqs from "@/components/blog/BlogPostFaqs";
 import BlogInlineContentSlider from "@/components/blog/BlogInlineContentSlider";
@@ -597,16 +591,18 @@ export default async function BlogDetailPage({ params }) {
     ? splitBlogContentAtMiddle(blog.content)
     : { before: blog.content, after: "" };
 
+  const blogTitle = blog?.title?.trim() || slug || "Blog Post";
   const breadcrumbItems = [
-    { name: "Blogs", url: "/blog" },
-    { name: slug || "blog-post", url: `/blog/${slug || ""}` },
+    { label: "Home", href: "/" },
+    { label: "Blog", href: "/blog" },
+    { label: blogTitle, href: `/blog/${slug || ""}` },
   ];
 
   return (
     <div className="min-h-screen bg-white">
       {/* Structured Data */}
       <BlogJsonLd blog={blog} />
-      <BreadcrumbJsonLd items={breadcrumbItems} />
+      <BreadcrumbJsonLd items={toBreadcrumbJsonLdItems(breadcrumbItems)} />
 
       {/* Header Back Button */}
       <div className="bg-white py-6">
@@ -620,22 +616,10 @@ export default async function BlogDetailPage({ params }) {
             </Link>
           </Button>
 
-          {/* Breadcrumb */}
-          <Breadcrumb className="w-full">
-            <BreadcrumbList>
-              <BreadcrumbItem>
-                <BreadcrumbLink asChild>
-                  <Link href="/blog">Blogs</Link>
-                </BreadcrumbLink>
-              </BreadcrumbItem>
-              <BreadcrumbSeparator />
-              <BreadcrumbItem>
-                <BreadcrumbPage className="text-[#0C1A35] break-all">
-                  {slug || "blog-post"}
-                </BreadcrumbPage>
-              </BreadcrumbItem>
-            </BreadcrumbList>
-          </Breadcrumb>
+          <SiteBreadcrumbs
+            className="w-full"
+            items={breadcrumbItems}
+          />
 
         </div>
       </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
@@ -10,6 +10,8 @@ import { FiPlus, FiX, FiTrash2, FiEdit } from "react-icons/fi";
 import { Cloud, Shield, Briefcase, Database, Code, TrendingUp, Eye } from "lucide-react";
 import TipTapEditor from "@/components/editor/TipTapEditor";
 import { resolveCategoryImageUrl } from "@/lib/categoryImage";
+import AdminTablePagination, { ADMIN_TABLE_PAGE_SIZE } from "@/components/admin/AdminTablePagination";
+import { getListPaginationSlice } from "@/components/common/ListPagination";
 
 const ICON_OPTIONS = [
   "Cloud",
@@ -90,6 +92,7 @@ export default function AdminCategoriesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [listPage, setListPage] = useState(1);
   const [showModal, setShowModal] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [selectedSlugs, setSelectedSlugs] = useState([]);
@@ -106,6 +109,7 @@ export default function AdminCategoriesPage() {
     meta_keywords: "",
     meta_description: "",
     is_top_certification: false,
+    page_title: "",
     hero_title: "",
     hero_subtitle: "",
   });
@@ -204,6 +208,7 @@ export default function AdminCategoriesPage() {
               meta_keywords: c.meta_keywords || "",
               meta_description: c.meta_description || "",
               is_top_certification: parseBoolean(c.is_top_certification),
+              page_title: c.page_title || "",
               hero_title: c.hero_title || "",
               hero_subtitle: c.hero_subtitle || "",
               courseCount: courseCount,
@@ -298,7 +303,13 @@ export default function AdminCategoriesPage() {
       return title.includes(query) || description.includes(query) || slug.includes(query);
     });
     setFilteredCategories(filtered);
+    setListPage(1);
   }, [searchTerm, categories]);
+
+  const paginatedCategories = useMemo(
+    () => getListPaginationSlice(filteredCategories, listPage, ADMIN_TABLE_PAGE_SIZE),
+    [filteredCategories, listPage]
+  );
 
   const buildCategoryRequestBody = () => ({
     title: categoryData.title,
@@ -318,6 +329,7 @@ export default function AdminCategoriesPage() {
     meta_keywords: categoryData.meta_keywords,
     meta_description: categoryData.meta_description,
     is_top_certification: parseBoolean(categoryData.is_top_certification),
+    page_title: categoryData.page_title,
     hero_title: categoryData.hero_title,
     hero_subtitle: categoryData.hero_subtitle,
   });
@@ -325,7 +337,7 @@ export default function AdminCategoriesPage() {
   // Save (create or update)
   const handleSaveCategory = async () => {
     if (!categoryData.title.trim()) {
-      setSaveMessage("❌ Please enter a category title.");
+      setSaveMessage("❌ Please enter a category name.");
       return;
     }
     setSaveMessage("");
@@ -399,6 +411,7 @@ export default function AdminCategoriesPage() {
         meta_keywords: saved.meta_keywords || categoryData.meta_keywords,
         meta_description: saved.meta_description || categoryData.meta_description,
         is_top_certification: parseBoolean(saved.is_top_certification),
+        page_title: saved.page_title || categoryData.page_title,
         hero_title: saved.hero_title || categoryData.hero_title,
         hero_subtitle: saved.hero_subtitle || categoryData.hero_subtitle,
         courseCount: updatedCourseCount,
@@ -436,6 +449,7 @@ export default function AdminCategoriesPage() {
           meta_keywords: "",
           meta_description: "",
           is_top_certification: false,
+          page_title: "",
           hero_title: "",
           hero_subtitle: "",
         });
@@ -507,6 +521,7 @@ export default function AdminCategoriesPage() {
       meta_keywords: saved.meta_keywords || categoryData.meta_keywords,
       meta_description: saved.meta_description || categoryData.meta_description,
       is_top_certification: parseBoolean(saved.is_top_certification),
+      page_title: saved.page_title || categoryData.page_title,
       hero_title: saved.hero_title || categoryData.hero_title,
       hero_subtitle: saved.hero_subtitle || categoryData.hero_subtitle,
     };
@@ -650,6 +665,7 @@ export default function AdminCategoriesPage() {
       meta_keywords: cat.meta_keywords || "",
       meta_description: cat.meta_description || "",
       is_top_certification: parseBoolean(cat.is_top_certification),
+      page_title: cat.page_title || cat.hero_title || "",
       hero_title: cat.hero_title || "",
       hero_subtitle: cat.hero_subtitle || "",
     });
@@ -976,6 +992,7 @@ export default function AdminCategoriesPage() {
                   meta_keywords: "",
                   meta_description: "",
                   is_top_certification: false,
+                  page_title: "",
                   hero_title: "",
                   hero_subtitle: "",
                 });
@@ -1009,7 +1026,7 @@ export default function AdminCategoriesPage() {
                     />
                   </th>
                   <th className="px-4 py-3 text-xs font-medium uppercase tracking-wide text-gray-600">Icon</th>
-                  <th className="px-4 py-3 text-xs font-medium uppercase tracking-wide text-gray-600">Title</th>
+                  <th className="px-4 py-3 text-xs font-medium uppercase tracking-wide text-gray-600">Name</th>
                   <th className="px-4 py-3 text-xs font-medium uppercase tracking-wide text-gray-600">Exams</th>
                   <th className="px-4 py-3 text-xs font-medium uppercase tracking-wide text-gray-600">Top certification</th>
                   <th className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wide text-gray-600">Actions</th>
@@ -1023,7 +1040,7 @@ export default function AdminCategoriesPage() {
                     </td>
                   </tr>
                 ) : (
-                  filteredCategories.map((cat, idx) => {
+                  paginatedCategories.items.map((cat, idx) => {
                     const IconComp = ICON_MAP[cat.icon] || Cloud;
                     const thumbSrc = resolveCategoryImageUrl(cat.image_url);
                     return (
@@ -1096,6 +1113,13 @@ export default function AdminCategoriesPage() {
               </tbody>
             </table>
           </div>
+          <AdminTablePagination
+            currentPage={paginatedCategories.page}
+            totalPages={paginatedCategories.totalPages}
+            totalItems={paginatedCategories.totalItems}
+            onPageChange={setListPage}
+            itemLabel="categories"
+          />
         </div>
 
       {/* Modal */}
@@ -1157,15 +1181,31 @@ export default function AdminCategoriesPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="md:col-span-2">
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Category Title *
+                      Category Name *
                     </label>
                     <Input 
                       value={categoryData.title} 
                       onChange={(e) => setCategoryData({ ...categoryData, title: e.target.value })} 
-                      placeholder="e.g., Cloud Certifications, IT Security"
+                      placeholder="e.g., Cloud, Security, Networking"
                       className="text-base"
                     />
-                    <p className="text-xs text-gray-500 mt-1">This will be displayed as the main category name</p>
+                    <p className="text-xs text-gray-500 mt-1">Shown on category cards and listings</p>
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Page Title
+                    </label>
+                    <Input
+                      value={categoryData.page_title}
+                      onChange={(e) =>
+                        setCategoryData({ ...categoryData, page_title: e.target.value })
+                      }
+                      placeholder="e.g., Cloud Certification Practice Tests & Exam Prep"
+                      className="text-base"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Shown in the hero section on the category detail page
+                    </p>
                   </div>
                   <div className="md:col-span-2">
                     <label className="block text-sm font-semibold text-gray-700 mb-2">

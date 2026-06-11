@@ -1,30 +1,24 @@
 import { NextResponse } from "next/server";
 import {
-  fetchActiveSitemapLanguages,
-  fetchAndLocalizeSectionSitemap,
+  fetchSectionSitemap,
   htmlResponseForSitemapXml,
   prefersHtmlResponse,
-  resolveSitemapLocale,
 } from "@/lib/sitemapUtils";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request) {
-  const API_BASE_URL =
-    process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
-
   try {
-    const activeLocales = await fetchActiveSitemapLanguages(API_BASE_URL);
-    const locale = resolveSitemapLocale(request, activeLocales);
-    const xml = await fetchAndLocalizeSectionSitemap({
+    const xml = await fetchSectionSitemap({
       request,
       apiPath: "exams-sitemap.xml",
-      locale,
-      activeLocales,
     });
 
     if (prefersHtmlResponse(request)) {
-      return htmlResponseForSitemapXml(request, xml);
+      return htmlResponseForSitemapXml(request, xml, {
+        title: "Exams Sitemap",
+        description: "All exam pages on AllExamQuestions.",
+      });
     }
 
     return new NextResponse(xml, {

@@ -145,8 +145,10 @@ export default function ProfilePage() {
         if (data.success) {
           // Update localStorage
           localStorage.setItem("name", profile.fullname);
-          if (profilePicture) {
+          if (profilePicture && !profilePicture.startsWith("data:")) {
             localStorage.setItem("profile_picture", profilePicture);
+          } else {
+            localStorage.removeItem("profile_picture");
           }
           
           alert("Profile updated successfully!");

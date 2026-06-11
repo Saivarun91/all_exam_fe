@@ -285,18 +285,31 @@
 
 
 
+import { cache } from "react";
 import BlogPageClient from "./BlogPageClient";
+import BreadcrumbJsonLd from "@/components/BreadcrumbJsonLd";
+import SiteBreadcrumbs, {
+  SiteBreadcrumbBar,
+  toBreadcrumbJsonLdItems,
+} from "@/components/common/SiteBreadcrumbs";
 import { logServerFetchError } from "@/lib/serverFetchLog";
+import { publicFetchOptions } from "@/lib/serverRevalidate";
+
+const BLOG_BREADCRUMB_ITEMS = [
+  { label: "Home", href: "/" },
+  { label: "Blog", href: "/blog" },
+];
 
 const API_BASE_URL = (
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000"
 ).replace(/\/\/localhost(?=[:/])/i, "//127.0.0.1");
 
-async function fetchBlogPageSeo() {
+const fetchBlogPageSeo = cache(async function fetchBlogPageSeo() {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/home/blog-posts-section/`, {
-      cache: "no-store", // ✅ always latest admin data
-    });
+    const res = await fetch(
+      `${API_BASE_URL}/api/home/blog-posts-section/`,
+      publicFetchOptions()
+    );
 
     if (!res.ok) return null;
 
@@ -311,7 +324,7 @@ async function fetchBlogPageSeo() {
     logServerFetchError("Error fetching blog page SEO:", err);
     return null;
   }
-}
+});
 
 // export async function generateMetadata() {
 //   return {
@@ -364,9 +377,12 @@ export async function generateMetadata() {
   };
 }
 
-async function fetchBlogs() {
+const fetchBlogs = cache(async function fetchBlogs() {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/home/blog-posts/all/`, { next: { revalidate: 60 } });
+    const res = await fetch(
+      `${API_BASE_URL}/api/home/blog-posts/all/`,
+      publicFetchOptions()
+    );
     const data = await res.json();
     if (data.success && Array.isArray(data.data)) {
       return data.data;
@@ -376,13 +392,17 @@ async function fetchBlogs() {
     logServerFetchError("Error fetching blog posts:", err);
     return [];
   }
-}
+});
 
 export default async function BlogPage() {
   const articles = await fetchBlogs();
 
   return (
     <div className="min-h-screen bg-white">
+      <BreadcrumbJsonLd items={toBreadcrumbJsonLdItems(BLOG_BREADCRUMB_ITEMS)} />
+      <SiteBreadcrumbBar>
+        <SiteBreadcrumbs items={BLOG_BREADCRUMB_ITEMS} />
+      </SiteBreadcrumbBar>
       {/* Hero Section */}
       <section className="bg-gradient-to-br from-[#0C1A35] via-[#0F2847] to-[#132A54] py-16 px-4">
         <div className="container mx-auto max-w-7xl text-center">

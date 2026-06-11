@@ -25,7 +25,6 @@ import {
   FileInput,
   Building2,
   ScrollText,
-  Globe,
   ClipboardList,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -49,7 +48,6 @@ export default function AdminSidebar() {
     // { name: "Question Craftsman Suite", path: "/admin/question-craftsman", icon: Sparkles },
     { name: "Parsing Suite", path: "/admin/parsing-suite", icon: FileInput },
     { name: "Pricing Plans", path: "/admin/pricing-plans", icon: DollarSign },
-    { name: "Languages", path: "/admin/languages", icon: Globe },
     { name: "Coupons", path: "/admin/coupons", icon: Ticket },
     { name: "Enrollments", path: "/admin/enrollments", icon: Users },
     { name: "Email Templates", path: "/admin/email-templates", icon: Mail },

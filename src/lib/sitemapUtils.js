@@ -1,9 +1,3 @@
-import {
-  languageCodesMatch,
-  normalizeLanguageCode,
-} from "@/lib/supportedLocales";
-import { addLocaleToPathname, isDefaultLocale } from "@/lib/localeRouting";
-
 export const SITEMAP_SECTIONS = [
   { id: "categories", label: "Categories", file: "categories-sitemap.xml" },
   { id: "providers", label: "Providers", file: "providers-sitemap.xml" },
@@ -17,38 +11,7 @@ export function isSitemapPathname(pathname = "") {
   const path = pathname || "";
   if (path === "/sitemap" || path.startsWith("/sitemap/")) return true;
   if (path === "/sitemap.xml" || path.endsWith("/sitemap.xml")) return true;
-  if (/^\/sitemap-[a-z]{2}(-[a-z]{2})?\.xml$/i.test(path)) return true;
   return /-sitemap(\.xml)?$/i.test(path);
-}
-
-export async function fetchActiveSitemapLanguages(apiBaseUrl) {
-  const fallback = ["en"];
-  try {
-    const res = await fetch(`${apiBaseUrl}/api/languages/?active=true`, {
-      cache: "no-store",
-    });
-    if (!res.ok) return fallback;
-
-    const data = await res.json();
-    if (!data?.success || !Array.isArray(data.data)) return fallback;
-
-    const codes = data.data
-      .map((lang) =>
-        String(lang?.code || "")
-          .toLowerCase()
-          .trim()
-          .replace(/_/g, "-")
-      )
-      .filter(Boolean);
-
-    const unique = [...new Set(codes)];
-    if (!unique.some((code) => isDefaultLocale(code))) {
-      unique.unshift("en");
-    }
-    return unique.length ? unique : fallback;
-  } catch {
-    return fallback;
-  }
 }
 
 export function withSitemapStylesheet(xml) {
@@ -66,129 +29,15 @@ export function formatSitemapLastmod(date = new Date()) {
   return date.toISOString().replace(/\.\d{3}Z$/, "+00:00");
 }
 
-/** Per-language sitemap index: /en/sitemap.xml, /ko/sitemap.xml */
-export function buildLanguageSitemapIndexUrl(origin, locale) {
-  const code = normalizeLanguageCode(locale);
-  if (isDefaultLocale(code)) {
-    return `${origin}/en/sitemap.xml`;
-  }
-  return `${origin}/${code}/sitemap.xml`;
+export function buildSectionSitemapUrl(origin, sectionFile) {
+  return `${origin}/${sectionFile || "categories-sitemap.xml"}`;
 }
 
-/** Per-language sitemap file: /sitemap-en.xml, /sitemap-ko.xml */
-export function buildLanguageSitemapFileUrl(origin, locale) {
-  return `${origin}/sitemap-${normalizeLanguageCode(locale)}.xml`;
-}
-
-/** Human-readable view: all page URLs for one language (fetched live from API). */
-export function buildLanguageAllPagesUrl(origin, locale) {
-  return buildLanguageSitemapFileUrl(origin, locale);
-}
-
-export function wantsXmlSitemapResponse(request) {
-  const url = new URL(request.url);
-  if (url.searchParams.get("format") === "xml") return true;
-  if (url.searchParams.get("view") === "all") return false;
-  return !prefersHtmlResponse(request);
-}
-
-export async function buildLanguageAllPagesHtmlResponse(
-  request,
-  locale,
-  activeLocales
-) {
-  const targetOrigin = new URL(request.url).origin;
-  const normalized = normalizeLanguageCode(locale);
-  const entries = await fetchAllPageEntriesForLocale(
-    request,
-    normalized,
-    activeLocales
-  );
-
-  return new Response(
-    renderSitemapHtml({
-      title: "Sitemap",
-      entries,
-      showSectionColumn: true,
-    }),
-    {
-      status: 200,
-      headers: {
-        "Content-Type": "text/html; charset=utf-8",
-        "Cache-Control": "no-store, max-age=0",
-      },
-    }
-  );
-}
-
-/** Section sitemap for a locale: /categories-sitemap.xml or /ko/categories-sitemap.xml */
-export function buildSectionSitemapUrl(origin, locale, sectionFile, activeLocales) {
-  const file = sectionFile || "categories-sitemap.xml";
-  const routePath = `/${file.replace(/\.xml$/i, "")}`;
-  const localized = addLocaleToPathname(routePath, locale, activeLocales);
-  return `${origin}${localized}.xml`;
-}
-
-export function resolveSitemapLocale(request, activeLocales = []) {
-  const url = new URL(request.url);
-  const fromQuery = url.searchParams.get("locale");
-  if (fromQuery) {
-    return normalizeLanguageCode(fromQuery);
-  }
-
-  const segments = url.pathname.split("/").filter(Boolean);
-  if (
-    segments.length &&
-    activeLocales.some((code) => languageCodesMatch(code, segments[0]))
-  ) {
-    return normalizeLanguageCode(segments[0]);
-  }
-
-  return "en";
-}
-
-export function rewriteSitemapIndexLocs(xml, targetOrigin) {
-  return xml.replace(/<loc>(https?:\/\/[^<]+)<\/loc>/g, (_, absoluteUrl) => {
-    try {
-      const parsed = new URL(absoluteUrl);
-      let path = parsed.pathname;
-      if (path.startsWith("/api/")) {
-        path = path.replace(/^\/api/, "");
-      }
-      return `<loc>${targetOrigin}${path}${parsed.search}</loc>`;
-    } catch {
-      return `<loc>${absoluteUrl}</loc>`;
-    }
-  });
-}
-
-/** Localize page URLs inside a urlset for the active language. */
-export function rewriteSitemapUrlsetLocs(
-  xml,
-  targetOrigin,
-  locale,
-  activeLocales
-) {
-  return xml.replace(/<loc>(https?:\/\/[^<]+)<\/loc>/g, (_, absoluteUrl) => {
-    try {
-      const parsed = new URL(absoluteUrl);
-      let path = parsed.pathname;
-      if (path.startsWith("/api/")) {
-        path = path.replace(/^\/api/, "");
-      }
-      const localized = addLocaleToPathname(path, locale, activeLocales);
-      return `<loc>${targetOrigin}${localized}${parsed.search}</loc>`;
-    } catch {
-      return `<loc>${absoluteUrl}</loc>`;
-    }
-  });
-}
-
-export function buildLanguageSitemapIndexXml(origin, locale, activeLocales) {
+export function buildRootSitemapIndexXml(origin) {
   const lastmod = formatSitemapLastmod();
   const entries = SITEMAP_SECTIONS.map(
     (section) => `  <sitemap>
-    <loc>${buildSectionSitemapUrl(origin, locale, section.file, activeLocales)}</loc>
+    <loc>${buildSectionSitemapUrl(origin, section.file)}</loc>
     <lastmod>${lastmod}</lastmod>
   </sitemap>`
   ).join("\n\n");
@@ -201,27 +50,13 @@ ${entries}
 </sitemapindex>`);
 }
 
-export function buildRootSitemapIndexXml(origin, languages) {
-  const lastmod = formatSitemapLastmod();
-  const entries = languages
-    .map((code) => {
-      const label = normalizeLanguageCode(code);
-      return `  <sitemap>
-    <loc>${buildLanguageSitemapFileUrl(origin, label)}</loc>
-    <lastmod>${lastmod}</lastmod>
-  </sitemap>`;
-    })
-    .join("\n\n");
-
-  return withSitemapStylesheet(`${XML_HEADER}
-<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-
-${entries}
-
-</sitemapindex>`);
+export function wantsXmlSitemapResponse(request) {
+  const url = new URL(request.url);
+  if (url.searchParams.get("format") === "xml") return true;
+  if (url.searchParams.get("view") === "all") return false;
+  return !prefersHtmlResponse(request);
 }
 
-/** Browsers (especially Chrome) often render a blank page for XML+XSL; serve HTML instead. */
 export function prefersHtmlResponse(request) {
   const accept = (request.headers.get("accept") || "").toLowerCase();
   const ua = (request.headers.get("user-agent") || "").toLowerCase();
@@ -279,21 +114,50 @@ export function parsePageUrlsFromSitemapXml(xml) {
   return entries;
 }
 
-export async function fetchAllPageEntriesForLocale(
-  request,
-  locale,
-  activeLocales
-) {
+export function rewriteSitemapLocs(xml, targetOrigin) {
+  return xml.replace(/<loc>(https?:\/\/[^<]+)<\/loc>/g, (_, absoluteUrl) => {
+    try {
+      const parsed = new URL(absoluteUrl);
+      let path = parsed.pathname;
+      if (path.startsWith("/api/")) {
+        path = path.replace(/^\/api/, "");
+      }
+      return `<loc>${targetOrigin}${path}${parsed.search}</loc>`;
+    } catch {
+      return `<loc>${absoluteUrl}</loc>`;
+    }
+  });
+}
+
+export async function fetchSectionSitemap({ request, apiPath }) {
+  const targetOrigin = new URL(request.url).origin;
+  const API_BASE_URL =
+    process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
+
+  const res = await fetch(`${API_BASE_URL}/api/${apiPath}`, {
+    method: "GET",
+    headers: { Accept: "application/xml" },
+    cache: "no-store",
+  });
+
+  if (!res.ok) {
+    throw new Error(`Failed to fetch ${apiPath}: ${res.status}`);
+  }
+
+  let xml = await res.text();
+  xml = rewriteSitemapLocs(xml, targetOrigin);
+  return withSitemapStylesheet(xml);
+}
+
+export async function fetchAllPageEntries(request) {
   const combined = [];
 
   await Promise.all(
     SITEMAP_SECTIONS.map(async (section) => {
       try {
-        const xml = await fetchAndLocalizeSectionSitemap({
+        const xml = await fetchSectionSitemap({
           request,
           apiPath: section.file,
-          locale,
-          activeLocales,
         });
         const pages = parsePageUrlsFromSitemapXml(xml);
         pages.forEach((page) => {
@@ -317,7 +181,7 @@ export async function fetchAllPageEntriesForLocale(
   return combined;
 }
 
-export function buildLanguagePagesUrlsetXml(entries = []) {
+export function buildPagesUrlsetXml(entries = []) {
   const rows = entries
     .map(
       (entry) => `  <url>
@@ -341,15 +205,19 @@ export function renderSitemapHtml({
   xmlPath = "",
   backLink = "",
   showSectionColumn = false,
+  showTypeColumn = true,
 }) {
   const useSectionColumn =
     showSectionColumn || entries.some((entry) => entry.section);
-  const colSpan = useSectionColumn ? 4 : 3;
+  const useTypeColumn =
+    showTypeColumn && entries.some((entry) => entry.type);
+  const colSpan =
+    (useTypeColumn ? 1 : 0) + (useSectionColumn ? 1 : 0) + 2;
 
   const rows = entries
     .map(
       (entry) => `<tr>
-  <td><span class="badge ${escapeHtml(entry.badgeClass || "")}">${escapeHtml(entry.type || "Link")}</span></td>
+  ${useTypeColumn ? `<td><span class="badge ${escapeHtml(entry.badgeClass || "")}">${escapeHtml(entry.type || "Link")}</span></td>` : ""}
   ${useSectionColumn ? `<td>${escapeHtml(entry.section || "—")}</td>` : ""}
   <td><a href="${escapeHtml(entry.url)}">${escapeHtml(entry.url)}</a></td>
   <td>${escapeHtml(entry.lastmod || "")}</td>
@@ -398,7 +266,7 @@ export function renderSitemapHtml({
   ${descHtml}
   ${navHtml}
   <table>
-    <thead><tr><th>Type</th>${useSectionColumn ? "<th>Section</th>" : ""}<th>URL</th><th>Last modified</th></tr></thead>
+    <thead><tr>${useTypeColumn ? "<th>Type</th>" : ""}${useSectionColumn ? "<th>Section</th>" : ""}<th>URL</th><th>Last modified</th></tr></thead>
     <tbody>
       ${rows || `<tr><td colspan="${colSpan}">No entries found.</td></tr>`}
     </tbody>
@@ -407,59 +275,12 @@ export function renderSitemapHtml({
 </html>`;
 }
 
-export function parseUrlEntriesFromSitemapXml(xml) {
-  const entries = [];
-
-  const readBlock = (chunk) => {
-    const loc = chunk.match(/<loc>([^<]+)<\/loc>/)?.[1]?.trim();
-    if (!loc) return null;
-    const lastmod =
-      chunk.match(/<lastmod>([^<]*)<\/lastmod>/)?.[1]?.trim() || "";
-    return { loc, lastmod };
-  };
-
-  let match;
-  const sitemapRe = /<sitemap>([\s\S]*?)<\/sitemap>/g;
-  while ((match = sitemapRe.exec(xml)) !== null) {
-    const row = readBlock(match[1]);
-    if (!row) continue;
-    const isLanguage =
-      /\/sitemap-[a-z]{2}(-[a-z]{2})?\.xml$/i.test(row.loc) ||
-      (row.loc.includes("/sitemap.xml") && !row.loc.includes("-sitemap.xml"));
-    entries.push({
-      type: isLanguage ? "Language" : "Section",
-      badgeClass: isLanguage ? "" : "section",
-      url: row.loc,
-      lastmod: row.lastmod,
-    });
-  }
-
-  const urlRe = /<url>([\s\S]*?)<\/url>/g;
-  while ((match = urlRe.exec(xml)) !== null) {
-    const row = readBlock(match[1]);
-    if (!row) continue;
-    entries.push({
-      type: "Page",
-      badgeClass: "page",
-      url: row.loc,
-      lastmod: row.lastmod,
-    });
-  }
-
-  return entries;
-}
-
 export function htmlResponseForSitemapXml(
   request,
   xml,
   { title = "Sitemap", description = "" } = {}
 ) {
-  let entries = parsePageUrlsFromSitemapXml(xml);
-  if (!entries.length) {
-    entries = parseUrlEntriesFromSitemapXml(xml).filter(
-      (entry) => entry.type === "Page"
-    );
-  }
+  const entries = parsePageUrlsFromSitemapXml(xml);
 
   return new Response(
     renderSitemapHtml({
@@ -477,28 +298,24 @@ export function htmlResponseForSitemapXml(
   );
 }
 
-export async function fetchAndLocalizeSectionSitemap({
-  request,
-  apiPath,
-  locale,
-  activeLocales,
-}) {
-  const targetOrigin = new URL(request.url).origin;
-  const API_BASE_URL =
-    process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
+export async function buildAllPagesHtmlResponse(request) {
+  const entries = await fetchAllPageEntries(request);
 
-  const res = await fetch(`${API_BASE_URL}/api/${apiPath}`, {
-    method: "GET",
-    headers: { Accept: "application/xml" },
-    cache: "no-store",
-  });
-
-  if (!res.ok) {
-    throw new Error(`Failed to fetch ${apiPath}: ${res.status}`);
-  }
-
-  let xml = await res.text();
-  xml = rewriteSitemapIndexLocs(xml, targetOrigin);
-  xml = rewriteSitemapUrlsetLocs(xml, targetOrigin, locale, activeLocales);
-  return withSitemapStylesheet(xml);
+  return new Response(
+    renderSitemapHtml({
+      title: "Sitemap — All Pages",
+      entries,
+      showSectionColumn: true,
+      showTypeColumn: false,
+      backLink: "/sitemap",
+      xmlPath: "/sitemap/pages?format=xml",
+    }),
+    {
+      status: 200,
+      headers: {
+        "Content-Type": "text/html; charset=utf-8",
+        "Cache-Control": "no-store, max-age=0",
+      },
+    }
+  );
 }

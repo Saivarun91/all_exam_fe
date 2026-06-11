@@ -1,8 +1,20 @@
 // app/providers/page.jsx
 import Link from "next/link";
+import BreadcrumbJsonLd from "@/components/BreadcrumbJsonLd";
+import SiteBreadcrumbs, {
+  SiteBreadcrumbBar,
+  toBreadcrumbJsonLdItems,
+} from "@/components/common/SiteBreadcrumbs";
+import { cache } from "react";
 import { logServerFetchError } from "@/lib/serverFetchLog";
 import ProviderCardExams from "@/components/provider/ProviderCardExams";
 import { getOptimizedImageUrl } from "@/utils/imageUtils";
+import { publicFetchOptions } from "@/lib/serverRevalidate";
+
+const PROVIDERS_BREADCRUMB_ITEMS = [
+  { label: "Home", href: "/" },
+  { label: "Providers", href: "/providers" },
+];
 
 /** Every provider logo uses the same height; width scales within this box (fits wide logos). */
 const PROVIDER_LOGO_HEIGHT = 72;
@@ -12,11 +24,12 @@ const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 const SITE_URL = "https://allexamquestions.com";
 
-async function fetchProvidersPageSeo() {
+const fetchProvidersPageSeo = cache(async function fetchProvidersPageSeo() {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/home/providers-page-seo/`, {
-      cache: "no-store",
-    });
+    const res = await fetch(
+      `${API_BASE_URL}/api/home/providers-page-seo/`,
+      publicFetchOptions()
+    );
     if (!res.ok) {
       return {
         meta_title: "",
@@ -38,7 +51,7 @@ async function fetchProvidersPageSeo() {
       meta_keywords: "",
     };
   }
-}
+});
 
 export async function generateMetadata() {
   const seo = await fetchProvidersPageSeo();
@@ -86,8 +99,8 @@ export default async function ProvidersPage() {
   let courses = [];
   try {
     const [providersRes, coursesRes] = await Promise.all([
-      fetch(`${API_BASE_URL}/api/providers/`, { cache: "no-store" }),
-      fetch(`${API_BASE_URL}/api/courses/`, { cache: "no-store" }),
+      fetch(`${API_BASE_URL}/api/providers/`, publicFetchOptions()),
+      fetch(`${API_BASE_URL}/api/courses/`, publicFetchOptions()),
     ]);
 
     if (providersRes.ok) providers = await providersRes.json();
@@ -138,7 +151,12 @@ export default async function ProvidersPage() {
   }, {});
 
   return (
-    <div className="container mx-auto px-4 py-10">
+    <>
+      <BreadcrumbJsonLd items={toBreadcrumbJsonLdItems(PROVIDERS_BREADCRUMB_ITEMS)} />
+      <SiteBreadcrumbBar>
+        <SiteBreadcrumbs items={PROVIDERS_BREADCRUMB_ITEMS} />
+      </SiteBreadcrumbBar>
+      <div className="container mx-auto px-4 py-10">
       <h1 className="text-2xl md:text-3xl font-bold text-center mb-8">
         All Providers
       </h1>
@@ -237,6 +255,7 @@ export default async function ProvidersPage() {
           })}
         </div>
       )}
-    </div>
+      </div>
+    </>
   );
 }

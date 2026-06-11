@@ -1,12 +1,4 @@
 import { NextResponse } from "next/server";
-import {
-  addLocaleToPathname,
-  isDefaultLocale,
-  isValidLocaleCode,
-  LANGUAGE_COOKIE,
-  parseLocalePath,
-  shouldLocalizePath,
-} from "./lib/localeRouting";
 import { isSitemapPathname } from "./lib/sitemapUtils";
 import { trimOfficialDetailsPathSegment } from "./app/exams/[provider]/[examCode]/examInfoUtils";
 import { isOfficialDetailsOnlyCourse } from "./lib/examListingFilters";
@@ -34,24 +26,6 @@ async function fetchExamByPathProbe(apiBaseUrl, pathSegment) {
     }
   }
   return null;
-}
-
-function attachLocaleCookie(response, locale) {
-  if (!response) return response;
-  if (isDefaultLocale(locale)) {
-    response.cookies.set(LANGUAGE_COOKIE, "", {
-      path: "/",
-      maxAge: 0,
-      sameSite: "lax",
-    });
-    return response;
-  }
-  response.cookies.set(LANGUAGE_COOKIE, locale, {
-    path: "/",
-    maxAge: 60 * 60 * 24 * 365,
-    sameSite: "lax",
-  });
-  return response;
 }
 
 /** Single-segment paths like /favicon-new.ico must not hit category/provider/exam APIs. */
@@ -133,72 +107,15 @@ function reservedTopLevelSegment(segment) {
   return TOP_LEVEL_RESERVED_SEGMENTS.has(String(segment || "").toLowerCase());
 }
 
-let activeLocaleCodesCache = null;
-let activeLocaleCodesCacheAt = 0;
-const ACTIVE_LOCALE_CACHE_MS = 5 * 60 * 1000;
-
-async function getActiveLocaleCodes(apiBaseUrl) {
-  const now = Date.now();
-  if (
-    activeLocaleCodesCache &&
-    now - activeLocaleCodesCacheAt < ACTIVE_LOCALE_CACHE_MS
-  ) {
-    return activeLocaleCodesCache;
-  }
-
-  try {
-    const res = await fetch(`${apiBaseUrl}/api/languages/?active=true`, {
-      cache: "no-store",
-    });
-    if (res.ok) {
-      const data = await res.json();
-      if (data?.success && Array.isArray(data.data)) {
-        activeLocaleCodesCache = data.data
-          .map((lang) =>
-            String(lang?.code || "")
-              .toLowerCase()
-              .trim()
-              .replace(/_/g, "-")
-          )
-          .filter(Boolean);
-        activeLocaleCodesCacheAt = now;
-        return activeLocaleCodesCache;
-      }
-    }
-  } catch {
-    // Fall through to last known list.
-  }
-
-  return activeLocaleCodesCache || [];
-}
-
 export async function middleware(request) {
   const url = request.nextUrl.clone();
   const hostname = request.headers.get("host") || "";
-  const requestPathname = url.pathname;
+  const pathname = url.pathname || "/";
   const API_BASE_URL =
     process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
-  const activeLocaleCodes = await getActiveLocaleCodes(API_BASE_URL);
-  const { locale: urlLocale, pathnameWithoutLocale } = parseLocalePath(
-    requestPathname,
-    activeLocaleCodes
-  );
-  const pathname = pathnameWithoutLocale || "/";
 
   if (isSitemapPathname(pathname)) {
-    return attachLocaleCookie(NextResponse.next(), urlLocale);
-  }
-
-  const cookieLang = request.cookies.get(LANGUAGE_COOKIE)?.value;
-  if (
-    isDefaultLocale(urlLocale) &&
-    cookieLang &&
-    !isDefaultLocale(cookieLang) &&
-    isValidLocaleCode(cookieLang) &&
-    shouldLocalizePath(pathname, activeLocaleCodes)
-  ) {
-    url.pathname = addLocaleToPathname(pathname, cookieLang, activeLocaleCodes);
-    return NextResponse.redirect(url, 302);
+    return NextResponse.next();
   }
 
   // 1️⃣ Redirect www → non-www
@@ -248,11 +165,8 @@ export async function middleware(request) {
         exam?.official_details_url_slug || "official-details"
       );
       if (segments[1] === officialSlug) {
-        return attachLocaleCookie(
-          NextResponse.rewrite(
-            new URL(`/${segments[0]}/${officialSlug}`, request.url)
-          ),
-          urlLocale
+        return NextResponse.rewrite(
+          new URL(`/${segments[0]}/${officialSlug}`, request.url)
         );
       }
     }
@@ -349,10 +263,7 @@ export async function middleware(request) {
               examForLanding?.slug ||
               withoutSuffix.replace(/-+/g, "-").replace(/^-+|-+$/g, "");
             if (examSlug) {
-              return attachLocaleCookie(
-                NextResponse.rewrite(new URL(`/${examSlug}`, request.url)),
-                urlLocale
-              );
+              return NextResponse.rewrite(new URL(`/${examSlug}`, request.url));
             }
           }
         }
@@ -408,11 +319,8 @@ export async function middleware(request) {
                 : examSlug;
 
               if (providerSlug && examCode) {
-                return attachLocaleCookie(
-                  NextResponse.rewrite(
-                    new URL(`/exams/${providerSlug}/${examCode}/practice/${slug}`, request.url)
-                  ),
-                  urlLocale
+                return NextResponse.rewrite(
+                  new URL(`/exams/${providerSlug}/${examCode}/practice/${slug}`, request.url)
                 );
               }
             } catch {
@@ -430,9 +338,8 @@ export async function middleware(request) {
               directExam?.official_details_url_slug || "official-details"
             );
 
-            return attachLocaleCookie(
-              NextResponse.rewrite(new URL(`/${examSlug}/${officialSlug}`, request.url)),
-              urlLocale
+            return NextResponse.rewrite(
+              new URL(`/${examSlug}/${officialSlug}`, request.url)
             );
           }
 
@@ -457,9 +364,8 @@ export async function middleware(request) {
                 exam?.official_details_url_slug || "official-details"
               );
 
-              return attachLocaleCookie(
-                NextResponse.rewrite(new URL(`/${examSlug}/${officialSlug}`, request.url)),
-                urlLocale
+              return NextResponse.rewrite(
+                new URL(`/${examSlug}/${officialSlug}`, request.url)
               );
             } catch {
               // Continue probing suffix candidates.
@@ -478,9 +384,8 @@ export async function middleware(request) {
 
         // Category before exam: a slug that is both must open the category page, not an exam.
         if (categoryRes?.ok) {
-          return attachLocaleCookie(
-            NextResponse.rewrite(new URL(`/categories/${slug}`, request.url)),
-            urlLocale
+          return NextResponse.rewrite(
+            new URL(`/categories/${slug}`, request.url)
           );
         }
 
@@ -494,11 +399,8 @@ export async function middleware(request) {
           // If user opened the official-details public slug, keep that exact visible URL.
           if (officialPublicSlug && slug === officialPublicSlug) {
             const examSlug = exam?.slug || slug;
-            return attachLocaleCookie(
-              NextResponse.rewrite(
-                new URL(`/${examSlug}/${officialPublicSlug}`, request.url)
-              ),
-              urlLocale
+            return NextResponse.rewrite(
+              new URL(`/${examSlug}/${officialPublicSlug}`, request.url)
             );
           }
 
@@ -508,11 +410,8 @@ export async function middleware(request) {
               exam?.official_details_url_slug || "official-details"
             );
             if (examSlug) {
-              return attachLocaleCookie(
-                NextResponse.rewrite(
-                  new URL(`/${examSlug}/${officialSlug}`, request.url)
-                ),
-                urlLocale
+              return NextResponse.rewrite(
+                new URL(`/${examSlug}/${officialSlug}`, request.url)
               );
             }
           }
@@ -528,10 +427,7 @@ export async function middleware(request) {
 
           const examSlug = exam?.slug || slug;
           if (examSlug) {
-            return attachLocaleCookie(
-              NextResponse.rewrite(new URL(`/${examSlug}`, request.url)),
-              urlLocale
-            );
+            return NextResponse.rewrite(new URL(`/${examSlug}`, request.url));
           }
         }
 
@@ -540,9 +436,8 @@ export async function middleware(request) {
         );
 
         if (providerRes?.ok) {
-          return attachLocaleCookie(
-            NextResponse.rewrite(new URL(`/providers/${slug}`, request.url)),
-            urlLocale
+          return NextResponse.rewrite(
+            new URL(`/providers/${slug}`, request.url)
           );
         }
       } catch {
@@ -566,14 +461,11 @@ export async function middleware(request) {
         );
         if (providerRes.ok) {
           const keywordSeg = segments[2];
-          return attachLocaleCookie(
-            NextResponse.rewrite(
-              new URL(
-                `/exams/${providerSlug}/search/${keywordSeg}`,
-                request.url
-              )
-            ),
-            urlLocale
+          return NextResponse.rewrite(
+            new URL(
+              `/exams/${providerSlug}/search/${keywordSeg}`,
+              request.url
+            )
           );
         }
       } catch {
@@ -582,23 +474,13 @@ export async function middleware(request) {
     }
   }
 
-  if (
-    !isDefaultLocale(urlLocale) &&
-    shouldLocalizePath(pathname, activeLocaleCodes) &&
-    requestPathname !== pathname
-  ) {
-    const rewriteUrl = request.nextUrl.clone();
-    rewriteUrl.pathname = pathname;
-    return attachLocaleCookie(NextResponse.rewrite(rewriteUrl), urlLocale);
-  }
-
-  return attachLocaleCookie(NextResponse.next(), urlLocale);
+  return NextResponse.next();
 }
 
 export const config = {
   matcher: [
     "/FAQ",
 
-    "/((?!api|_next/static|_next/image|favicon\\.ico|favicon-new\\.ico|robots\\.txt|sitemap\\.xml|sitemap-[a-z]{2}(?:-[a-z]{2})?\\.xml|.*-sitemap\\.xml).*)",
+    "/((?!api|backend-api|_next/static|_next/image|favicon\\.ico|favicon-new\\.ico|robots\\.txt|sitemap\\.xml|.*-sitemap\\.xml).*)",
   ],
 };

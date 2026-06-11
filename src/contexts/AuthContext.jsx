@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect } from "react";
 import { isAbortError } from "@/lib/isAbortError";
+import { persistUserAuthSession } from "@/lib/authSession";
 
 const AuthContext = createContext();
 const API_BASE =
@@ -58,7 +59,18 @@ export const AuthProvider = ({ children }) => {
           setUser(data.profile);
 
           if (typeof window !== "undefined") {
-            localStorage.setItem("user", JSON.stringify(data.profile));
+            const profile = { ...data.profile };
+            if (
+              typeof profile.profile_picture === "string" &&
+              profile.profile_picture.startsWith("data:")
+            ) {
+              delete profile.profile_picture;
+            }
+            try {
+              localStorage.setItem("user", JSON.stringify(profile));
+            } catch {
+              // Profile cache is optional; keep the session in memory.
+            }
           }
         }
       } else {
@@ -95,8 +107,7 @@ export const AuthProvider = ({ children }) => {
     setToken(authToken);
 
     if (typeof window !== "undefined") {
-      localStorage.setItem("isLoggedIn", "true");
-      localStorage.setItem("token", authToken);
+      persistUserAuthSession({ token: authToken, user });
     }
 
     await fetchUserProfile(authToken);

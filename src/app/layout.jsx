@@ -227,17 +227,17 @@
 
 
 import "./globals.css";
+import { cache } from "react";
 import { Poppins } from "next/font/google";
 import Header from "../components/layout/Header";
 import Footer from "../components/layout/Footer";
 import Providers from "../components/providers";
-import I18nLanguageBoundary from "@/components/i18n/I18nLanguageBoundary";
 import { ROBOTS_INDEX } from "@/lib/seoRobots";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
 
-async function fetchPublicBrandSettings() {
+const fetchPublicBrandSettings = cache(async function fetchPublicBrandSettings() {
   try {
     const res = await fetch(`${API_BASE_URL}/api/settings/public/`, {
       next: { revalidate: 300 },
@@ -259,7 +259,7 @@ async function fetchPublicBrandSettings() {
   } catch {
     return { logoUrl: "", siteName: "" };
   }
-}
+});
 
 const poppins = Poppins({
   subsets: ["latin"],
@@ -299,18 +299,16 @@ export default async function RootLayout({ children }) {
         className={`${poppins.className} flex flex-col min-h-screen bg-gray-50 text-gray-900` }
       >
         <Providers>
-          <I18nLanguageBoundary>
-            <Header
-              initialLogoUrl={initialLogoUrl}
-              initialSiteName={initialSiteName}
-            />
+          <Header
+            initialLogoUrl={initialLogoUrl}
+            initialSiteName={initialSiteName}
+          />
 
-            <div className="h-16 md:h-20" />
+          <div className="h-16 md:h-20" />
 
-            <main className="flex-1">{children}</main>
+          <main className="flex-1">{children}</main>
 
-            <Footer />
-          </I18nLanguageBoundary>
+          <Footer />
         </Providers>
       </body>
     </html>

@@ -7,12 +7,22 @@ import ListPagination, {
   PROVIDER_LIST_PAGE_SIZE,
   getListPaginationSlice,
 } from "@/components/common/ListPagination";
-import { useLanguage } from "@/contexts/LanguageContext";
-import { useCourseTitle } from "@/lib/entityI18n";
+import { t, tf } from "@/lib/uiStrings";
+
+function getExamListKey(exam, index) {
+  const id = exam?.id ?? exam?._id;
+  if (id != null && String(id).trim() !== "") {
+    return String(id);
+  }
+  const slug = (exam?.slug || "").trim();
+  if (slug) {
+    return `${slug}--${index}`;
+  }
+  return `exam-${index}`;
+}
 
 function ProviderExamCard({ exam, providerName }) {
-  const { t, tf } = useLanguage();
-  const examTitle = useCourseTitle(exam);
+  const examTitle = exam?.title || exam?.name || "";
 
   return (
     <div className="flex flex-col justify-between rounded-xl border border-[#DDE7FF] bg-white p-6 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md">
@@ -51,7 +61,6 @@ export default function ProviderExamsList({
   providerName,
   scrollTargetId = "provider-exams-grid",
 }) {
-  const { t } = useLanguage();
   const [listPage, setListPage] = useState(1);
   const safeExams = Array.isArray(exams) ? exams : [];
 
@@ -70,9 +79,9 @@ export default function ProviderExamsList({
         id="provider-exams-grid"
         className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"
       >
-        {pagination.items.map((exam) => (
+        {pagination.items.map((exam, index) => (
           <ProviderExamCard
-            key={exam.slug || exam.id}
+            key={getExamListKey(exam, pagination.startIndex + index)}
             exam={exam}
             providerName={providerName}
           />

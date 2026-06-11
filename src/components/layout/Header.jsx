@@ -7,9 +7,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useSiteName } from "@/hooks/useSiteName";
 import { useLogoUrl, getLogoUrl } from "@/hooks/useLogoUrl";
-import { useLanguage } from "@/contexts/LanguageContext";
-import LanguageSelect from "@/components/common/LanguageSelect";
-import { REACT_MANAGED_ATTR } from "@/lib/domTextUpdate";
+import { t } from "@/lib/uiStrings";
 
 
 
@@ -19,12 +17,6 @@ const Header = ({ initialLogoUrl = "", initialSiteName = "" }) => {
   const siteName = useSiteName(initialSiteName);
   const logoUrl = useLogoUrl(initialLogoUrl);
   const displayLogoUrl = logoUrl || getLogoUrl();
-  const { t, language, translations, translationsRefreshToken } = useLanguage();
-  // void language;
-  // void translations;
-  // void translationsRefreshToken;
-
-  
 
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userName, setUserName] = useState("");
@@ -139,10 +131,7 @@ const Header = ({ initialLogoUrl = "", initialSiteName = "" }) => {
   }
 
   return (
-    <header
-      {...{ [REACT_MANAGED_ATTR]: "true" }}
-      className="fixed top-0 left-0 right-0 z-50 w-full bg-white border-b border-gray-200 shadow-sm"
-    >
+    <header className="fixed top-0 left-0 right-0 z-50 w-full bg-white border-b border-gray-200 shadow-sm">
       <div className="container mx-auto px-4 h-16 md:h-20 flex items-center justify-between">
         
         {/* Logo */}
@@ -262,8 +251,6 @@ const Header = ({ initialLogoUrl = "", initialSiteName = "" }) => {
 
         {/* Desktop Auth Buttons or Profile Dropdown */}
         <div className="hidden md:flex items-center gap-4">
-          <LanguageSelect />
-          
           {!isLoggedIn ? (
             <>
               <Button 
@@ -433,10 +420,6 @@ const Header = ({ initialLogoUrl = "", initialSiteName = "" }) => {
             >
               {t("nav.testimonials")}
             </Link>
-
-            <div className="px-4 py-2">
-              <LanguageSelect className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-white" />
-            </div>
 
             {/* Mobile Auth Buttons */}
             <div className="pt-4 border-t border-gray-200 space-y-2">

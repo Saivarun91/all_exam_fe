@@ -1,16 +1,13 @@
 // app/categories/[slug]/page.jsx
 
+import { cache } from "react";
+import Link from "next/link";
 import CategoryDetail from "@/components/category/CategoryDetail";
 import BreadcrumbJsonLd from "@/components/BreadcrumbJsonLd";
-import Link from "next/link";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
+import SiteBreadcrumbs, {
+  toBreadcrumbJsonLdItems,
+} from "@/components/common/SiteBreadcrumbs";
+import { publicFetchOptions } from "@/lib/serverRevalidate";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
@@ -53,19 +50,18 @@ function getCategoryCourseStats(courses) {
   };
 }
 
-async function fetchCategoryData(slug) {
+const fetchCategoryData = cache(async function fetchCategoryData(slug) {
   if (!slug) {
     return { category: null, courses: [], error: true };
   }
 
   try {
     const [categoryRes, coursesRes] = await Promise.all([
-      fetch(`${API_BASE_URL}/api/categories/${slug}/`, {
-        next: { revalidate: 60 },
-      }),
-      fetch(`${API_BASE_URL}/api/courses/category/${slug}/`, {
-        next: { revalidate: 60 },
-      }),
+      fetch(`${API_BASE_URL}/api/categories/${slug}/`, publicFetchOptions()),
+      fetch(
+        `${API_BASE_URL}/api/courses/category/${slug}/`,
+        publicFetchOptions()
+      ),
     ]);
 
     if (!categoryRes.ok) {
@@ -98,7 +94,7 @@ async function fetchCategoryData(slug) {
       error: true,
     };
   }
-}
+});
 
 export async function generateMetadata({ params }) {
   const resolvedParams = await params;
@@ -223,7 +219,9 @@ export default async function CategoryPage({ params }) {
   const { totalCourses, practiceTests, questions, providers } = stats;
 
   const heroTitle =
-    category?.hero_title?.trim() || categoryTitle;
+    category?.page_title?.trim() ||
+    category?.hero_title?.trim() ||
+    categoryTitle;
 
   const heroDescription =
     category?.hero_subtitle?.trim() ||
@@ -245,17 +243,14 @@ export default async function CategoryPage({ params }) {
   ];
 
   const breadcrumbItems = [
-    { name: "Home", url: "/" },
-    { name: "Categories", url: "/categories" },
-    {
-      name: categoryTitle,
-      url: `/categories/${slug || ""}`,
-    },
+    { label: "Home", href: "/" },
+    { label: "Categories", href: "/categories" },
+    { label: categoryTitle, href: `/categories/${slug || ""}` },
   ];
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-100">
-      <BreadcrumbJsonLd items={breadcrumbItems} />
+      <BreadcrumbJsonLd items={toBreadcrumbJsonLdItems(breadcrumbItems)} />
       <section className="relative overflow-hidden border-b border-white/10 bg-[#071028]">
         <div className="absolute inset-0 overflow-hidden">
           <div className="absolute -left-20 top-10 h-72 w-72 rounded-full bg-cyan-500/10 blur-3xl"></div>
@@ -271,37 +266,11 @@ export default async function CategoryPage({ params }) {
         </div>
 
         <div className={`relative ${PAGE_CONTAINER} py-10 lg:py-14`}>
-          <Breadcrumb className="mb-6">
-            <BreadcrumbList>
-              <BreadcrumbItem>
-                <BreadcrumbLink asChild>
-                  <Link
-                    href="/"
-                    className="text-slate-400 hover:text-cyan-300 transition-colors"
-                  >
-                    Home
-                  </Link>
-                </BreadcrumbLink>
-              </BreadcrumbItem>
-              <BreadcrumbSeparator className="text-slate-500" />
-              <BreadcrumbItem>
-                <BreadcrumbLink asChild>
-                  <Link
-                    href="/categories"
-                    className="text-slate-400 hover:text-cyan-300 transition-colors"
-                  >
-                    Categories
-                  </Link>
-                </BreadcrumbLink>
-              </BreadcrumbItem>
-              <BreadcrumbSeparator className="text-slate-500" />
-              <BreadcrumbItem>
-                <BreadcrumbPage className="text-cyan-200 font-medium truncate max-w-[200px] sm:max-w-none">
-                  {categoryTitle}
-                </BreadcrumbPage>
-              </BreadcrumbItem>
-            </BreadcrumbList>
-          </Breadcrumb>
+          <SiteBreadcrumbs
+            className="mb-6"
+            variant="dark"
+            items={breadcrumbItems}
+          />
 
           <div className="grid items-center gap-10 lg:grid-cols-[1.15fr_0.85fr]">
             <div>

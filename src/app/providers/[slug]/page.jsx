@@ -1,18 +1,14 @@
 // app/providers/[slug]/page.jsx
+import { cache } from "react";
 import { createSlug } from "@/lib/utils";
+import Link from "next/link";
 import ProviderDetail from "@/components/provider/ProviderDetail";
 import BreadcrumbJsonLd from "@/components/BreadcrumbJsonLd";
-import Link from "next/link";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
+import SiteBreadcrumbs, {
+  toBreadcrumbJsonLdItems,
+} from "@/components/common/SiteBreadcrumbs";
+import { publicFetchOptions } from "@/lib/serverRevalidate";
 
-export const dynamic = "force-dynamic";
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 const SITE_URL = "https://allexamquestions.com";
@@ -60,13 +56,14 @@ function getProviderExamStats(exams) {
   };
 }
 
-async function fetchProviderAndExams(slug) {
+const fetchProviderAndExams = cache(async function fetchProviderAndExams(slug) {
   // 1) Fetch provider info
   let provider = null;
   try {
-    const res = await fetch(`${API_BASE_URL}/api/providers/${slug}/`, {
-      cache: "no-store",
-    });
+    const res = await fetch(
+      `${API_BASE_URL}/api/providers/${slug}/`,
+      publicFetchOptions()
+    );
     if (res.ok) provider = await res.json();
   } catch (err) {
     console.error("Failed to fetch provider:", err);
@@ -75,9 +72,10 @@ async function fetchProviderAndExams(slug) {
   // 2) Fetch exams/courses for this provider
   let exams = [];
   try {
-    const examsRes = await fetch(`${API_BASE_URL}/api/courses/?provider=${slug}`, {
-      cache: "no-store",
-    });
+    const examsRes = await fetch(
+      `${API_BASE_URL}/api/courses/?provider=${slug}`,
+      publicFetchOptions()
+    );
     if (examsRes.ok) {
       const data = await examsRes.json();
       exams = Array.isArray(data)
@@ -105,7 +103,7 @@ async function fetchProviderAndExams(slug) {
     return providerNameKey && examNameKey === providerNameKey;
   });
   return { provider, exams };
-}
+});
 
 export async function generateMetadata({ params }) {
   const { slug } = await params;
@@ -229,17 +227,14 @@ export default async function ProviderPage({ params }) {
   ];
 
   const breadcrumbItems = [
-    { name: "Home", url: "/" },
-    { name: "Providers", url: "/providers" },
-    {
-      name: providerName,
-      url: `/providers/${slug || ""}`,
-    },
+    { label: "Home", href: "/" },
+    { label: "Providers", href: "/providers" },
+    { label: providerName, href: `/providers/${slug || ""}` },
   ];
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-100">
-      <BreadcrumbJsonLd items={breadcrumbItems} />
+      <BreadcrumbJsonLd items={toBreadcrumbJsonLdItems(breadcrumbItems)} />
       <section className="relative overflow-hidden border-b border-white/10 bg-[#071028]">
         <div className="absolute inset-0 overflow-hidden">
           <div className="absolute -left-20 top-10 h-72 w-72 rounded-full bg-cyan-500/10 blur-3xl"></div>
@@ -255,37 +250,11 @@ export default async function ProviderPage({ params }) {
         </div>
 
         <div className={`relative ${PAGE_CONTAINER} py-10 lg:py-14`}>
-          <Breadcrumb className="mb-6">
-            <BreadcrumbList>
-              <BreadcrumbItem>
-                <BreadcrumbLink asChild>
-                  <Link
-                    href="/"
-                    className="text-slate-400 hover:text-cyan-300 transition-colors"
-                  >
-                    Home
-                  </Link>
-                </BreadcrumbLink>
-              </BreadcrumbItem>
-              <BreadcrumbSeparator className="text-slate-500" />
-              <BreadcrumbItem>
-                <BreadcrumbLink asChild>
-                  <Link
-                    href="/providers"
-                    className="text-slate-400 hover:text-cyan-300 transition-colors"
-                  >
-                    Providers
-                  </Link>
-                </BreadcrumbLink>
-              </BreadcrumbItem>
-              <BreadcrumbSeparator className="text-slate-500" />
-              <BreadcrumbItem>
-                <BreadcrumbPage className="text-cyan-200 font-medium truncate max-w-[200px] sm:max-w-none">
-                  {providerName}
-                </BreadcrumbPage>
-              </BreadcrumbItem>
-            </BreadcrumbList>
-          </Breadcrumb>
+          <SiteBreadcrumbs
+            className="mb-6"
+            variant="dark"
+            items={breadcrumbItems}
+          />
 
           <div className="grid items-center gap-10 lg:grid-cols-[1.15fr_0.85fr]">
             <div>

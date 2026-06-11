@@ -8,7 +8,6 @@ export const ADMIN_SUBROUTE_LOADERS = {
   enrollments: () => import("@/app/admin/enrollments/page"),
   "email-templates": () => import("@/app/admin/email-templates/page"),
   home: () => import("@/app/admin/home/page"),
-  languages: () => import("@/app/admin/languages/page"),
   leads: () => import("@/app/admin/leads/page"),
   "legal-pages": () => import("@/app/admin/legal-pages/page"),
   "parsing-suite": () => import("@/app/admin/parsing-suite/page"),

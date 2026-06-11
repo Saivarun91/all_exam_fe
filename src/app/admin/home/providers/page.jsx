@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,8 @@ import { PlusCircle, Edit, Trash2, Search, ArrowLeft } from "lucide-react";
 import { checkAuth, getAuthHeaders, getAuthHeadersForUpload } from "@/utils/authCheck";
 import { getOptimizedImageUrl } from "@/utils/imageUtils";
 import TipTapEditor from "@/components/editor/TipTapEditor";
+import AdminTablePagination, { ADMIN_TABLE_PAGE_SIZE } from "@/components/admin/AdminTablePagination";
+import { getListPaginationSlice } from "@/components/common/ListPagination";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 const EMPTY_FAQ = { question: "", answer: "" };
@@ -45,6 +47,7 @@ export default function AdminProvidersPage() {
   const [providers, setProviders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [listPage, setListPage] = useState(1);
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
   const [message, setMessage] = useState("");
@@ -298,6 +301,15 @@ export default function AdminProvidersPage() {
   const filteredProviders = providers.filter(provider =>
     provider.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     provider.slug?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  useEffect(() => {
+    setListPage(1);
+  }, [searchQuery]);
+
+  const paginatedProviders = useMemo(
+    () => getListPaginationSlice(filteredProviders, listPage, ADMIN_TABLE_PAGE_SIZE),
+    [filteredProviders, listPage]
   );
 
   if (loading) {
@@ -668,7 +680,7 @@ export default function AdminProvidersPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredProviders.map((provider) => (
+                    {paginatedProviders.items.map((provider) => (
                       <tr key={provider.id} className="border-b hover:bg-gray-50">
                         <td className="p-3">
                           <div className="flex items-center gap-3">
@@ -713,6 +725,13 @@ export default function AdminProvidersPage() {
                 </table>
               </div>
             )}
+            <AdminTablePagination
+              currentPage={paginatedProviders.page}
+              totalPages={paginatedProviders.totalPages}
+              totalItems={paginatedProviders.totalItems}
+              onPageChange={setListPage}
+              itemLabel="providers"
+            />
           </CardContent>
         </Card>
       </div>

@@ -8,24 +8,13 @@ import CategoryCard from "@/components/category/CategoryCard";
 import ListPagination, {
   getListPaginationSlice,
 } from "@/components/common/ListPagination";
-import { useLanguage } from "@/contexts/LanguageContext";
-import {
-  getEntityId,
-  useLocalizedEntity,
-} from "@/lib/entityI18n";
+import { t, tf } from "@/lib/uiStrings";
 import { resolveCategoryImageUrl } from "@/lib/categoryImage";
 
 const TOP_CATEGORIES_PAGE_SIZE = 8;
 
 function CategoryListItem({ category }) {
-  const { t } = useLanguage();
-  const categoryId = getEntityId(category);
-  const title = useLocalizedEntity(
-    "category",
-    categoryId,
-    "title",
-    category?.title || ""
-  );
+  const title = category?.title || category?.name || "";
   const imageSrc = resolveCategoryImageUrl(category?.image_url);
 
   return (
@@ -68,7 +57,6 @@ export default function CategoriesListClient({
   groupedCategories = {},
   topCertificationCategories = [],
 }) {
-  const { t, tf } = useLanguage();
   const [searchTerm, setSearchTerm] = useState("");
   const [topCategoriesPage, setTopCategoriesPage] = useState(1);
   const formatSectionHeading = (heading) => {

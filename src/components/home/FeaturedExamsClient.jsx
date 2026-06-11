@@ -283,9 +283,10 @@ import { Badge } from "@/components/ui/badge";
 import { ArrowRight, Award, ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { createSlug, getExamUrl } from "@/lib/utils";
-import AutoText from "@/components/i18n/AutoText";
-import CourseTitleText from "@/components/i18n/CourseTitleText";
-import ProviderNameText from "@/components/i18n/ProviderNameText";
+import EntityText, {
+  CourseTitleText,
+  ProviderNameText,
+} from "@/components/common/EntityText";
 
 export default function FeaturedExamsClient({
   courses,
@@ -386,7 +387,7 @@ export default function FeaturedExamsClient({
 
                       {exam.badge && (
                         <Badge className="bg-[#1A73E8]/10 text-[#1A73E8] text-xs">
-                          <AutoText text={exam.badge} />
+                          <EntityText text={exam.badge} />
                         </Badge>
                       )}
                     </div>

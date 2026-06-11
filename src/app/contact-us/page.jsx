@@ -392,7 +392,16 @@
 // app/contact-us/page.jsx
 import { Mail, Phone, MapPin, Globe } from "lucide-react";
 import BackButton from "./BackButton";
-import TranslatedAddress from "@/components/i18n/TranslatedAddress";
+import BreadcrumbJsonLd from "@/components/BreadcrumbJsonLd";
+import SiteBreadcrumbs, {
+  SiteBreadcrumbBar,
+  toBreadcrumbJsonLdItems,
+} from "@/components/common/SiteBreadcrumbs";
+
+const CONTACT_BREADCRUMB_ITEMS = [
+  { label: "Home", href: "/" },
+  { label: "Contact Us", href: "/contact-us" },
+];
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
 
@@ -448,6 +457,10 @@ export default async function ContactUsPage() {
 
   return (
     <main className="py-16 bg-background">
+      <BreadcrumbJsonLd items={toBreadcrumbJsonLdItems(CONTACT_BREADCRUMB_ITEMS)} />
+      <SiteBreadcrumbBar className="max-w-5xl">
+        <SiteBreadcrumbs items={CONTACT_BREADCRUMB_ITEMS} />
+      </SiteBreadcrumbBar>
       <div className="container mx-auto px-4 max-w-5xl">
         <BackButton />
 
@@ -490,7 +503,7 @@ export default async function ContactUsPage() {
                 <MapPin className="w-6 h-6 text-blue-600 mt-1 flex-shrink-0" />
                 <div>
                   <h3 className="font-semibold text-foreground mb-1">Address</h3>
-                  <TranslatedAddress address={contact.address} as="p" />
+                  <p className="text-gray-600 whitespace-pre-line">{contact.address}</p>
                 </div>
               </div>
             )}

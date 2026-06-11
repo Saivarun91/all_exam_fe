@@ -351,25 +351,48 @@
 
 
 // app/exams/page.tsx (or .jsx)
+import { cache } from "react";
 import ExamsPageContent from "@/components/exams/ExamsPageContent";
+import BreadcrumbJsonLd from "@/components/BreadcrumbJsonLd";
+import SiteBreadcrumbs, {
+  SiteBreadcrumbBar,
+  toBreadcrumbJsonLdItems,
+} from "@/components/common/SiteBreadcrumbs";
 import { filterPublicExamListings } from "@/lib/examListingFilters";
+import { publicFetchOptions } from "@/lib/serverRevalidate";
 
-export const dynamic = "force-dynamic";
+const EXAMS_BREADCRUMB_ITEMS = [
+  { label: "Home", href: "/" },
+  { label: "All Exams", href: "/exams" },
+];
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
-// ------------------ Fetch Data ------------------
-async function fetchData() {
+const fetchExamsPageSeo = cache(async function fetchExamsPageSeo() {
   try {
-    const [providersRes, categoriesRes, coursesRes, trustBarRes, aboutRes, examsSeoRes] =
+    const res = await fetch(
+      `${API_BASE_URL}/api/home/exams-page-seo/`,
+      publicFetchOptions()
+    );
+    if (!res.ok) return null;
+    return res.json();
+  } catch {
+    return null;
+  }
+});
+
+// ------------------ Fetch Data ------------------
+const fetchData = cache(async function fetchData() {
+  try {
+    const [providersRes, categoriesRes, coursesRes, trustBarRes, aboutRes, examsSeoData] =
       await Promise.all([
-        fetch(`${API_BASE_URL}/api/providers/`, { cache: "no-store" }),
-        fetch(`${API_BASE_URL}/api/categories/`, { cache: "no-store" }),
-        fetch(`${API_BASE_URL}/api/courses/`, { cache: "no-store" }),
-        fetch(`${API_BASE_URL}/api/home/exams-trust-bar/`, { cache: "no-store" }),
-        fetch(`${API_BASE_URL}/api/home/exams-about/`, { cache: "no-store" }),
-        fetch(`${API_BASE_URL}/api/home/exams-page-seo/`, { cache: "no-store" }),
+        fetch(`${API_BASE_URL}/api/providers/`, publicFetchOptions()),
+        fetch(`${API_BASE_URL}/api/categories/`, publicFetchOptions()),
+        fetch(`${API_BASE_URL}/api/courses/`, publicFetchOptions()),
+        fetch(`${API_BASE_URL}/api/home/exams-trust-bar/`, publicFetchOptions()),
+        fetch(`${API_BASE_URL}/api/home/exams-about/`, publicFetchOptions()),
+        fetchExamsPageSeo(),
       ]);
 
     const providersData = await providersRes.json();
@@ -377,7 +400,6 @@ async function fetchData() {
     const coursesData = await coursesRes.json();
     const trustBarData = await trustBarRes.json();
     const aboutData = await aboutRes.json();
-    const examsSeoData = await examsSeoRes.json();
 
     return {
       providers: Array.isArray(providersData)
@@ -404,18 +426,13 @@ async function fetchData() {
       examsPageHeading: "All Popular Exams",
     };
   }
-}
+});
 
 // ------------------ Dynamic Metadata ------------------
 export async function generateMetadata() {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/home/exams-page-seo/`, {
-      cache: "no-store",
-    });
-
-    if (!res.ok) throw new Error("SEO fetch failed");
-
-    const seoData = await res.json();
+    const seoData = await fetchExamsPageSeo();
+    if (!seoData) throw new Error("SEO fetch failed");
 
     const title = seoData?.meta_title
       ? `${seoData.meta_title} | All Exam Questions`
@@ -473,7 +490,12 @@ export default async function ExamsPage() {
   const data = await fetchData();
 
   return (
-    <ExamsPageContent
+    <>
+      <BreadcrumbJsonLd items={toBreadcrumbJsonLdItems(EXAMS_BREADCRUMB_ITEMS)} />
+      <SiteBreadcrumbBar>
+        <SiteBreadcrumbs items={EXAMS_BREADCRUMB_ITEMS} />
+      </SiteBreadcrumbBar>
+      <ExamsPageContent
       initialProvidersData={data.providers}
       initialCategoriesData={data.categories}
       initialExamsData={data.exams}
@@ -482,5 +504,6 @@ export default async function ExamsPage() {
       initialPageHeading={data.examsPageHeading}
       usePathBasedRouting={true}
     />
+    </>
   );
 }

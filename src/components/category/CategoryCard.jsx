@@ -18,11 +18,7 @@ import {
   getCategoryPagePath,
   resolveCategoryImageUrl,
 } from "@/lib/categoryImage";
-import { useLanguage } from "@/contexts/LanguageContext";
-import {
-  getEntityId,
-  useLocalizedEntity,
-} from "@/lib/entityI18n";
+import { t, tf } from "@/lib/uiStrings";
 
 const ICON_MAP = {
   Cloud,
@@ -71,20 +67,10 @@ export default function CategoryCard({
   showExamCount = false,
   imageFit = "cover",
 }) {
-  const { t, tf } = useLanguage();
   const Icon = ICON_MAP[category?.icon] || Folder;
   const imageSrc = resolveCategoryImageUrl(category?.image_url);
-  const categoryId = getEntityId(category);
-  const apiTitle = category?.name || category?.title || "";
-  const displayName =
-    useLocalizedEntity("category", categoryId, "title", apiTitle) ||
-    t("common.category");
-  const description = useLocalizedEntity(
-    "category",
-    categoryId,
-    "description",
-    category?.description || ""
-  );
+  const displayName = category?.name || category?.title || t("common.category");
+  const description = category?.description || "";
   const categoryHref = getCategoryPagePath(category);
   const examCount = category?.examCount ?? 0;
 

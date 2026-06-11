@@ -1,26 +1,19 @@
+import { cache } from "react";
 import CategoriesListClient from "@/components/category/CategoriesListClient";
 import BreadcrumbJsonLd from "@/components/BreadcrumbJsonLd";
-import Link from "next/link";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
+import SiteBreadcrumbs, {
+  SiteBreadcrumbBar,
+  toBreadcrumbJsonLdItems,
+} from "@/components/common/SiteBreadcrumbs";
+import { attachExamCounts } from "@/lib/categoryCounts";
+import { publicFetchOptions } from "@/lib/serverRevalidate";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
-export const dynamic = "force-dynamic";
-
-// Fetch categories on server
-async function getCategories() {
+const getCategories = cache(async function getCategories() {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/categories/`, {
-      cache: "no-store",
-    });
+    const res = await fetch(`${API_BASE_URL}/api/categories/`, publicFetchOptions());
 
     if (!res.ok) throw new Error("Failed to fetch categories");
 
@@ -33,36 +26,13 @@ async function getCategories() {
     console.error(err);
     return [];
   }
-}
+});
 
-async function getExamCountByCategorySlug(slug) {
-  try {
-    if (!slug) return 0;
-
-    const res = await fetch(
-      `${API_BASE_URL}/api/courses/category/${encodeURIComponent(slug)}/`,
-      {
-        cache: "no-store",
-      }
-    );
-
-    if (!res.ok) return 0;
-
-    const data = await res.json();
-
-    return Array.isArray(data) ? data.length : 0;
-  } catch {
-    return 0;
-  }
-}
-
-async function getCategoriesPageSeo() {
+const getCategoriesPageSeo = cache(async function getCategoriesPageSeo() {
   try {
     const res = await fetch(
       `${API_BASE_URL}/api/home/categories-page-seo/`,
-      {
-        cache: "no-store",
-      }
+      publicFetchOptions()
     );
 
     if (!res.ok) return null;
@@ -73,7 +43,7 @@ async function getCategoriesPageSeo() {
   } catch {
     return null;
   }
-}
+});
 
 function getMainCategoryHeading(category) {
   const rawHeading =
@@ -224,12 +194,7 @@ export default async function CategoriesPage() {
     getCategoriesPageSeo(),
   ]);
 
-  const categoriesWithCounts = await Promise.all(
-    categories.map(async (category) => ({
-      ...category,
-      examCount: await getExamCountByCategorySlug(category.slug),
-    }))
-  );
+  const categoriesWithCounts = await attachExamCounts(categories);
 
   const topCertificationCategories = categoriesWithCounts.filter((category) =>
     parseBoolean(category?.is_top_certification)
@@ -312,37 +277,20 @@ export default async function CategoriesPage() {
   return (
     <>
       <BreadcrumbJsonLd
-        items={[
-          { name: "Home", url: "/" },
-          { name: "Categories", url: "/categories" },
-        ]}
+        items={toBreadcrumbJsonLdItems([
+          { label: "Home", href: "/" },
+          { label: "Categories", href: "/categories" },
+        ])}
       />
       <div className="min-h-screen bg-[#f5f7fa] overflow-hidden">
-      {/* Breadcrumb - top of page */}
-      <div className="bg-white border-b border-slate-200">
-        <div className="container mx-auto px-4 py-3">
-          <Breadcrumb>
-            <BreadcrumbList>
-              <BreadcrumbItem>
-                <BreadcrumbLink asChild>
-                  <Link
-                    href="/"
-                    className="text-[#0C1A35]/60 hover:text-[#1A73E8]"
-                    data-i18n="breadcrumb.home"
-                  ></Link>
-                </BreadcrumbLink>
-              </BreadcrumbItem>
-              <BreadcrumbSeparator />
-              <BreadcrumbItem>
-                <BreadcrumbPage
-                  className="text-[#0C1A35] font-medium"
-                  data-i18n="nav.categories"
-                ></BreadcrumbPage>
-              </BreadcrumbItem>
-            </BreadcrumbList>
-          </Breadcrumb>
-        </div>
-      </div>
+      <SiteBreadcrumbBar>
+        <SiteBreadcrumbs
+          items={[
+            { label: "Home", href: "/" },
+            { label: "Categories", href: "/categories" },
+          ]}
+        />
+      </SiteBreadcrumbBar>
       {/* ================= HERO SECTION ================= */}
       <section className="relative">
         {/* Background Layers */}

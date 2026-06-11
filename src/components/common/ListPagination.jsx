@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { Button } from "@/components/ui/button";
-import { useLanguage } from "@/contexts/LanguageContext";
+import { t, tf } from "@/lib/uiStrings";
 
 /** Default for /exams listing */
 export const DEFAULT_LIST_PAGE_SIZE = 12;
@@ -59,7 +59,6 @@ export default function ListPagination({
   scrollTargetId,
   className = "",
 }) {
-  const { t, tf } = useLanguage();
 
   const resolvedItemLabel = itemLabel || t(itemLabelKey);
 

@@ -17,14 +17,8 @@ import {
 } from "@/components/ui/dialog";
 import { GraduationCap, Mail, Lock, Eye, EyeOff } from "lucide-react";
 import { useLogoUrl } from "@/hooks/useLogoUrl";
-
-// ----------------------- API URLs -----------------------
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
-const USER_LOGIN_URL = `${API_BASE_URL}/api/users/login/`;
-const FORGOT_PASSWORD_URL = `${API_BASE_URL}/api/users/forgot-password/`;
-const VERIFY_OTP_URL = `${API_BASE_URL}/api/users/verify-otp/`;
-const RESET_PASSWORD_URL = `${API_BASE_URL}/api/users/reset-password/`;
-const GOOGLE_OAUTH_URL = `${API_BASE_URL}/api/users/google-oauth/`;
+import { apiUrl } from "@/lib/apiBaseUrl";
+import { persistUserAuthSession } from "@/lib/authSession";
 
 function LoginPageContent() {
   const router = useRouter();
@@ -75,33 +69,46 @@ function LoginPageContent() {
     setLoginError("");
 
     try {
-      console.log("Attempting login to:", USER_LOGIN_URL);
+      const loginUrl = apiUrl("/api/users/login/");
+      console.log("Attempting login to:", loginUrl);
       console.log("Email:", loginEmail);
       
-      const res = await fetch(USER_LOGIN_URL, {
+      const res = await fetch(loginUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: loginEmail, password: loginPassword }),
+        body: JSON.stringify({
+          email: loginEmail.trim(),
+          password: loginPassword,
+        }),
       });
 
       console.log("Response status:", res.status);
-      
-      if (!res.ok) {
-        const data = await res.json();
-        console.log("Error response:", data);
-        setLoginError(data.error || "Invalid credentials");
-        setIsLoading(false);
+
+      let data;
+      try {
+        data = await res.json();
+      } catch {
+        setLoginError("Unexpected server response. Please try again.");
         return;
       }
-
-      const data = await res.json();
+      
+      if (!res.ok) {
+        console.log("Error response:", data);
+        setLoginError(data.error || "Invalid credentials");
+        return;
+      }
       console.log("Response data:", data);
 
       if (data.token) {
-        localStorage.setItem("token", data.token);
-        localStorage.setItem("name", data.user?.fullname || "");
-        localStorage.setItem("email", data.user?.email || "");
-        localStorage.setItem("role", data.user?.role || "student");
+        try {
+          persistUserAuthSession({ token: data.token, user: data.user });
+        } catch (storageError) {
+          console.error("Auth storage error:", storageError);
+          setLoginError(
+            "Browser storage is full. Clear site data for this page and try again."
+          );
+          return;
+        }
 
         // Dispatch login event to update header without refresh
         window.dispatchEvent(new CustomEvent("userLoggedIn"));
@@ -122,7 +129,17 @@ function LoginPageContent() {
       }
     } catch (err) {
       console.error("Login Error:", err);
-      setLoginError("Network Error: Cannot connect to server. Please ensure the backend is running on port 8000.");
+      const message = String(err?.message || "");
+      if (
+        err?.name === "TypeError" &&
+        /failed to fetch|networkerror|load failed/i.test(message)
+      ) {
+        setLoginError(
+          "Network Error: Cannot connect to server. Please ensure the backend is running on port 8000."
+        );
+      } else {
+        setLoginError(message || "Login failed. Please try again.");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -136,7 +153,7 @@ function LoginPageContent() {
     setForgotMessage("");
   
     try {
-      const res = await fetch(FORGOT_PASSWORD_URL, {
+      const res = await fetch(apiUrl("/api/users/forgot-password/"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: forgotEmail }),
@@ -171,7 +188,7 @@ function LoginPageContent() {
     setForgotMessage("");
 
     try {
-      const res = await fetch(VERIFY_OTP_URL, {
+      const res = await fetch(apiUrl("/api/users/verify-otp/"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: forgotEmail, otp: otp }),
@@ -213,7 +230,7 @@ function LoginPageContent() {
     }
 
     try {
-      const res = await fetch(RESET_PASSWORD_URL, {
+      const res = await fetch(apiUrl("/api/users/reset-password/"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
@@ -336,7 +353,7 @@ function LoginPageContent() {
             };
 
             // Send to backend
-            const res = await fetch(GOOGLE_OAUTH_URL, {
+            const res = await fetch(apiUrl("/api/users/google-oauth/"), {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify(googleData),
@@ -345,11 +362,17 @@ function LoginPageContent() {
             const data = await res.json();
 
             if (res.ok && data.token) {
-              localStorage.setItem("token", data.token);
-              localStorage.setItem("name", data.user?.fullname || "");
-              localStorage.setItem("email", data.user?.email || "");
-              localStorage.setItem("role", data.user?.role || "student");
-              
+              try {
+                persistUserAuthSession({ token: data.token, user: data.user });
+              } catch (storageError) {
+                console.error("Auth storage error:", storageError);
+                setLoginError(
+                  "Browser storage is full. Clear site data for this page and try again."
+                );
+                setShowGoogleDialog(false);
+                return;
+              }
+
               // Dispatch login event to update header without refresh
               window.dispatchEvent(new CustomEvent("userLoggedIn"));
               

@@ -147,16 +147,27 @@ import { Star, Quote, CheckCircle2 } from "lucide-react";
 import ReviewsJsonLd from "@/components/ReviewsJsonLd";
 import { logServerFetchError } from "@/lib/serverFetchLog";
 
+import { cache } from "react";
+import BreadcrumbJsonLd from "@/components/BreadcrumbJsonLd";
+import SiteBreadcrumbs, {
+  toBreadcrumbJsonLdItems,
+} from "@/components/common/SiteBreadcrumbs";
+import { publicFetchOptions } from "@/lib/serverRevalidate";
+
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
 
+const TESTIMONIALS_BREADCRUMB_ITEMS = [
+  { label: "Home", href: "/" },
+  { label: "Testimonials", href: "/testimonials" },
+];
 
-// ✅ server-side fetch
-async function getTestimonials() {
+
+const getTestimonials = cache(async function getTestimonials() {
   try {
     const res = await fetch(
       `${API_BASE_URL}/api/home/testimonials/?all=true`,
-      { cache: "no-store" }
+      publicFetchOptions()
     );
 
     const data = await res.json();
@@ -169,8 +180,7 @@ async function getTestimonials() {
   }
 
   return [];
-}
-
+});
 
 export async function generateMetadata() {
   return {
@@ -186,12 +196,17 @@ export default async function TestimonialsPage() {
   const testimonials = await getTestimonials();
 
   return (
-    <div className="py-20 bg-gradient-to-br from-[#F5F8FC] to-white">
+    <div className="pt-8 pb-20 bg-gradient-to-br from-[#F5F8FC] to-white">
+      <BreadcrumbJsonLd items={toBreadcrumbJsonLdItems(TESTIMONIALS_BREADCRUMB_ITEMS)} />
       {testimonials.length > 0 && (
         <ReviewsJsonLd testimonials={testimonials} itemName="AllExamQuestions" />
       )}
 
       <div className="container mx-auto px-4">
+        <div className="mb-6">
+          <SiteBreadcrumbs items={TESTIMONIALS_BREADCRUMB_ITEMS} />
+        </div>
+
         {/* Header Section */}
         <div className="text-center mb-12">
           <div className="flex justify-center mb-4">

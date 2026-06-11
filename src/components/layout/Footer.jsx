@@ -8,10 +8,7 @@ import { useSiteName } from "@/hooks/useSiteName";
 import { useContactDetails } from "@/hooks/useContactDetails";
 import { useLogoUrl } from "@/hooks/useLogoUrl";
 import { useSocialMediaUrls } from "@/hooks/useSocialMediaUrls";
-import { useLanguage } from "@/contexts/LanguageContext";
-import { REACT_MANAGED_ATTR } from "@/lib/domTextUpdate";
-import { useProviderName } from "@/lib/entityI18n";
-import TranslatedAddress from "@/components/i18n/TranslatedAddress";
+import { t } from "@/lib/uiStrings";
 import { getOptimizedImageUrl } from "@/utils/imageUtils";
 import Image from "next/image";
 /**
@@ -25,14 +22,12 @@ import Image from "next/image";
  */
 
 function FooterProviderLink({ provider, href }) {
-  const name = useProviderName(provider);
-
   return (
     <Link
       href={href}
       className="text-[#F0F4FF] hover:text-[#1A73E8] transition-colors text-xs md:text-sm inline-flex items-center py-0.5"
     >
-      {name}
+      {provider?.name || ""}
     </Link>
   );
 }
@@ -44,11 +39,6 @@ const Footer = () => {
   const contactDetails = useContactDetails();
   const logoUrl = useLogoUrl();
   const socialUrls = useSocialMediaUrls();
-  const { t, language, translations, translationsRefreshToken } = useLanguage();
-  void language;
-  void translations;
-  void translationsRefreshToken;
-
   const [providers, setProviders] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -162,10 +152,7 @@ const Footer = () => {
   }
 
   return (
-    <footer
-      {...{ [REACT_MANAGED_ATTR]: "true" }}
-      className="bg-gradient-to-br from-[#0C1A35] to-[#0E2444] text-white border-t border-[#1A73E8]/20"
-    >
+    <footer className="bg-gradient-to-br from-[#0C1A35] to-[#0E2444] text-white border-t border-[#1A73E8]/20">
       <div className="container mx-auto px-4 py-6 md:py-8">
         <div className={`grid grid-cols-2 sm:grid-cols-3 ${gridCols} gap-4 md:gap-6 mb-6 md:mb-8`}>
           {/* Providers Section - Only show if providers exist */}
@@ -304,10 +291,9 @@ const Footer = () => {
                 {hasAddress && (
                   <li className="flex items-start gap-2">
                     <MapPin className="w-3.5 h-3.5 md:w-4 md:h-4 text-[#1A73E8] mt-0.5 flex-shrink-0" />
-                    <TranslatedAddress
-                      address={contactDetails.address}
-                      className="text-[#F0F4FF] text-xs md:text-sm whitespace-pre-line"
-                    />
+                    <p className="text-[#F0F4FF] text-xs md:text-sm whitespace-pre-line">
+                      {contactDetails.address}
+                    </p>
                   </li>
                 )}
                 {hasWebsite && (
