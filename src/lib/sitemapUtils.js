@@ -6,6 +6,173 @@ export const SITEMAP_SECTIONS = [
 ];
 
 const XML_HEADER = '<?xml version="1.0" encoding="UTF-8"?>';
+const PRODUCTION_SITE_ORIGIN = "https://allexamquestions.com";
+const LOCAL_HOSTNAMES = new Set(["localhost", "127.0.0.1", "0.0.0.0", "[::1]"]);
+const API_HOSTNAMES = new Set(["backendapi.allexamquestions.com"]);
+
+function isLocalHostname(hostname = "") {
+  const host = String(hostname).split(":")[0].toLowerCase();
+  if (!host) return true;
+  if (LOCAL_HOSTNAMES.has(host)) return true;
+  return host.endsWith(".local");
+}
+
+function isNonPublicSitemapHost(hostname = "") {
+  const host = String(hostname).split(":")[0].toLowerCase();
+  return isLocalHostname(host) || API_HOSTNAMES.has(host);
+}
+
+function normalizeConfiguredOrigin(value = "") {
+  const trimmed = String(value).trim().replace(/\/$/, "");
+  if (!trimmed) return "";
+
+  try {
+    const url = new URL(
+      trimmed.includes("://") ? trimmed : `https://${trimmed}`
+    );
+    if (isNonPublicSitemapHost(url.hostname)) return "";
+    return url.origin;
+  } catch {
+    return "";
+  }
+}
+
+function isProductionDeployment() {
+  if (process.env.NODE_ENV === "production") return true;
+  if (process.env.VERCEL_ENV === "production") return true;
+  if (process.env.RAILWAY_ENVIRONMENT === "production") return true;
+  return false;
+}
+
+function getConfiguredPublicOrigin() {
+  return (
+    normalizeConfiguredOrigin(
+      process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || ""
+    ) || PRODUCTION_SITE_ORIGIN
+  );
+}
+
+function ensurePublicSitemapOrigin(origin) {
+  if (!origin) return getConfiguredPublicOrigin();
+
+  try {
+    if (isNonPublicSitemapHost(new URL(origin).hostname)) {
+      return getConfiguredPublicOrigin();
+    }
+  } catch {
+    return getConfiguredPublicOrigin();
+  }
+
+  return origin;
+}
+
+/** Public frontend origin for sitemap <loc> URLs (never localhost/API host). */
+export function resolveSitemapOrigin(request) {
+  const configured = normalizeConfiguredOrigin(
+    process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || ""
+  );
+  if (configured) return ensurePublicSitemapOrigin(configured);
+
+  const forwardedHost = request.headers.get("x-forwarded-host");
+  if (forwardedHost) {
+    const host = forwardedHost.split(",")[0].trim();
+    const hostname = host.split(":")[0];
+    if (!isNonPublicSitemapHost(hostname)) {
+      const proto = (request.headers.get("x-forwarded-proto") || "https")
+        .split(",")[0]
+        .trim();
+      return ensurePublicSitemapOrigin(`${proto}://${host}`);
+    }
+  }
+
+  const host = request.headers.get("host");
+  if (host) {
+    const hostname = host.split(":")[0];
+    if (!isNonPublicSitemapHost(hostname)) {
+      const proto = (
+        request.headers.get("x-forwarded-proto") ||
+        (isProductionDeployment() ? "https" : "http")
+      )
+        .split(",")[0]
+        .trim();
+      return ensurePublicSitemapOrigin(`${proto}://${host}`);
+    }
+  }
+
+  try {
+    const requestOrigin = new URL(request.url).origin;
+    if (!isNonPublicSitemapHost(new URL(requestOrigin).hostname)) {
+      return ensurePublicSitemapOrigin(requestOrigin);
+    }
+  } catch {
+    // Fall through to configured production default.
+  }
+
+  return getConfiguredPublicOrigin();
+}
+
+const LOCAL_ORIGIN_RE =
+  /^https?:\/\/(?:localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\])(?::\d+)?/i;
+
+/** Final safety pass: rewrite any remaining localhost loc URLs to the public origin. */
+export function stripLocalhostFromSitemapXml(
+  xml,
+  publicOrigin = PRODUCTION_SITE_ORIGIN
+) {
+  return xml.replace(/<loc>(https?:\/\/[^<]+)<\/loc>/g, (match, absoluteUrl) => {
+    if (!LOCAL_ORIGIN_RE.test(absoluteUrl)) return match;
+
+    try {
+      const parsed = new URL(absoluteUrl);
+      let path = parsed.pathname;
+      if (path.startsWith("/api/")) {
+        path = path.replace(/^\/api/, "");
+      }
+      return `<loc>${publicOrigin}${path}${parsed.search}</loc>`;
+    } catch {
+      return match;
+    }
+  });
+}
+
+export function normalizeSitemapLocUrl(url, request) {
+  const publicOrigin = resolveSitemapOrigin(request);
+  const raw = String(url || "").trim();
+  if (!raw) return raw;
+
+  if (raw.startsWith("/")) {
+    return `${publicOrigin}${raw}`;
+  }
+
+  try {
+    const parsed = new URL(raw);
+    if (LOCAL_ORIGIN_RE.test(raw) || isNonPublicSitemapHost(parsed.hostname)) {
+      let path = parsed.pathname;
+      if (path.startsWith("/api/")) {
+        path = path.replace(/^\/api/, "");
+      }
+      return `${publicOrigin}${path}${parsed.search}`;
+    }
+    return raw;
+  } catch {
+    return raw;
+  }
+}
+
+export function sanitizeSitemapEntries(entries = [], request) {
+  if (!request) return entries;
+  return entries.map((entry) => ({
+    ...entry,
+    url: normalizeSitemapLocUrl(entry.url, request),
+  }));
+}
+
+export function finalizeSitemapXml(xml, request) {
+  const origin = resolveSitemapOrigin(request);
+  let result = rewriteSitemapLocs(xml, origin);
+  result = stripLocalhostFromSitemapXml(result, origin);
+  return result;
+}
 
 export function isSitemapPathname(pathname = "") {
   const path = pathname || "";
@@ -130,7 +297,6 @@ export function rewriteSitemapLocs(xml, targetOrigin) {
 }
 
 export async function fetchSectionSitemap({ request, apiPath }) {
-  const targetOrigin = new URL(request.url).origin;
   const API_BASE_URL =
     process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
@@ -144,8 +310,7 @@ export async function fetchSectionSitemap({ request, apiPath }) {
     throw new Error(`Failed to fetch ${apiPath}: ${res.status}`);
   }
 
-  let xml = await res.text();
-  xml = rewriteSitemapLocs(xml, targetOrigin);
+  const xml = finalizeSitemapXml(await res.text(), request);
   return withSitemapStylesheet(xml);
 }
 
@@ -159,7 +324,10 @@ export async function fetchAllPageEntries(request) {
           request,
           apiPath: section.file,
         });
-        const pages = parsePageUrlsFromSitemapXml(xml);
+        const pages = sanitizeSitemapEntries(
+          parsePageUrlsFromSitemapXml(xml),
+          request
+        );
         pages.forEach((page) => {
           combined.push({
             ...page,
@@ -280,7 +448,10 @@ export function htmlResponseForSitemapXml(
   xml,
   { title = "Sitemap", description = "" } = {}
 ) {
-  const entries = parsePageUrlsFromSitemapXml(xml);
+  const entries = sanitizeSitemapEntries(
+    parsePageUrlsFromSitemapXml(xml),
+    request
+  );
 
   return new Response(
     renderSitemapHtml({

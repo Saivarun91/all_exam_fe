@@ -7,6 +7,7 @@ import SiteBreadcrumbs, {
 } from "@/components/common/SiteBreadcrumbs";
 import { attachExamCounts } from "@/lib/categoryCounts";
 import { publicFetchOptions } from "@/lib/serverRevalidate";
+import { t } from "@/lib/uiStrings";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
@@ -274,6 +275,11 @@ export default async function CategoriesPage() {
 
   const heroDescription = pageSeo?.hero_subtitle?.trim() || "";
 
+  const ctaTitle = t("categories.page.cta_title");
+  const ctaSubtitle = t("categories.page.cta_subtitle");
+  const exploreExamsLabel = t("common.explore_exams");
+  const browseProvidersLabel = t("common.browse_providers");
+
   return (
     <>
       <BreadcrumbJsonLd
@@ -401,25 +407,37 @@ export default async function CategoriesPage() {
           <h2
             className="text-3xl md:text-4xl font-black text-slate-900"
             data-i18n="categories.page.cta_title"
-          ></h2>
+            data-i18n-fallback={ctaTitle}
+          >
+            {ctaTitle}
+          </h2>
 
           <p
             className="mt-4 text-slate-600 max-w-2xl mx-auto"
             data-i18n="categories.page.cta_subtitle"
-          ></p>
+            data-i18n-fallback={ctaSubtitle}
+          >
+            {ctaSubtitle}
+          </p>
 
           <div className="mt-8 flex flex-wrap justify-center gap-4">
             <a
               href="/exams"
               className="px-7 py-3 rounded-xl bg-slate-900 text-white font-semibold hover:bg-slate-800 transition-all"
               data-i18n="common.explore_exams"
-            ></a>
+              data-i18n-fallback={exploreExamsLabel}
+            >
+              {exploreExamsLabel}
+            </a>
 
             <a
               href="/providers"
               className="px-7 py-3 rounded-xl border border-slate-300 text-slate-900 font-semibold hover:bg-slate-100 transition-all"
               data-i18n="common.browse_providers"
-            ></a>
+              data-i18n-fallback={browseProvidersLabel}
+            >
+              {browseProvidersLabel}
+            </a>
           </div>
 
         </div>

@@ -5,13 +5,14 @@ import {
   formatSitemapLastmod,
   prefersHtmlResponse,
   renderSitemapHtml,
+  resolveSitemapOrigin,
   SITEMAP_SECTIONS,
 } from "@/lib/sitemapUtils";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request) {
-  const targetOrigin = new URL(request.url).origin;
+  const targetOrigin = resolveSitemapOrigin(request);
   const lastmod = formatSitemapLastmod();
 
   if (prefersHtmlResponse(request)) {
