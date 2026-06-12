@@ -8,6 +8,7 @@ import SiteBreadcrumbs, {
   toBreadcrumbJsonLdItems,
 } from "@/components/common/SiteBreadcrumbs";
 import { publicFetchOptions } from "@/lib/serverRevalidate";
+import { filterPublicExamListings } from "@/lib/examListingFilters";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
@@ -92,7 +93,7 @@ const fetchProviderAndExams = cache(async function fetchProviderAndExams(slug) {
   const providerSlug = String(provider?.slug || normalizedSlug).toLowerCase().trim();
   const providerNameKey = normalizeName(provider?.name || "");
 
-  exams = exams.filter((exam) => {
+  exams = filterPublicExamListings(exams).filter((exam) => {
     const examProviderSlug = String(exam?.provider_slug || "").toLowerCase().trim();
     if (examProviderSlug && examProviderSlug === providerSlug) return true;
 

@@ -10,6 +10,7 @@ import { logServerFetchError } from "@/lib/serverFetchLog";
 import ProviderCardExams from "@/components/provider/ProviderCardExams";
 import { getOptimizedImageUrl } from "@/utils/imageUtils";
 import { publicFetchOptions } from "@/lib/serverRevalidate";
+import { filterPublicExamListings } from "@/lib/examListingFilters";
 
 const PROVIDERS_BREADCRUMB_ITEMS = [
   { label: "Home", href: "/" },
@@ -110,7 +111,9 @@ export default async function ProvidersPage() {
   }
 
   const normalizedProviders = Array.isArray(providers) ? providers : [];
-  const normalizedCourses = Array.isArray(courses) ? courses : [];
+  const normalizedCourses = filterPublicExamListings(
+    Array.isArray(courses) ? courses : []
+  );
 
   const courseProviderKeys = (course) => {
     const keys = [];
