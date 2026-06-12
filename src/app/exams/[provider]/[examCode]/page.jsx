@@ -1445,7 +1445,7 @@
 
 import { notFound, permanentRedirect } from "next/navigation";
 import ExamDetailClient from "./ExamDetailClient";
-import { getOfficialDetailsPath } from "./examInfoUtils";
+import { buildOfficialDetailsPublicUrl, getOfficialDetailsPath } from "./examInfoUtils";
 import { hasOfficialDetailsData } from "@/components/exam/OfficialExamDetailsView";
 import { getExamLandingPath, getExamPracticePath, trimPublicPathSegment } from "@/utils/practiceTestRouting";
 
@@ -1750,17 +1750,12 @@ export default async function ExamDetailPage({ params }) {
       }) || (slug ? `/${slug}/practice` : `/${examCode}/practice`),
 
     hasOfficialDetails: hasOfficialDetailsData(exam),
-    officialDetailsUrl: (() => {
-      const officialPublicSlug = trimPublicPathSegment(
-        pick("official_details_url_slug") || ""
-      );
-      return officialPublicSlug
-        ? `/${officialPublicSlug}`
-        : getOfficialDetailsPath(
-            slug || examCode,
-            pick("official_details_url_slug") || "official-details"
-          );
-    })(),
+    officialDetailsUrl:
+      buildOfficialDetailsPublicUrl(exam) ||
+      getOfficialDetailsPath(
+        slug || examCode,
+        pick("official_details_url_slug") || "official-details"
+      ),
 
     code: pick("code", "exam_code") || examCode,
     title: pick("title", "name") || "",

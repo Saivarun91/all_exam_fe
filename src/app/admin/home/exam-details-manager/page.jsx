@@ -55,6 +55,7 @@ import {
   courseHasExamDetails,
   isOfficialDetailsCourse,
 } from "@/lib/examListingFilters";
+import { escapeHtmlText } from "@/lib/htmlTextUtils";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
@@ -356,16 +357,7 @@ export default function ExamDetailsManager() {
     </div>
   );
 
-  // Function to escape HTML special characters
-  const escapeHTML = (str) => {
-    if (!str) return "";
-    return str
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&#039;");
-  };
+  const escapeHTML = escapeHtmlText;
 
   // Function to generate heading HTML from components
   const generateHeadingHTML = (text, tag, fontSize, fontWeight) => {

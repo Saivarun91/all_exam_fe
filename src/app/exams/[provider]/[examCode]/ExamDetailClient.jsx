@@ -941,25 +941,24 @@ import TipTapContent from "@/components/editor/TipTapContent";
 import ExamPlatformSidebar from "./ExamPlatformSidebar";
 import SuccessStoriesCarousel from "./SuccessStoriesCarousel";
 import {
+  buildOfficialDetailsPublicUrl,
   formatLastUpdatedLabel,
   getOfficialExamInfoPathFromExam,
 } from "./examInfoUtils";
+import { hasOfficialDetailsData } from "@/components/exam/OfficialExamDetailsView";
 import {
   buildPracticeTestSeoSegment,
   getExamLandingPath,
   getExamPracticePath,
 } from "@/utils/practiceTestRouting";
+import { htmlToPlainText } from "@/lib/htmlTextUtils";
 
 export default function ExamDetailClient({ examData, provider, examCode }) {
   const router = useRouter();
 
   const getHeadingText = (headingHtml, fallback) => {
     if (!headingHtml || typeof headingHtml !== "string") return fallback;
-    const plainText = headingHtml
-      .replace(/<[^>]+>/g, " ")
-      .replace(/&nbsp;/g, " ")
-      .replace(/\s+/g, " ")
-      .trim();
+    const plainText = htmlToPlainText(headingHtml);
     return plainText || fallback;
   };
 
@@ -1037,11 +1036,15 @@ export default function ExamDetailClient({ examData, provider, examCode }) {
 
   const officialDetailsUrl =
     examData.officialDetailsUrl ||
+    buildOfficialDetailsPublicUrl(examData) ||
     getOfficialExamInfoPathFromExam({
       slug: examData.slug,
       title: examData.title || examData.code || examCode,
       code: examData.code || examCode,
     });
+
+  const showOfficialDetailsLink =
+    examData?.hasOfficialDetails === true || hasOfficialDetailsData(examData);
 
   const platformRows = [
     ...(hasProvider
@@ -1295,7 +1298,7 @@ export default function ExamDetailClient({ examData, provider, examCode }) {
               platformRows={platformRows}
               practiceUrl={practiceUrl}
               officialDetailsUrl={officialDetailsUrl}
-              hasOfficialDetails={examData?.hasOfficialDetails === true}
+              hasOfficialDetails={showOfficialDetailsLink}
               matchPercent={matchPercent}
             />
           </div>

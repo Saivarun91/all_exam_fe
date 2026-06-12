@@ -19,6 +19,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { checkAuth, getAuthHeaders } from "@/utils/authCheck";
 import TipTapEditor from "@/components/editor/TipTapEditor";
 
+import { escapeHtmlText } from "@/lib/htmlTextUtils";
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
 const AVAILABLE_ICONS = [
@@ -63,16 +65,7 @@ export default function ExamsPageManager() {
   const [aboutHeadingFontWeight, setAboutHeadingFontWeight] = useState("700");
   const [aboutContent, setAboutContent] = useState("");
 
-  // Function to escape HTML special characters
-  const escapeHTML = (str) => {
-    if (!str) return "";
-    return str
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&#039;");
-  };
+  const escapeHTML = escapeHtmlText;
 
   // Function to generate heading HTML from components
   const generateHeadingHTML = (text, tag, fontSize, fontWeight) => {

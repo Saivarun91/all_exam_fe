@@ -1,10 +1,14 @@
 /** Shared rules for public exam listings (aligned with Exam Details Manager). */
 
+import { decodeHtmlEntities } from "./htmlTextUtils";
+
 export function stripHtmlText(value) {
-  return String(value || "")
-    .replace(/<[^>]*>/g, "")
-    .replace(/&nbsp;/g, " ")
-    .trim();
+  return decodeHtmlEntities(
+    String(value || "")
+      .replace(/<[^>]*>/g, "")
+      .replace(/&nbsp;/g, " ")
+      .trim()
+  );
 }
 
 export function isOfficialDetailsCourse(course) {
