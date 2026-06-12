@@ -76,30 +76,12 @@
 
 <table>
   <tr>
-    <th>Type</th>
     <th>URL</th>
     <th>Last Modified</th>
   </tr>
 
   <xsl:for-each select="//*[local-name()='sitemap']">
     <tr>
-      <td>
-        <xsl:variable name="loc" select="*[local-name()='loc']"/>
-        <xsl:choose>
-          <xsl:when test="contains($loc, '/sitemap-') and contains($loc, '.xml')">
-            <span class="badge">Language</span>
-          </xsl:when>
-          <xsl:when test="contains($loc, '/sitemap.xml') and not(contains($loc, '-sitemap.xml'))">
-            <span class="badge">Language</span>
-          </xsl:when>
-          <xsl:when test="contains($loc, '-sitemap.xml')">
-            <span class="badge section">Section</span>
-          </xsl:when>
-          <xsl:otherwise>
-            <span class="badge">Sitemap</span>
-          </xsl:otherwise>
-        </xsl:choose>
-      </td>
       <td>
         <a href="{*[local-name()='loc']}">
           <xsl:value-of select="*[local-name()='loc']"/>
@@ -121,7 +103,6 @@
 
   <xsl:for-each select="//*[local-name()='url']">
     <tr>
-      <td><span class="badge page">Page</span></td>
       <td>
         <a href="{*[local-name()='loc']}">
           <xsl:value-of select="*[local-name()='loc']"/>

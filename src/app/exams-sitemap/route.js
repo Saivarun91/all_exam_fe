@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import {
-  fetchSectionSitemap,
+  buildExamsSitemapXml,
   htmlResponseForSitemapXml,
   prefersHtmlResponse,
 } from "@/lib/sitemapUtils";
@@ -9,10 +9,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET(request) {
   try {
-    const xml = await fetchSectionSitemap({
-      request,
-      apiPath: "exams-sitemap.xml",
-    });
+    const xml = await buildExamsSitemapXml(request);
 
     if (prefersHtmlResponse(request)) {
       return htmlResponseForSitemapXml(request, xml, {

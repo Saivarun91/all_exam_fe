@@ -196,7 +196,11 @@ export function normalizeOfficialDetailsUrlSlug(value = "") {
   return s || "official-details";
 }
 
-import { resolveExamPublicPathBase, getStoredExamSlug } from "@/utils/practiceTestRouting";
+import {
+  resolveExamPublicPathBase,
+  getStoredExamSlug,
+  trimPublicPathSegment,
+} from "@/utils/practiceTestRouting";
 
 const EXAM_INFO_SUFFIX = "-exam-info";
 
@@ -204,6 +208,21 @@ export function getOfficialDetailsPath(examSlug, urlSlug) {
   const base = String(examSlug || "").trim().replace(/^\/+|\/+$/g, "");
   const segment = trimOfficialDetailsPathSegment(urlSlug);
   return base ? `/${base}/${segment}` : `/${segment}`;
+}
+
+/** Same public URL as exam pages / admin official-details manager. */
+export function buildOfficialDetailsPublicUrl(exam = {}) {
+  const slug = getStoredExamSlug(exam) || exam.slug || exam.code || "";
+  const officialPublicSlug = trimPublicPathSegment(
+    exam.official_details_url_slug || ""
+  );
+  if (officialPublicSlug) {
+    return `/${officialPublicSlug}`;
+  }
+  return getOfficialDetailsPath(
+    slug,
+    exam.official_details_url_slug || "official-details"
+  );
 }
 
 /** Public pretty URL: /[exam-name]-[exam-code]-exam-info */

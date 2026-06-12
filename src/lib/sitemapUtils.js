@@ -1,3 +1,7 @@
+import { buildOfficialDetailsPublicUrl } from "@/app/exams/[provider]/[examCode]/examInfoUtils";
+import { hasOfficialDetailsData } from "@/components/exam/OfficialExamDetailsView";
+import { getStoredExamSlug } from "@/utils/practiceTestRouting";
+
 export const SITEMAP_SECTIONS = [
   { id: "categories", label: "Categories", file: "categories-sitemap.xml" },
   { id: "providers", label: "Providers", file: "providers-sitemap.xml" },
@@ -66,8 +70,43 @@ function ensurePublicSitemapOrigin(origin) {
   return origin;
 }
 
+function getRequestLocalOrigin(request) {
+  if (!request || isProductionDeployment()) return "";
+
+  const forwardedHost = request.headers.get("x-forwarded-host");
+  const host = forwardedHost
+    ? forwardedHost.split(",")[0].trim()
+    : request.headers.get("host");
+
+  if (host) {
+    const hostname = host.split(":")[0];
+    if (isLocalHostname(hostname)) {
+      const proto = (
+        request.headers.get("x-forwarded-proto") || "http"
+      )
+        .split(",")[0]
+        .trim();
+      return `${proto}://${host}`;
+    }
+  }
+
+  try {
+    const requestOrigin = new URL(request.url).origin;
+    if (isLocalHostname(new URL(requestOrigin).hostname)) {
+      return requestOrigin;
+    }
+  } catch {
+    // Fall through.
+  }
+
+  return "";
+}
+
 /** Public frontend origin for sitemap <loc> URLs (never localhost/API host). */
 export function resolveSitemapOrigin(request) {
+  const localOrigin = getRequestLocalOrigin(request);
+  if (localOrigin) return localOrigin;
+
   const configured = normalizeConfiguredOrigin(
     process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || ""
   );
@@ -136,22 +175,30 @@ export function stripLocalhostFromSitemapXml(
 }
 
 export function normalizeSitemapLocUrl(url, request) {
-  const publicOrigin = resolveSitemapOrigin(request);
+  const targetOrigin = resolveSitemapOrigin(request);
   const raw = String(url || "").trim();
   if (!raw) return raw;
 
+  const toTargetUrl = (pathname, search = "") => {
+    let path = pathname;
+    if (path.startsWith("/api/")) {
+      path = path.replace(/^\/api/, "");
+    }
+    return `${targetOrigin}${path}${search}`;
+  };
+
   if (raw.startsWith("/")) {
-    return `${publicOrigin}${raw}`;
+    return toTargetUrl(raw);
   }
 
   try {
     const parsed = new URL(raw);
-    if (LOCAL_ORIGIN_RE.test(raw) || isNonPublicSitemapHost(parsed.hostname)) {
-      let path = parsed.pathname;
-      if (path.startsWith("/api/")) {
-        path = path.replace(/^\/api/, "");
-      }
-      return `${publicOrigin}${path}${parsed.search}`;
+    if (
+      LOCAL_ORIGIN_RE.test(raw) ||
+      isNonPublicSitemapHost(parsed.hostname) ||
+      parsed.origin !== targetOrigin
+    ) {
+      return toTargetUrl(parsed.pathname, parsed.search);
     }
     return raw;
   } catch {
@@ -296,6 +343,66 @@ export function rewriteSitemapLocs(xml, targetOrigin) {
   });
 }
 
+function courseSitemapLastmod(course = {}) {
+  const raw = course.updated_at || course.updatedAt;
+  if (raw) {
+    const date = new Date(raw);
+    if (!Number.isNaN(date.getTime())) return formatSitemapLastmod(date);
+  }
+  return formatSitemapLastmod();
+}
+
+/** Exams sitemap from courses API — URLs match admin / website (official_details_url_slug). */
+export async function buildExamsSitemapXml(request) {
+  const API_BASE_URL =
+    process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
+  const origin = resolveSitemapOrigin(request);
+
+  const res = await fetch(`${API_BASE_URL}/api/courses/`, {
+    method: "GET",
+    cache: "no-store",
+  });
+
+  if (!res.ok) {
+    throw new Error(`Failed to fetch courses: ${res.status}`);
+  }
+
+  const payload = await res.json();
+  const courses = Array.isArray(payload)
+    ? payload
+    : Array.isArray(payload?.data)
+      ? payload.data
+      : [];
+
+  const seen = new Set();
+  const entries = [];
+
+  const addEntry = (path, lastmod) => {
+    const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+    const url = `${origin}${normalizedPath}`;
+    if (seen.has(url)) return;
+    seen.add(url);
+    entries.push({ url, lastmod });
+  };
+
+  for (const exam of courses) {
+    if (exam?.is_active === false) continue;
+
+    const slug = getStoredExamSlug(exam) || exam.slug;
+    if (!slug) continue;
+
+    const lastmod = courseSitemapLastmod(exam);
+    addEntry(`/${slug}`, lastmod);
+
+    if (hasOfficialDetailsData(exam)) {
+      addEntry(buildOfficialDetailsPublicUrl(exam), lastmod);
+    }
+  }
+
+  entries.sort((a, b) => (a.url || "").localeCompare(b.url || ""));
+  return buildPagesUrlsetXml(entries);
+}
+
 export async function fetchSectionSitemap({ request, apiPath }) {
   const API_BASE_URL =
     process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
@@ -320,10 +427,13 @@ export async function fetchAllPageEntries(request) {
   await Promise.all(
     SITEMAP_SECTIONS.map(async (section) => {
       try {
-        const xml = await fetchSectionSitemap({
-          request,
-          apiPath: section.file,
-        });
+        const xml =
+          section.id === "exams"
+            ? await buildExamsSitemapXml(request)
+            : await fetchSectionSitemap({
+                request,
+                apiPath: section.file,
+              });
         const pages = sanitizeSitemapEntries(
           parsePageUrlsFromSitemapXml(xml),
           request
@@ -373,7 +483,7 @@ export function renderSitemapHtml({
   xmlPath = "",
   backLink = "",
   showSectionColumn = false,
-  showTypeColumn = true,
+  showTypeColumn = false,
 }) {
   const useSectionColumn =
     showSectionColumn || entries.some((entry) => entry.section);
@@ -458,6 +568,7 @@ export function htmlResponseForSitemapXml(
       title,
       description,
       entries,
+      showTypeColumn: false,
     }),
     {
       status: 200,
