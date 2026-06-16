@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Script from "next/script";
 import { ArrowLeft, CheckCircle2, Lock, Loader2, CreditCard, Ticket, Tag, XCircle } from "lucide-react";
@@ -10,6 +10,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import toast from "react-hot-toast";
+import {
+  formatPrice,
+  getPlanPriceFields,
+} from "@/lib/currencyUtils";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
@@ -32,6 +36,7 @@ export default function CheckoutPage() {
   const [couponCode, setCouponCode] = useState("");
   const [applyingCoupon, setApplyingCoupon] = useState(false);
   const [couponError, setCouponError] = useState(null);
+  const [courseCurrency, setCourseCurrency] = useState("INR");
 
   useEffect(() => {
     // Set page title
@@ -63,6 +68,7 @@ export default function CheckoutPage() {
       let planFound = false;
       if (pricingRes.ok) {
         const pricingData = await pricingRes.json();
+        setCourseCurrency(pricingData.currency || "INR");
         
         // Check if pricing_plans exist and are not empty
         if (pricingData.pricing_plans && Array.isArray(pricingData.pricing_plans) && pricingData.pricing_plans.length > 0) {
@@ -113,6 +119,7 @@ export default function CheckoutPage() {
         if (examRes.ok) {
           const examData = await examRes.json();
           setExam(examData);
+          setCourseCurrency(examData.currency || "INR");
           
           if (examData.pricing_plans && Array.isArray(examData.pricing_plans) && examData.pricing_plans.length > 0) {
             const normalizedPlanSlug = planSlug?.toLowerCase().trim();
@@ -206,7 +213,11 @@ export default function CheckoutPage() {
       }
 
       // Extract price amount (original price - backend will apply coupon discount)
-      const priceNum = parseFloat(plan.price?.replace(/[₹$,]/g, '') || 0);
+      const { price: priceNum, currency: paymentCurrency } = getPlanPriceFields(
+        plan,
+        selectedCurrency,
+        courseCurrency
+      );
       const couponCode = selectedCoupon ? selectedCoupon.code : null;
 
       console.log("Creating Razorpay order for:", {
@@ -233,7 +244,8 @@ export default function CheckoutPage() {
           exam_code: normalizedExamCode,
           plan_name: plan.name,
           amount: priceNum, // Send original amount - backend will apply coupon discount
-          coupon_code: couponCode
+          coupon_code: couponCode,
+          currency: paymentCurrency,
         })
       });
 
@@ -305,7 +317,11 @@ export default function CheckoutPage() {
 
     try {
       const token = localStorage.getItem('token');
-      const priceNum = parseFloat(plan.price?.replace(/[₹$,]/g, '') || 0);
+      const { price: priceNum, currency: paymentCurrency } = getPlanPriceFields(
+        plan,
+        selectedCurrency,
+        courseCurrency
+      );
 
       const response = await fetch(`${API_BASE_URL}/api/reviews/verify-coupon/`, {
         method: 'POST',
@@ -340,7 +356,7 @@ export default function CheckoutPage() {
           max_discount: data.coupon.max_discount || null,
           discount: data.coupon.discount_type === 'percentage' 
             ? `${data.coupon.discount_value}% OFF` 
-            : `₹${data.coupon.discount_value} OFF`
+            : `${formatPrice(data.coupon.discount_value, paymentCurrency)} OFF`
         });
         toast.success(`Coupon ${data.coupon.code} applied successfully!`, {
           position: "top-right",
@@ -447,9 +463,9 @@ export default function CheckoutPage() {
     );
   }
 
-  // Extract price numbers for calculations
-  const priceNum = parseFloat(plan.price?.replace(/[₹$,]/g, '') || 0);
-  const originalPriceNum = parseFloat(plan.original_price?.replace(/[₹$,]/g, '') || 0);
+  const selectedCurrency = String(courseCurrency || "INR").toUpperCase();
+  const { price: priceNum, original_price: originalPriceNum, currency: paymentCurrency } =
+    getPlanPriceFields(plan, selectedCurrency, courseCurrency);
   const discount = originalPriceNum > 0 ? Math.round(((originalPriceNum - priceNum) / originalPriceNum) * 100) : 0;
   
   // Calculate final amount with coupon discount
@@ -504,7 +520,7 @@ export default function CheckoutPage() {
             <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2">
               Complete Your Purchase
             </h1>
-            <p className="text-gray-600">
+            <p className="text-gray-600 mb-4">
               Secure payment powered by Razorpay
             </p>
           </div>
@@ -633,12 +649,12 @@ export default function CheckoutPage() {
                       {/* Show original price and offer price if original_price exists */}
                       {originalPriceNum > 0 && originalPriceNum > priceNum ? (
                         <div className="flex flex-col items-end">
-                          <span className="text-lg text-gray-400 line-through">₹{Math.round(originalPriceNum)}</span>
-                          <span className="text-3xl font-bold text-gray-900">₹{Math.round(priceNum)}</span>
+                          <span className="text-lg text-gray-400 line-through">{formatPrice(originalPriceNum, paymentCurrency, { round: true })}</span>
+                          <span className="text-3xl font-bold text-gray-900">{formatPrice(priceNum, paymentCurrency, { round: true })}</span>
                           <span className="text-sm text-green-600 font-semibold mt-1">{discount}% OFF</span>
                         </div>
                       ) : (
-                        <span className="text-3xl font-bold text-gray-900">₹{Math.round(priceNum)}</span>
+                        <span className="text-3xl font-bold text-gray-900">{formatPrice(priceNum, paymentCurrency, { round: true })}</span>
                       )}
                     </div>
                   </div>
@@ -646,13 +662,13 @@ export default function CheckoutPage() {
                     <div className="flex items-center justify-between py-2 border-t">
                       <span className="text-sm text-green-600 font-semibold">Coupon Discount ({selectedCoupon.code})</span>
                       <span className="text-sm text-green-600 font-semibold">
-                        -₹{Math.round(couponDiscountAmount)}
+                        -{formatPrice(couponDiscountAmount, paymentCurrency, { round: true })}
                       </span>
                     </div>
                   )}
                   <div className="flex items-center justify-between pt-2 border-t mt-2">
                     <span className="text-lg font-semibold text-gray-900">Total Amount to Pay:</span>
-                    <span className="text-2xl font-bold text-gray-900">₹{Math.round(displayAmount)}</span>
+                    <span className="text-2xl font-bold text-gray-900">{formatPrice(displayAmount, paymentCurrency, { round: true })}</span>
                   </div>
                   <div className="flex items-center justify-between pt-2 border-t mt-2">
                     <span className="text-sm text-gray-600">Payment Type</span>
@@ -693,7 +709,7 @@ export default function CheckoutPage() {
                     ) : (
                       <>
                         <CreditCard className="w-5 h-5 mr-2" />
-                        Pay ₹{Math.round(displayAmount)} and Continue
+                        Pay {formatPrice(displayAmount, paymentCurrency, { round: true })} and Continue
                       </>
                     )}
                   </Button>

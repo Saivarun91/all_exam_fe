@@ -9,6 +9,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
+import {
+  formatPrice,
+  getPlanPriceFields,
+} from "@/lib/currencyUtils";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
@@ -29,6 +33,7 @@ export default function CheckoutPage() {
   const [coupons, setCoupons] = useState([]);
   const [loadingCoupons, setLoadingCoupons] = useState(true);
   const [selectedCoupon, setSelectedCoupon] = useState(null);
+  const [courseCurrency, setCourseCurrency] = useState("INR");
 
   useEffect(() => {
     console.log("Checkout page loaded:", { provider, examCode, planSlug });
@@ -44,6 +49,7 @@ export default function CheckoutPage() {
       
       if (pricingRes.ok) {
         const pricingData = await pricingRes.json();
+        setCourseCurrency(pricingData.currency || "INR");
         setExam({
           title: pricingData.course_title,
           code: pricingData.course_code
@@ -84,6 +90,7 @@ export default function CheckoutPage() {
         if (examRes.ok) {
           const examData = await examRes.json();
           setExam(examData);
+          setCourseCurrency(examData.currency || "INR");
           
           if (examData.pricing_plans && Array.isArray(examData.pricing_plans)) {
             const selectedPlan = examData.pricing_plans.find(p => 
@@ -173,7 +180,11 @@ export default function CheckoutPage() {
       }
 
       // Extract price amount (original price - backend will apply coupon discount)
-      const priceNum = parseFloat(plan.price?.replace(/[₹$,]/g, '') || 0);
+      const { price: priceNum, currency: paymentCurrency } = getPlanPriceFields(
+        plan,
+        selectedCurrency,
+        courseCurrency
+      );
       const couponCode = selectedCoupon ? selectedCoupon.code : null;
 
       console.log("Creating Razorpay order for:", {
@@ -195,7 +206,8 @@ export default function CheckoutPage() {
           exam_code: examCode,
           plan_name: plan.name,
           amount: priceNum, // Send original amount - backend will apply coupon discount
-          coupon_code: couponCode
+          coupon_code: couponCode,
+          currency: paymentCurrency,
         })
       });
 
@@ -247,7 +259,6 @@ export default function CheckoutPage() {
       setProcessing(false);
     }
   };
-console.log(displayAmount)
   const handlePaymentSuccess = async (response, orderData) => {
     try {
       const token = localStorage.getItem('token');
@@ -320,9 +331,9 @@ console.log(displayAmount)
     );
   }
 
-  // Extract price numbers for calculations
-  const priceNum = parseFloat(plan.price?.replace(/[₹$,]/g, '') || 0);
-  const originalPriceNum = parseFloat(plan.original_price?.replace(/[₹$,]/g, '') || 0);
+  const selectedCurrency = String(courseCurrency || "INR").toUpperCase();
+  const { price: priceNum, original_price: originalPriceNum, currency: paymentCurrency } =
+    getPlanPriceFields(plan, selectedCurrency, courseCurrency);
   const discount = originalPriceNum > 0 ? Math.round(((originalPriceNum - priceNum) / originalPriceNum) * 100) : 0;
   
   // Calculate final amount with coupon discount
@@ -377,7 +388,7 @@ console.log(displayAmount)
             <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2">
               Complete Your Purchase
             </h1>
-            <p className="text-gray-600">
+            <p className="text-gray-600 mb-4">
               Secure payment powered by Razorpay
             </p>
           </div>
@@ -517,17 +528,17 @@ console.log(displayAmount)
                         // Show original price as strikethrough if it exists and is different from final amount
                         if (originalPriceNum > 0 && originalPriceNum > displayAmount) {
                           return (
-                            <span className="text-lg text-gray-400 line-through block">₹{originalPriceNum.toFixed(2)}</span>
+                            <span className="text-lg text-gray-400 line-through block">{formatPrice(originalPriceNum, paymentCurrency)}</span>
                           );
                         } else if (selectedCoupon && priceNum > finalAmount && priceNum !== originalPriceNum) {
                           return (
-                            <span className="text-lg text-gray-400 line-through block">₹{priceNum.toFixed(2)}</span>
+                            <span className="text-lg text-gray-400 line-through block">{formatPrice(priceNum, paymentCurrency)}</span>
                           );
                         }
                         return null;
                       })()}
                       <span className="text-3xl font-bold text-gray-900">
-                        ₹{displayAmount.toFixed(2)}
+                        {formatPrice(displayAmount, paymentCurrency)}
                       </span>
                     </div>
                   </div>
@@ -535,7 +546,7 @@ console.log(displayAmount)
                     <div className="flex items-center justify-between py-2 border-t">
                       <span className="text-sm text-green-600 font-semibold">Coupon Discount ({selectedCoupon.code})</span>
                       <span className="text-sm text-green-600 font-semibold">
-                        -₹{couponDiscountAmount.toFixed(2)}
+                        -{formatPrice(couponDiscountAmount, paymentCurrency)}
                       </span>
                     </div>
                   )}
@@ -547,7 +558,7 @@ console.log(displayAmount)
                   )}
                   <div className="flex items-center justify-between pt-2 border-t mt-2">
                     <span className="text-sm text-gray-600 font-semibold">Total Amount to Pay:</span>
-                    <span className="text-lg font-bold text-gray-900">₹{displayAmount.toFixed(2)}</span>
+                    <span className="text-lg font-bold text-gray-900">{formatPrice(displayAmount, paymentCurrency)}</span>
                   </div>
                   <div className="flex items-center justify-between pt-2 border-t mt-2">
                     <span className="text-sm text-gray-600">Payment Type</span>
@@ -588,7 +599,7 @@ console.log(displayAmount)
                     ) : (
                       <>
                         <CreditCard className="w-5 h-5 mr-2" />
-                        Pay ₹{displayAmount.toFixed(2)} and Continue
+                        Pay {formatPrice(displayAmount, paymentCurrency)} and Continue
                       </>
                     )}
                   </Button>

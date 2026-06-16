@@ -199,6 +199,12 @@ export function getExamPracticePath(examOrSlug) {
   return base ? `/${base}/practice` : "";
 }
 
+/** Public pricing page path: /[exam-name]-[exam-code]/practice/pricing */
+export function getExamPricingPath(examOrSlug) {
+  const practicePath = getExamPracticePath(examOrSlug);
+  return practicePath ? `${practicePath}/pricing` : "";
+}
+
 /** Public exam landing page — uses admin slug exactly when stored. */
 export function getExamLandingPath(examOrSlug) {
   if (typeof examOrSlug === "object" && examOrSlug !== null) {

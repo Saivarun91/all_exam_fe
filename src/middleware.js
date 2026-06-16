@@ -6,6 +6,7 @@ import {
   FREE_PRACTICE_TEST_LANDING_SUFFIX,
   getExamLandingPath,
   getExamPracticePath,
+  getExamPricingPath,
   pathsMatchPublicUrl,
   probeExamLookupCandidates,
 } from "./utils/practiceTestRouting";
@@ -133,20 +134,41 @@ export async function middleware(request) {
 
   const segments = pathname.split("/").filter(Boolean);
 
-  // Canonical practice hub: /exams/:provider/:examCode/practice → /[exam-name]-[exam-code]/practice
-  const examsPracticeLegacy = pathname.match(
-    /^\/exams\/([^/]+)\/([^/]+)\/practice\/?$/
+  // Legacy exam URLs: /exams/:provider/:examCode(/subpath) → canonical public URLs
+  const examsLegacyExamMatch = pathname.match(
+    /^\/exams\/([^/]+)\/([^/]+)(\/.*)?$/
   );
-  if (examsPracticeLegacy) {
-    const prov = examsPracticeLegacy[1];
-    const ec = examsPracticeLegacy[2];
-    if (prov && ec && !isStaticAssetSegment(prov)) {
+  if (examsLegacyExamMatch) {
+    const prov = examsLegacyExamMatch[1];
+    const ec = examsLegacyExamMatch[2];
+    const subpath = (examsLegacyExamMatch[3] || "").replace(/\/$/, "") || "";
+
+    if (
+      prov &&
+      ec &&
+      prov.toLowerCase() !== "search" &&
+      !isStaticAssetSegment(prov)
+    ) {
       const lookupSlug = `${toSlug(prov)}-${toSlug(ec)}`;
       const exam = await fetchExamByPathProbe(API_BASE_URL, lookupSlug);
       if (exam) {
-        const practicePath = getExamPracticePath(exam);
-        if (practicePath) {
-          url.pathname = practicePath;
+        let targetPath = null;
+
+        if (!subpath) {
+          targetPath = getExamLandingPath(exam);
+        } else if (subpath === "/practice") {
+          targetPath = getExamPracticePath(exam);
+        } else if (subpath === "/official-details") {
+          const { buildOfficialDetailsPublicUrl } = await import(
+            "./app/exams/[provider]/[examCode]/examInfoUtils"
+          );
+          targetPath = buildOfficialDetailsPublicUrl(exam);
+        } else if (subpath === "/practice/pricing") {
+          targetPath = getExamPricingPath(exam);
+        }
+
+        if (targetPath && !pathsMatchPublicUrl(pathname, targetPath)) {
+          url.pathname = targetPath;
           return NextResponse.redirect(url, 308);
         }
       }
@@ -183,6 +205,23 @@ export async function middleware(request) {
       const practicePath = getExamPracticePath(exam);
       if (practicePath && pathname !== practicePath) {
         url.pathname = practicePath;
+        return NextResponse.redirect(url, 308);
+      }
+    }
+  }
+
+  // Canonical pricing hub: /:segment/practice/pricing
+  if (
+    segments.length === 3 &&
+    segments[1].toLowerCase() === "practice" &&
+    segments[2].toLowerCase() === "pricing" &&
+    !reservedTopLevelSegment(segments[0])
+  ) {
+    const exam = await fetchExamByPathProbe(API_BASE_URL, segments[0]);
+    if (exam) {
+      const pricingPath = getExamPricingPath(exam);
+      if (pricingPath && pathname !== pricingPath) {
+        url.pathname = pricingPath;
         return NextResponse.redirect(url, 308);
       }
     }

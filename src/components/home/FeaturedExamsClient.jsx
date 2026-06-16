@@ -283,6 +283,7 @@ import { Badge } from "@/components/ui/badge";
 import { ArrowRight, Award, ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { createSlug, getExamUrl } from "@/lib/utils";
+import { formatPrice } from "@/lib/currencyUtils";
 import EntityText, {
   CourseTitleText,
   ProviderNameText,
@@ -445,12 +446,12 @@ export default function FeaturedExamsClient({
                         <div className="flex items-center gap-2">
                           {exam.offer_price > 0 && (
                             <span className="text-2xl font-bold text-[#1A73E8]">
-                              ₹{exam.offer_price}
+                              {formatPrice(exam.offer_price, exam.currency || "INR")}
                             </span>
                           )}
                           {exam.actual_price > exam.offer_price && (
                             <span className="text-sm text-gray-500 line-through">
-                              ₹{exam.actual_price}
+                              {formatPrice(exam.actual_price, exam.currency || "INR")}
                             </span>
                           )}
                         </div>

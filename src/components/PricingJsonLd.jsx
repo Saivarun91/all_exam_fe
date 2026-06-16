@@ -4,12 +4,15 @@
  */
 
 import { useEffect } from "react";
+import { getCurrencyCode, parsePrice } from "@/lib/currencyUtils";
 
 export default function PricingJsonLd({ pricingData, courseTitle, courseCode }) {
   useEffect(() => {
     if (!pricingData || !pricingData.pricing_plans || pricingData.pricing_plans.length === 0) {
       return;
     }
+
+    const priceCurrency = getCurrencyCode(pricingData.currency || "INR");
 
     // Filter active pricing plans
     const activePlans = pricingData.pricing_plans.filter(
@@ -20,13 +23,7 @@ export default function PricingJsonLd({ pricingData, courseTitle, courseCode }) 
 
     // Build AggregateOffer structured data
     const offers = activePlans.map((plan) => {
-      // Extract numeric price
-      let priceNum = 0;
-      if (typeof plan.price === "string") {
-        priceNum = parseFloat(plan.price.replace(/[₹,]/g, "")) || 0;
-      } else if (typeof plan.price === "number") {
-        priceNum = plan.price;
-      }
+      const priceNum = parsePrice(plan.price);
 
       // Calculate duration in days
       const days = plan.duration_days || parseInt(plan.duration_months) * 30 || 30;
@@ -35,7 +32,7 @@ export default function PricingJsonLd({ pricingData, courseTitle, courseCode }) 
         "@type": "Offer",
         name: plan.name || "",
         price: priceNum,
-        priceCurrency: "INR",
+        priceCurrency,
         availability: "https://schema.org/InStock",
         url: typeof window !== "undefined" ? `https://allexamquestions.com${window.location.pathname}` : "",
         validFor: {
@@ -61,7 +58,7 @@ export default function PricingJsonLd({ pricingData, courseTitle, courseCode }) 
         "CourseMode":"Online",
         "offers": {
           "@type": "AggregateOffer",
-          priceCurrency: "INR",
+          priceCurrency,
           lowPrice: Math.min(...offers.map((o) => o.price)),
           highPrice: Math.max(...offers.map((o) => o.price)),
           offerCount: offers.length,
@@ -93,4 +90,3 @@ export default function PricingJsonLd({ pricingData, courseTitle, courseCode }) 
 
   return null;
 }
-

@@ -1447,7 +1447,12 @@ import { notFound, permanentRedirect } from "next/navigation";
 import ExamDetailClient from "./ExamDetailClient";
 import { buildOfficialDetailsPublicUrl, getOfficialDetailsPath } from "./examInfoUtils";
 import { hasOfficialDetailsData } from "@/components/exam/OfficialExamDetailsView";
-import { getExamLandingPath, getExamPracticePath, trimPublicPathSegment } from "@/utils/practiceTestRouting";
+import {
+  getExamLandingPath,
+  getExamPracticePath,
+  pathsMatchPublicUrl,
+  trimPublicPathSegment,
+} from "@/utils/practiceTestRouting";
 
 export const dynamic = "force-dynamic";
 
@@ -1539,17 +1544,14 @@ export default async function ExamDetailPage({ params }) {
 
     exam = await res.json();
 
-    if (exam && exam.slug) {
-      const cleanSlug = String(exam.slug).trim();
-
-      if (cleanSlug.length > 0) {
-        console.log("REDIRECT TO:", cleanSlug);
-        // permanentRedirect(`/${cleanSlug}`);
-      }
+    const canonicalLanding = getExamLandingPath(exam);
+    const legacyPath = `/exams/${provider}/${examCode}`;
+    if (
+      canonicalLanding &&
+      !pathsMatchPublicUrl(legacyPath, canonicalLanding)
+    ) {
+      permanentRedirect(canonicalLanding);
     }
-
-    console.log("FULL API =", exam);
-    console.log("FULL API =", exam);
   } catch {
     notFound();
   }

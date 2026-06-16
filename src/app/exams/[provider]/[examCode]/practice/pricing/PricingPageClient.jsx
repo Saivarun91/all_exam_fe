@@ -449,6 +449,11 @@ import { Badge } from "@/components/ui/badge";
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
 import PricingJsonLd from "@/components/PricingJsonLd";
 import {
+  formatPrice,
+  formatDailyPrice,
+  getPlanPriceFields,
+} from "@/lib/currencyUtils";
+import {
   CheckCircle2, Clock, BookOpen, RefreshCw, BarChart3, Target, TrendingUp, Bell,
   ArrowRight, Check, X, Star
 } from "lucide-react";
@@ -520,7 +525,9 @@ export default function PricingPageClient({ provider, examCode, pricingData, err
     pricing_testimonials = [],
     pricing_faqs = [],
     pricing_comparison = [],
+    currency: courseCurrency = "INR",
   } = pricingData;
+  const selectedCurrency = String(courseCurrency || "INR").toUpperCase();
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-[#F5F8FC] to-white">
@@ -576,11 +583,15 @@ export default function PricingPageClient({ provider, examCode, pricingData, err
             <div className="grid md:grid-cols-3 gap-6 lg:gap-8">
               {pricing_plans.filter(p => p.status !== "inactive").map((plan, idx) => {
                 const days = plan.duration_days || (parseInt(plan.duration_months) * 30) || 30;
-                let priceNum = typeof plan.price === "string" ? parseFloat(plan.price.replace(/[₹,]/g, "")) || 0 : plan.price || 0;
-                const formattedPrice = `₹${priceNum}`;
-                let originalPriceNum = plan.original_price ? (typeof plan.original_price === "string" ? parseFloat(plan.original_price.replace(/[₹,]/g, "")) : plan.original_price) : 0;
-                const formattedOriginalPrice = originalPriceNum > priceNum ? `₹${originalPriceNum}` : "";
-                const dailyPrice = days > 0 ? `₹${(priceNum / days).toFixed(2)}/day` : "";
+                const { price: priceNum, original_price: originalPriceNum } = getPlanPriceFields(
+                  plan,
+                  selectedCurrency,
+                  courseCurrency
+                );
+                const formattedPrice = formatPrice(priceNum, selectedCurrency);
+                const formattedOriginalPrice =
+                  originalPriceNum > priceNum ? formatPrice(originalPriceNum, selectedCurrency) : "";
+                const dailyPrice = days > 0 ? formatDailyPrice(priceNum, days, selectedCurrency) : "";
 
                 const durationText = plan.duration || (plan.duration_months ? `${plan.duration_months} month${plan.duration_months>1?'s':''} (${plan.duration_months*30} days)` : "");
 
