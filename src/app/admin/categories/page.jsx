@@ -12,6 +12,11 @@ import TipTapEditor from "@/components/editor/TipTapEditor";
 import { resolveCategoryImageUrl } from "@/lib/categoryImage";
 import AdminTablePagination, { ADMIN_TABLE_PAGE_SIZE } from "@/components/admin/AdminTablePagination";
 import { getListPaginationSlice } from "@/components/common/ListPagination";
+import {
+  clampToWordLimit,
+  countWords,
+  DESCRIPTION_WORD_LIMIT,
+} from "@/lib/textLimits";
 
 const ICON_OPTIONS = [
   "Cloud",
@@ -81,10 +86,13 @@ function parseBoolean(value) {
 }
 
 const CATEGORY_TEXT_LIMIT = 150;
-const CATEGORY_DESCRIPTION_LIMIT = 50;
 
 function clampCategoryText(value, limit = CATEGORY_TEXT_LIMIT) {
   return String(value || "").slice(0, limit);
+}
+
+function clampCategoryDescription(value) {
+  return clampToWordLimit(value, DESCRIPTION_WORD_LIMIT);
 }
 
 export default function AdminCategoriesPage() {
@@ -316,7 +324,7 @@ export default function AdminCategoriesPage() {
     title: categoryData.title,
     slug: categoryData.slug,
     main_category: categoryData.main_category,
-    description: clampCategoryText(categoryData.description, CATEGORY_DESCRIPTION_LIMIT),
+    description: clampCategoryDescription(categoryData.description),
     content: categoryData.content,
     faqs: (categoryData.faqs || [])
       .map((faq) => ({
@@ -657,7 +665,7 @@ export default function AdminCategoriesPage() {
       title: cat.title || "",
       slug: cat.slug || "",
       main_category: cat.main_category || "",
-      description: clampCategoryText(cat.description || "", CATEGORY_DESCRIPTION_LIMIT),
+      description: clampCategoryDescription(cat.description || ""),
       content: normalizeContentForEditor(cat.content || ""),
       faqs: Array.isArray(cat.faqs) ? cat.faqs : [],
       icon: cat.icon || ICON_OPTIONS[0],
@@ -1311,16 +1319,15 @@ export default function AdminCategoriesPage() {
                       onChange={(e) =>
                         setCategoryData({
                           ...categoryData,
-                          description: clampCategoryText(e.target.value, CATEGORY_DESCRIPTION_LIMIT),
+                          description: clampCategoryDescription(e.target.value),
                         })
                       }
-                      maxLength={CATEGORY_DESCRIPTION_LIMIT}
                       className="w-full border border-gray-300 rounded-lg p-3 text-base focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
                       rows={4}
                       placeholder="Describe what this category includes..."
                     />
                     <p className="text-xs text-gray-500 mt-1">
-                      Brief description of the category ({(categoryData.description || "").length}/{CATEGORY_DESCRIPTION_LIMIT} characters)
+                      Brief description of the category ({countWords(categoryData.description)}/{DESCRIPTION_WORD_LIMIT} words)
                     </p>
               </div>
 

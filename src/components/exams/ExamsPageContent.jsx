@@ -831,6 +831,69 @@ export default function ExamsPageContent({
     }, 100);
   }, [searchParams, usePathBasedRouting]);
 
+  // Load filter metadata when a page passes exams but not sidebar data (e.g. search routes).
+  useEffect(() => {
+    const needsProviders = providers.length === 0;
+    const needsCategories = categories.length === 0;
+    const needsExams = allExams.length === 0;
+    if (!needsProviders && !needsCategories && !needsExams) return;
+
+    let cancelled = false;
+
+    const loadMissingData = async () => {
+      try {
+        const tasks = [];
+        if (needsProviders) {
+          tasks.push(
+            fetch(`${API_BASE_URL}/api/providers/`).then((res) => res.json())
+          );
+        }
+        if (needsCategories) {
+          tasks.push(
+            fetch(`${API_BASE_URL}/api/categories/`).then((res) => res.json())
+          );
+        }
+        if (needsExams) {
+          tasks.push(
+            fetch(`${API_BASE_URL}/api/courses/`).then((res) => res.json())
+          );
+        }
+
+        const results = await Promise.all(tasks);
+        if (cancelled) return;
+
+        let index = 0;
+        if (needsProviders) {
+          const providersData = results[index++];
+          if (Array.isArray(providersData)) {
+            setProviders(providersData.filter((p) => p.is_active));
+          }
+        }
+        if (needsCategories) {
+          const categoriesData = results[index++];
+          if (Array.isArray(categoriesData)) {
+            setCategories(categoriesData.filter((c) => c.is_active !== false));
+          }
+        }
+        if (needsExams) {
+          const coursesData = results[index++];
+          if (Array.isArray(coursesData)) {
+            setAllExams(filterPublicExamListings(coursesData));
+          }
+        }
+      } catch (err) {
+        console.error("Error loading exams page filter data:", err);
+      }
+    };
+
+    loadMissingData();
+    return () => {
+      cancelled = true;
+    };
+    // Only run once on mount; initial props come from the server when available.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Handle provider checkbox toggle
   const handleProviderToggle = (providerSlug) => {
     const newProviders = selectedProviders.includes(providerSlug)

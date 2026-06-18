@@ -16,13 +16,17 @@ import { getOptimizedImageUrl } from "@/utils/imageUtils";
 import TipTapEditor from "@/components/editor/TipTapEditor";
 import AdminTablePagination, { ADMIN_TABLE_PAGE_SIZE } from "@/components/admin/AdminTablePagination";
 import { getListPaginationSlice } from "@/components/common/ListPagination";
+import {
+  clampToWordLimit,
+  countWords,
+  DESCRIPTION_WORD_LIMIT,
+} from "@/lib/textLimits";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 const EMPTY_FAQ = { question: "", answer: "" };
-const PROVIDER_DESCRIPTION_LIMIT = 50;
 
 function clampProviderDescription(value) {
-  return String(value || "").slice(0, PROVIDER_DESCRIPTION_LIMIT);
+  return clampToWordLimit(value, DESCRIPTION_WORD_LIMIT);
 }
 
 function resolveProviderLogoUrl(logoUrl) {
@@ -461,12 +465,11 @@ export default function AdminProvidersPage() {
                         description: clampProviderDescription(e.target.value),
                       })
                     }
-                    maxLength={PROVIDER_DESCRIPTION_LIMIT}
                     placeholder="Short description shown below the page title on the public provider page..."
                     rows={3}
                   />
                   <p className="text-xs text-[#0C1A35]/50 mt-1">
-                    Displayed as hero text under the provider page heading. ({(formData.description || "").length}/{PROVIDER_DESCRIPTION_LIMIT} characters)
+                    Displayed as hero text under the provider page heading. ({countWords(formData.description)}/{DESCRIPTION_WORD_LIMIT} words)
                   </p>
                 </div>
                 <div>
