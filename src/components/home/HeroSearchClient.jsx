@@ -20,6 +20,12 @@ import {
 } from "@/components/ui/popover";
 import { createSlug, cn } from "@/lib/utils";
 
+const EXAM_SEARCH_PLACEHOLDER = "Search exam name, code, or keyword...";
+
+function getProviderSlug(provider) {
+  return (provider?.slug || createSlug(provider?.name || "")).trim();
+}
+
 export default function HeroSearchClient({ providers }) {
   const router = useRouter();
   const [selectedProvider, setSelectedProvider] = useState("");
@@ -28,15 +34,15 @@ export default function HeroSearchClient({ providers }) {
   const [providerSearch, setProviderSearch] = useState("");
 
   const selectedProviderName =
-    providers.find((provider) => provider.slug === selectedProvider)?.name ||
-    "";
+    providers.find((provider) => getProviderSlug(provider) === selectedProvider)
+      ?.name || "";
 
   const filteredProviders = providers.filter((provider) => {
     const query = providerSearch.trim().toLowerCase();
     if (!query) return true;
+    const slug = getProviderSlug(provider).toLowerCase();
     return (
-      provider.name?.toLowerCase().includes(query) ||
-      provider.slug?.toLowerCase().includes(query)
+      provider.name?.toLowerCase().includes(query) || slug.includes(query)
     );
   });
 
@@ -52,11 +58,11 @@ export default function HeroSearchClient({ providers }) {
 
     if (selectedProvider && searchKeyword.trim()) {
       const keywordSlug = createSlug(searchKeyword.trim());
-      targetUrl = `/${selectedProvider}/search/${encodeURIComponent(
+      targetUrl = `/exams/${selectedProvider}/search/${encodeURIComponent(
         keywordSlug
       )}`;
     } else if (selectedProvider) {
-      targetUrl = `/${selectedProvider}`;
+      targetUrl = `/providers/${selectedProvider}`;
     } else if (searchKeyword.trim()) {
       const keywordSlug = createSlug(searchKeyword.trim());
       targetUrl = `/exams/search/${encodeURIComponent(keywordSlug)}`;
@@ -131,13 +137,15 @@ export default function HeroSearchClient({ providers }) {
                           <span data-i18n="home.search.provider">Select Provider</span>
                         </CommandItem>
                       )}
-                      {filteredProviders.map((provider) => (
+                      {filteredProviders.map((provider) => {
+                        const providerSlug = getProviderSlug(provider);
+                        return (
                         <CommandItem
-                          key={provider.id}
-                          value={provider.slug}
+                          key={provider.id || providerSlug}
+                          value={providerSlug}
                           className="min-h-[40px] cursor-pointer"
                           onSelect={() => {
-                            setSelectedProvider(provider.slug);
+                            setSelectedProvider(providerSlug);
                             setProviderDropdownOpen(false);
                             setProviderSearch("");
                           }}
@@ -145,14 +153,15 @@ export default function HeroSearchClient({ providers }) {
                           <Check
                             className={cn(
                               "mr-2 size-4",
-                              selectedProvider === provider.slug
+                              selectedProvider === providerSlug
                                 ? "opacity-100"
                                 : "opacity-0"
                             )}
                           />
                           <span className="truncate">{provider.name}</span>
                         </CommandItem>
-                      ))}
+                        );
+                      })}
                     </CommandGroup>
                   )}
                 </CommandList>
@@ -163,12 +172,15 @@ export default function HeroSearchClient({ providers }) {
 
         <Input
           id="hero-search-query"
+          placeholder={EXAM_SEARCH_PLACEHOLDER}
           data-i18n-placeholder="home.search.placeholder"
+          data-i18n-fallback={EXAM_SEARCH_PLACEHOLDER}
           aria-label="Search by exam name, code, or keyword"
-          className="flex-1 bg-white/95 h-11 min-h-[44px] text-sm text-[#0C1A35]"
+          className="flex-1 bg-white/95 h-11 min-h-[44px] text-sm text-[#0C1A35] placeholder:text-[#0C1A35]/60"
           value={searchKeyword}
           onChange={(e) => setSearchKeyword(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+          suppressHydrationWarning
         />
 
         <Button

@@ -43,7 +43,7 @@ const BASE_STRINGS = {
   "home.hero.stat3.label": "monthly practice sessions",
   "home.faq.section.heading": "Section Content",
   "home.search.provider": "Select Provider",
-  "home.search.placeholder": "Search exams, codes, or keywords...",
+  "home.search.placeholder": "Search exam name, code, or keyword...",
   "home.search.button": "Search",
   "home.categories.heading": "Top Certification Categories",
   "home.categories.subtitle": "Explore certifications by category",
