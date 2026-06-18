@@ -210,7 +210,7 @@ export default function PaymentSuccessPage() {
           {/* Additional Info */}
           <div className="mt-8 text-center">
             <p className="text-sm text-gray-600">
-              Need help? <Link href="/contact" className="text-[#1A73E8] hover:underline">Contact Support</Link>
+              Need help? <Link href="/contact-us" className="text-[#1A73E8] hover:underline">Contact Support</Link>
             </p>
           </div>
         </div>
