@@ -459,6 +459,7 @@ import {
 } from "lucide-react";
 
 const iconMap = { BookOpen, CheckCircle2, Clock, RefreshCw, Target, BarChart3, TrendingUp, Bell, Star };
+const DISPLAY_CURRENCY = "USD";
 
 export default function PricingPageClient({ provider, examCode, pricingData, error }) {
   const router = useRouter();
@@ -527,7 +528,7 @@ export default function PricingPageClient({ provider, examCode, pricingData, err
     pricing_comparison = [],
     currency: courseCurrency = "INR",
   } = pricingData;
-  const selectedCurrency = String(courseCurrency || "INR").toUpperCase();
+  const effectiveCurrency = DISPLAY_CURRENCY;
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-[#F5F8FC] to-white">
@@ -585,13 +586,13 @@ export default function PricingPageClient({ provider, examCode, pricingData, err
                 const days = plan.duration_days || (parseInt(plan.duration_months) * 30) || 30;
                 const { price: priceNum, original_price: originalPriceNum } = getPlanPriceFields(
                   plan,
-                  selectedCurrency,
+                  effectiveCurrency,
                   courseCurrency
                 );
-                const formattedPrice = formatPrice(priceNum, selectedCurrency);
+                const formattedPrice = formatPrice(priceNum, effectiveCurrency);
                 const formattedOriginalPrice =
-                  originalPriceNum > priceNum ? formatPrice(originalPriceNum, selectedCurrency) : "";
-                const dailyPrice = days > 0 ? formatDailyPrice(priceNum, days, selectedCurrency) : "";
+                  originalPriceNum > priceNum ? formatPrice(originalPriceNum, effectiveCurrency) : "";
+                const dailyPrice = days > 0 ? formatDailyPrice(priceNum, days, effectiveCurrency) : "";
 
                 const durationText = plan.duration || (plan.duration_months ? `${plan.duration_months} month${plan.duration_months>1?'s':''} (${plan.duration_months*30} days)` : "");
 

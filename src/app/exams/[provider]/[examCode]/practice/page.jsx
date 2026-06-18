@@ -776,6 +776,7 @@ export default async function PracticePage(props) {
         provider={provider}
         examCode={examCode}
         examTitle={exam.title}
+        examSlug={examData.slug || slug}
       >
         <PracticeTopicsSection topics={topics} topicsHeading={topicsHeading} />
       </PracticePageClient>

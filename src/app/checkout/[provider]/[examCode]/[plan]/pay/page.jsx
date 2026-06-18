@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import Script from "next/script";
 import { ArrowLeft, CheckCircle2, Lock, Loader2, CreditCard, Ticket, Tag, XCircle } from "lucide-react";
@@ -16,6 +16,123 @@ import {
 } from "@/lib/currencyUtils";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
+const INDIA_COUNTRY_CODE = "IN";
+const DISPLAY_CURRENCY = "USD";
+
+function computeOrderTotals(plan, currency, courseCurrency, selectedCoupon, gstPercentage, applyGst, isTelangana) {
+  const { price: priceNum, original_price: originalPriceNum } = getPlanPriceFields(
+    plan,
+    currency,
+    courseCurrency
+  );
+  const discount =
+    originalPriceNum > 0 ? Math.round(((originalPriceNum - priceNum) / originalPriceNum) * 100) : 0;
+
+  let finalAmount = priceNum;
+  let couponDiscountAmount = 0;
+  if (selectedCoupon) {
+    const discountValue = parseFloat(selectedCoupon.discount_value || 0);
+    const discountType = selectedCoupon.discount_type || "percentage";
+
+    if (discountType === "percentage") {
+      couponDiscountAmount = priceNum * (discountValue / 100);
+      if (selectedCoupon.max_discount && couponDiscountAmount > selectedCoupon.max_discount) {
+        couponDiscountAmount = selectedCoupon.max_discount;
+      }
+      if (discountValue > 100) {
+        couponDiscountAmount = 0;
+      }
+      finalAmount = Math.max(0, priceNum - couponDiscountAmount);
+    } else {
+      couponDiscountAmount = discountValue;
+      finalAmount = Math.max(0, priceNum - discountValue);
+    }
+    finalAmount = Math.round(finalAmount * 100) / 100;
+    couponDiscountAmount = Math.round(couponDiscountAmount * 100) / 100;
+  }
+
+  const displayAmount = finalAmount;
+  const hasApplicableGst = applyGst && gstPercentage > 0;
+  const gstAmount = hasApplicableGst
+    ? Math.round(displayAmount * (gstPercentage / 100) * 100) / 100
+    : 0;
+  const cgstAmount =
+    hasApplicableGst && isTelangana ? Math.round((gstAmount / 2) * 100) / 100 : 0;
+  const sgstAmount =
+    hasApplicableGst && isTelangana ? Math.round((gstAmount / 2) * 100) / 100 : 0;
+  const totalWithTax = Math.round((displayAmount + gstAmount) * 100) / 100;
+
+  return {
+    priceNum,
+    originalPriceNum,
+    displayAmount,
+    couponDiscountAmount,
+    gstAmount,
+    cgstAmount,
+    sgstAmount,
+    totalWithTax,
+    discount,
+    currency,
+  };
+}
+
+function getPaymentCurrency(isIndiaBilling) {
+  return isIndiaBilling ? "INR" : "USD";
+}
+
+function isIndiaCountry(country) {
+  const normalized = String(country || "").trim().toLowerCase();
+  if (!normalized) return false;
+  return (
+    normalized === "india" ||
+    normalized === "in" ||
+    normalized === "ind" ||
+    normalized === "bharat" ||
+    normalized.includes("india")
+  );
+}
+
+function shouldApplyGst(billingCountry, detectedCountryCode, gstPercentage) {
+  const hasGstRate = Number(gstPercentage) > 0;
+  if (!hasGstRate) return false;
+  if (isIndiaCountry(billingCountry)) return true;
+  if (!String(billingCountry || "").trim() && detectedCountryCode === INDIA_COUNTRY_CODE) {
+    return true;
+  }
+  return false;
+}
+
+function parseGstPercentage(data, plan) {
+  const root = data?.data && typeof data.data === "object" ? data.data : data;
+  const planList = Array.isArray(root?.pricing_plans) ? root.pricing_plans : [];
+  const gstFromPlans = planList
+    .map((p) => p?.gst_percentage ?? p?.tax_percentage)
+    .find((value) => value != null && value !== "");
+
+  const value = Number(
+    plan?.gst_percentage ??
+    plan?.tax_percentage ??
+    root?.gst_percentage ??
+    root?.tax_percentage ??
+    gstFromPlans ??
+    root?.platform_settings?.gst_percentage ??
+    root?.platform_settings?.tax_percentage ??
+    root?.pricing_tax?.gst_percentage ??
+    root?.pricing_tax?.tax_percentage ??
+    0
+  );
+  return Number.isFinite(value) && value >= 0 ? value : 0;
+}
+
+function enrichPlanWithGst(plan, courseGst) {
+  if (!plan) return plan;
+  const planGst = parseGstPercentage({ gst_percentage: courseGst, pricing_plans: [plan] }, plan);
+  return {
+    ...plan,
+    gst_percentage: planGst,
+    tax_percentage: planGst,
+  };
+}
 
 export default function CheckoutPage() {
   const params = useParams();
@@ -37,6 +154,18 @@ export default function CheckoutPage() {
   const [applyingCoupon, setApplyingCoupon] = useState(false);
   const [couponError, setCouponError] = useState(null);
   const [courseCurrency, setCourseCurrency] = useState("INR");
+  const [currentStep, setCurrentStep] = useState("billing");
+  const [detectedCountryCode, setDetectedCountryCode] = useState(INDIA_COUNTRY_CODE);
+  const [gstPercentage, setGstPercentage] = useState(0);
+  const [courseGstPercentage, setCourseGstPercentage] = useState(0);
+  const [billingDetails, setBillingDetails] = useState({
+    name: "",
+    phone: "",
+    address: "",
+    state: "",
+    country: "",
+    gst_id: "",
+  });
 
   useEffect(() => {
     // Set page title
@@ -55,6 +184,29 @@ export default function CheckoutPage() {
     }
   }, [planSlug, provider, examCode]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const localeRegion = Intl.DateTimeFormat().resolvedOptions().locale?.split("-")?.[1]?.toUpperCase();
+    if (localeRegion) {
+      setDetectedCountryCode(localeRegion);
+      setBillingDetails((prev) => ({
+        ...prev,
+        country: prev.country || (localeRegion === INDIA_COUNTRY_CODE ? "India" : "United States"),
+      }));
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!plan || gstPercentage > 0) return;
+    const pct = parseGstPercentage(
+      { gst_percentage: courseGstPercentage, pricing_plans: [plan] },
+      plan
+    );
+    if (pct > 0) {
+      setGstPercentage(pct);
+    }
+  }, [plan, courseGstPercentage, gstPercentage]);
+
   const fetchData = async () => {
     try {
       setLoading(true);
@@ -66,8 +218,10 @@ export default function CheckoutPage() {
       const pricingRes = await fetch(`${API_BASE_URL}/api/courses/pricing/${normalizedProvider}/${normalizedExamCode}/`);
       
       let planFound = false;
+      let resolvedPlan = null;
+      let pricingData = null;
       if (pricingRes.ok) {
-        const pricingData = await pricingRes.json();
+        pricingData = await pricingRes.json();
         setCourseCurrency(pricingData.currency || "INR");
         
         // Check if pricing_plans exist and are not empty
@@ -95,7 +249,10 @@ export default function CheckoutPage() {
                 selectedPlan.features = pricingData.pricing_features.map(f => f.title || f.description || f);
               }
             }
-            setPlan(selectedPlan);
+            const courseGst = parseGstPercentage(pricingData, selectedPlan);
+            const enrichedPlan = enrichPlanWithGst(selectedPlan, courseGst);
+            setPlan(enrichedPlan);
+            resolvedPlan = enrichedPlan;
             planFound = true;
           } else if (pricingData.pricing_plans.length > 0) {
             // Fallback to first plan if exact match not found
@@ -105,9 +262,17 @@ export default function CheckoutPage() {
                 fallbackPlan.features = pricingData.pricing_features.map(f => f.title || f.description || f);
               }
             }
-            setPlan(fallbackPlan);
+            const courseGst = parseGstPercentage(pricingData, fallbackPlan);
+            const enrichedPlan = enrichPlanWithGst(fallbackPlan, courseGst);
+            setPlan(enrichedPlan);
+            resolvedPlan = enrichedPlan;
             planFound = true;
           }
+        }
+        if (pricingData) {
+          const parsedGst = parseGstPercentage(pricingData, resolvedPlan);
+          setGstPercentage(parsedGst);
+          setCourseGstPercentage(parsedGst);
         }
       }
       
@@ -137,7 +302,14 @@ export default function CheckoutPage() {
                 selectedPlan.features = examData.pricing_features.map(f => f.title || f.description || f);
               }
             }
-            setPlan(selectedPlan);
+            setPlan(enrichPlanWithGst(selectedPlan, parseGstPercentage(examData, selectedPlan)));
+            const parsedGst = parseGstPercentage(examData, selectedPlan);
+            setGstPercentage(parsedGst);
+            setCourseGstPercentage(parsedGst);
+          } else {
+            const parsedGst = parseGstPercentage(examData);
+            setGstPercentage(parsedGst);
+            setCourseGstPercentage(parsedGst);
           }
         }
       }
@@ -169,10 +341,10 @@ export default function CheckoutPage() {
         // Filter and process coupons - only show available ones
         const availableCoupons = (data.coupons || [])
           .map(coupon => {
-            // Check if user has already used this coupon
-            const userAlreadyUsed = userId && coupon.used_by && Array.isArray(coupon.used_by) 
+            const isReusable = coupon.is_common === true;
+            const userAlreadyUsed = !isReusable && userId && coupon.used_by && Array.isArray(coupon.used_by) 
               ? coupon.used_by.some(usedUserId => String(usedUserId) === String(userId))
-              : coupon.is_used;
+              : !isReusable && coupon.is_used;
             
             // Check if coupon is expired
             const expiryDate = coupon.expiry_date ? new Date(coupon.expiry_date) : null;
@@ -180,8 +352,8 @@ export default function CheckoutPage() {
             
             return {
               ...coupon,
-              is_used: userAlreadyUsed || coupon.is_used,
-              user_already_used: userAlreadyUsed,
+              is_used: isReusable ? false : (userAlreadyUsed || coupon.is_used),
+              user_already_used: isReusable ? false : userAlreadyUsed,
               is_expired: isExpired
             };
           })
@@ -212,19 +384,27 @@ export default function CheckoutPage() {
         return;
       }
 
-      // Extract price amount (original price - backend will apply coupon discount)
-      const { price: priceNum, currency: paymentCurrency } = getPlanPriceFields(
+      const isIndiaBilling = isIndiaCountry(billingDetails.country);
+      const applyGst = shouldApplyGst(billingDetails.country, detectedCountryCode, gstPercentage);
+      const isTelangana = String(billingDetails.state || "").trim().toLowerCase() === "telangana";
+      const paymentCurrency = getPaymentCurrency(isIndiaBilling);
+      const paymentTotals = computeOrderTotals(
         plan,
-        selectedCurrency,
-        courseCurrency
+        paymentCurrency,
+        courseCurrency,
+        selectedCoupon,
+        gstPercentage,
+        applyGst,
+        isTelangana
       );
       const couponCode = selectedCoupon ? selectedCoupon.code : null;
+      const amountToCharge = paymentTotals.totalWithTax;
 
       console.log("Creating Razorpay order for:", {
         provider,
         examCode,
         plan: plan.name,
-        amount: priceNum,
+        amount: amountToCharge,
         coupon: couponCode
       });
 
@@ -243,9 +423,16 @@ export default function CheckoutPage() {
           provider: normalizedProvider,
           exam_code: normalizedExamCode,
           plan_name: plan.name,
-          amount: priceNum, // Send original amount - backend will apply coupon discount
+          amount: amountToCharge,
           coupon_code: couponCode,
           currency: paymentCurrency,
+          billing_details: billingDetails,
+          tax_breakdown: {
+            gst_percentage: gstPercentage,
+            gst_amount: paymentTotals.gstAmount,
+            cgst_amount: paymentTotals.cgstAmount,
+            sgst_amount: paymentTotals.sgstAmount,
+          },
         })
       });
 
@@ -276,9 +463,9 @@ export default function CheckoutPage() {
             handlePaymentSuccess(response, orderData);
           },
           prefill: {
-            name: "",
+            name: billingDetails.name || "",
             email: "",
-            contact: ""
+            contact: billingDetails.phone || ""
           },
           theme: {
             color: "#1A73E8"
@@ -303,6 +490,19 @@ export default function CheckoutPage() {
     }
   };
 
+  const handleBillingChange = (field, value) => {
+    setBillingDetails((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const validateBillingStep = () => {
+    if (!billingDetails.name.trim()) return "Please enter your name";
+    if (!billingDetails.phone.trim()) return "Please enter your phone number";
+    if (!billingDetails.address.trim()) return "Please enter your address";
+    if (!billingDetails.state.trim()) return "Please enter your state";
+    if (!billingDetails.country.trim()) return "Please enter your country";
+    return null;
+  };
+
   const handleApplyCoupon = async () => {
     if (!couponCode || !couponCode.trim()) {
       toast.error("Please enter a coupon code", {
@@ -317,11 +517,10 @@ export default function CheckoutPage() {
 
     try {
       const token = localStorage.getItem('token');
-      const { price: priceNum, currency: paymentCurrency } = getPlanPriceFields(
-        plan,
-        selectedCurrency,
-        courseCurrency
-      );
+      const isIndiaBilling = isIndiaCountry(billingDetails.country);
+      const applyGst = shouldApplyGst(billingDetails.country, detectedCountryCode, gstPercentage);
+      const paymentCurrency = getPaymentCurrency(isIndiaBilling);
+      const { price: priceNum } = getPlanPriceFields(plan, paymentCurrency, courseCurrency);
 
       const response = await fetch(`${API_BASE_URL}/api/reviews/verify-coupon/`, {
         method: 'POST',
@@ -424,6 +623,10 @@ export default function CheckoutPage() {
       }
 
       console.log("Payment verified:", verifyData);
+
+      if (verifyData.payment_id) {
+        sessionStorage.setItem("last_payment_id", verifyData.payment_id);
+      }
       
       // Redirect to success page
       setProcessing(false);
@@ -463,39 +666,42 @@ export default function CheckoutPage() {
     );
   }
 
-  const selectedCurrency = String(courseCurrency || "INR").toUpperCase();
-  const { price: priceNum, original_price: originalPriceNum, currency: paymentCurrency } =
-    getPlanPriceFields(plan, selectedCurrency, courseCurrency);
-  const discount = originalPriceNum > 0 ? Math.round(((originalPriceNum - priceNum) / originalPriceNum) * 100) : 0;
-  
-  // Calculate final amount with coupon discount
-  let finalAmount = priceNum;
-  let couponDiscountAmount = 0;
-  if (selectedCoupon) {
-    const discountValue = parseFloat(selectedCoupon.discount_value || 0);
-    const discountType = selectedCoupon.discount_type || 'percentage';
-    
-    if (discountType === 'percentage') {
-      couponDiscountAmount = priceNum * (discountValue / 100);
-      // Apply max_discount if available
-      if (selectedCoupon.max_discount && couponDiscountAmount > selectedCoupon.max_discount) {
-        couponDiscountAmount = selectedCoupon.max_discount;
-      }
-      // Cap discount at price so total never goes negative (handles >100% invalid coupons)
-      if (discountValue > 100) {
-        couponDiscountAmount = 0;
-      }
-      finalAmount = Math.max(0, priceNum - couponDiscountAmount);
-    } else {
-      couponDiscountAmount = discountValue;
-      finalAmount = Math.max(0, priceNum - discountValue);
-    }
-    finalAmount = Math.round(finalAmount * 100) / 100;
-    couponDiscountAmount = Math.round(couponDiscountAmount * 100) / 100;
-  }
-  
-  // Calculate the amount to display on button (always show final amount after all discounts)
-  const displayAmount = finalAmount;
+  const isIndiaBilling = isIndiaCountry(billingDetails.country);
+  const applyGst = shouldApplyGst(billingDetails.country, detectedCountryCode, gstPercentage);
+  const isTelangana = String(billingDetails.state || "").trim().toLowerCase() === "telangana";
+  const paymentCurrency = getPaymentCurrency(isIndiaBilling);
+
+  const displayTotals = computeOrderTotals(
+    plan,
+    DISPLAY_CURRENCY,
+    courseCurrency,
+    selectedCoupon,
+    gstPercentage,
+    applyGst,
+    isTelangana
+  );
+  const paymentTotals = computeOrderTotals(
+    plan,
+    paymentCurrency,
+    courseCurrency,
+    selectedCoupon,
+    gstPercentage,
+    applyGst,
+    isTelangana
+  );
+
+  const {
+    priceNum,
+    originalPriceNum,
+    displayAmount,
+    couponDiscountAmount,
+    gstAmount,
+    cgstAmount,
+    sgstAmount,
+    totalWithTax,
+    discount,
+  } = displayTotals;
+  const hasApplicableGst = applyGst && gstPercentage > 0;
 
   return (
     <>
@@ -518,20 +724,110 @@ export default function CheckoutPage() {
           {/* Title */}
           <div className="text-center mb-8">
             <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2">
-              Complete Your Purchase
+              {currentStep === "billing" ? "Billing Details" : "Complete Your Purchase"}
             </h1>
-            <p className="text-gray-600 mb-4">
-              Secure payment powered by Razorpay
-            </p>
+            {currentStep === "summary" && (
+              <p className="text-gray-600 mb-4">Secure payment powered by Razorpay</p>
+            )}
           </div>
 
           {/* Single Column Layout */}
           <div className="max-w-3xl mx-auto">
             <Card className="border-gray-200 bg-white shadow-lg">
-              <CardHeader className="border-b">
-                <CardTitle className="text-2xl">Order Summary</CardTitle>
-              </CardHeader>
+               
               <CardContent className="space-y-6 pt-6">
+                {currentStep === "billing" && (
+                  <>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
+                        <input
+                          type="text"
+                          value={billingDetails.name}
+                          onChange={(e) => handleBillingChange("name", e.target.value)}
+                          className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#1A73E8]"
+                          placeholder="Enter your full name"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Phone Number</label>
+                        <input
+                          type="tel"
+                          value={billingDetails.phone}
+                          onChange={(e) => handleBillingChange("phone", e.target.value)}
+                          className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#1A73E8]"
+                          placeholder="Enter phone number"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Address</label>
+                      <textarea
+                        value={billingDetails.address}
+                        onChange={(e) => handleBillingChange("address", e.target.value)}
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 min-h-[90px] focus:outline-none focus:ring-2 focus:ring-[#1A73E8]"
+                        placeholder="Enter billing address"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">State</label>
+                        <input
+                          type="text"
+                          value={billingDetails.state}
+                          onChange={(e) => handleBillingChange("state", e.target.value)}
+                          className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#1A73E8]"
+                          placeholder="Enter state"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Country</label>
+                        <input
+                          type="text"
+                          value={billingDetails.country}
+                          onChange={(e) => handleBillingChange("country", e.target.value)}
+                          className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#1A73E8]"
+                          placeholder="Enter country (e.g. India)"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">Enter <strong>India</strong> to apply GST on the order summary.</p>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        GST ID <span className="text-gray-400 font-normal">(Optional)</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={billingDetails.gst_id}
+                        onChange={(e) => handleBillingChange("gst_id", e.target.value)}
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#1A73E8]"
+                        placeholder="Enter GST ID (if applicable)"
+                      />
+                    </div>
+
+                    <div className="pt-2">
+                      <Button
+                        onClick={() => {
+                          const errorMessage = validateBillingStep();
+                          if (errorMessage) {
+                            toast.error(errorMessage);
+                            return;
+                          }
+                          setCurrentStep("summary");
+                        }}
+                        className="w-full bg-[#1A73E8] hover:bg-[#1557B0] text-white py-5 text-base font-semibold"
+                      >
+                        Next
+                      </Button>
+                    </div>
+                  </>
+                )}
+
+                {currentStep === "summary" && (
+                  <>
                 {/* Course Info */}
                 <div>
                   <h3 className="text-2xl font-bold text-gray-900 mb-2">
@@ -545,10 +841,10 @@ export default function CheckoutPage() {
                   </div>
                 </div>
 
-                <Separator />
+                
 
                 {/* Plan Features */}
-                <div>
+                {/* <div>
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">What's Included:</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {plan.features && plan.features.length > 0 ? (
@@ -568,7 +864,7 @@ export default function CheckoutPage() {
                       </div>
                     )}
                   </div>
-                </div>
+                </div> */}
 
                 <Separator />
 
@@ -649,12 +945,12 @@ export default function CheckoutPage() {
                       {/* Show original price and offer price if original_price exists */}
                       {originalPriceNum > 0 && originalPriceNum > priceNum ? (
                         <div className="flex flex-col items-end">
-                          <span className="text-lg text-gray-400 line-through">{formatPrice(originalPriceNum, paymentCurrency, { round: true })}</span>
-                          <span className="text-3xl font-bold text-gray-900">{formatPrice(priceNum, paymentCurrency, { round: true })}</span>
+                          <span className="text-lg text-gray-400 line-through">{formatPrice(originalPriceNum, DISPLAY_CURRENCY, { round: true })}</span>
+                          <span className="text-3xl font-bold text-gray-900">{formatPrice(priceNum, DISPLAY_CURRENCY, { round: true })}</span>
                           <span className="text-sm text-green-600 font-semibold mt-1">{discount}% OFF</span>
                         </div>
                       ) : (
-                        <span className="text-3xl font-bold text-gray-900">{formatPrice(priceNum, paymentCurrency, { round: true })}</span>
+                        <span className="text-3xl font-bold text-gray-900">{formatPrice(priceNum, DISPLAY_CURRENCY, { round: true })}</span>
                       )}
                     </div>
                   </div>
@@ -662,14 +958,46 @@ export default function CheckoutPage() {
                     <div className="flex items-center justify-between py-2 border-t">
                       <span className="text-sm text-green-600 font-semibold">Coupon Discount ({selectedCoupon.code})</span>
                       <span className="text-sm text-green-600 font-semibold">
-                        -{formatPrice(couponDiscountAmount, paymentCurrency, { round: true })}
+                        -{formatPrice(couponDiscountAmount, DISPLAY_CURRENCY, { round: true })}
                       </span>
                     </div>
                   )}
                   <div className="flex items-center justify-between pt-2 border-t mt-2">
-                    <span className="text-lg font-semibold text-gray-900">Total Amount to Pay:</span>
-                    <span className="text-2xl font-bold text-gray-900">{formatPrice(displayAmount, paymentCurrency, { round: true })}</span>
+                    <span className="text-base font-medium text-gray-700">Subtotal</span>
+                    <span className="text-lg font-semibold text-gray-900">{formatPrice(displayAmount, DISPLAY_CURRENCY, { round: true })}</span>
                   </div>
+                  {hasApplicableGst && isTelangana && (
+                    <>
+                      <div className="flex items-center justify-between pt-2 border-t mt-2">
+                        <span className="text-sm text-gray-700">CGST ({(gstPercentage / 2).toFixed(2)}%)</span>
+                        <span className="text-sm font-semibold text-gray-900">{formatPrice(cgstAmount, DISPLAY_CURRENCY, { round: true })}</span>
+                      </div>
+                      <div className="flex items-center justify-between pt-2">
+                        <span className="text-sm text-gray-700">SGST ({(gstPercentage / 2).toFixed(2)}%)</span>
+                        <span className="text-sm font-semibold text-gray-900">{formatPrice(sgstAmount, DISPLAY_CURRENCY, { round: true })}</span>
+                      </div>
+                    </>
+                  )}
+                  {hasApplicableGst && !isTelangana && (
+                    <div className="flex items-center justify-between pt-2 border-t mt-2">
+                      <span className="text-sm text-gray-700">GST ({gstPercentage.toFixed(2)}%)</span>
+                      <span className="text-sm font-semibold text-gray-900">{formatPrice(gstAmount, DISPLAY_CURRENCY, { round: true })}</span>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between pt-2 border-t mt-2">
+                    <span className="text-lg font-semibold text-gray-900">Grand Total</span>
+                    <span className="text-2xl font-bold text-gray-900">{formatPrice(totalWithTax, DISPLAY_CURRENCY, { round: true })}</span>
+                  </div>
+                  {isIndiaBilling && gstPercentage <= 0 && !hasApplicableGst && (
+                    <p className="text-xs text-amber-700 mt-2">
+                      GST is not configured for this course in admin pricing settings.
+                    </p>
+                  )}
+                  {!isIndiaBilling && !hasApplicableGst && (
+                    <p className="text-xs text-gray-500 mt-2">
+                      GST applies only when billing country is India.
+                    </p>
+                  )}
                   <div className="flex items-center justify-between pt-2 border-t mt-2">
                     <span className="text-sm text-gray-600">Payment Type</span>
                     <span className="text-sm text-gray-600">One-time payment • No subscription</span>
@@ -692,6 +1020,14 @@ export default function CheckoutPage() {
                 {/* Pay Button */}
                 <div className="pt-4">
                   <Button
+                    onClick={() => setCurrentStep("billing")}
+                    variant="outline"
+                    className="w-full mb-3"
+                    disabled={processing}
+                  >
+                    Back to Billing
+                  </Button>
+                  <Button
                     onClick={handlePayment}
                     disabled={processing || !razorpayLoaded || displayAmount <= 0}
                     className="w-full bg-[#1A73E8] hover:bg-[#1557B0] text-white py-6 text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -709,7 +1045,7 @@ export default function CheckoutPage() {
                     ) : (
                       <>
                         <CreditCard className="w-5 h-5 mr-2" />
-                        Pay {formatPrice(displayAmount, paymentCurrency, { round: true })} and Continue
+                        Pay {formatPrice(totalWithTax, DISPLAY_CURRENCY, { round: true })} and Continue
                       </>
                     )}
                   </Button>
@@ -724,6 +1060,8 @@ export default function CheckoutPage() {
                     </Link>
                   </div>
                 </div>
+                </>
+                )}
               </CardContent>
             </Card>
           </div>

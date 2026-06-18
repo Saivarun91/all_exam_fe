@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { PlusCircle, Edit, Trash2, Search, ArrowLeft } from "lucide-react";
 import { checkAuth, getAuthHeaders, getAuthHeadersForUpload } from "@/utils/authCheck";
 import { getOptimizedImageUrl } from "@/utils/imageUtils";
@@ -18,10 +19,19 @@ import { getListPaginationSlice } from "@/components/common/ListPagination";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 const EMPTY_FAQ = { question: "", answer: "" };
-const PROVIDER_DESCRIPTION_LIMIT = 150;
+const PROVIDER_DESCRIPTION_LIMIT = 50;
 
 function clampProviderDescription(value) {
   return String(value || "").slice(0, PROVIDER_DESCRIPTION_LIMIT);
+}
+
+function resolveProviderLogoUrl(logoUrl) {
+  if (!logoUrl) return "";
+  if (logoUrl.startsWith("http://") || logoUrl.startsWith("https://")) {
+    return logoUrl;
+  }
+  const base = API_BASE_URL.replace(/\/$/, "");
+  return logoUrl.startsWith("/") ? `${base}${logoUrl}` : `${base}/${logoUrl}`;
 }
 
 function normalizeContentForEditor(str) {
@@ -71,7 +81,8 @@ export default function AdminProvidersPage() {
     meta_title: "",
     meta_description: "",
     meta_keywords: "",
-    is_active: true
+    is_active: true,
+    show_in_popular_providers: false,
   });
   const [logoFile, setLogoFile] = useState(null);
 
@@ -176,6 +187,7 @@ export default function AdminProvidersPage() {
         meta_description: formData.meta_description || "",
         meta_keywords: formData.meta_keywords || "",
         is_active: !!formData.is_active,
+        show_in_popular_providers: !!formData.show_in_popular_providers,
         logo_url: formData.logo_url || "",
       };
 
@@ -186,8 +198,8 @@ export default function AdminProvidersPage() {
         Object.entries(basePayload).forEach(([key, value]) => {
           if (key === "faqs") {
             multipartPayload.append("faqs", JSON.stringify(value));
-          } else if (key === "is_active") {
-            multipartPayload.append("is_active", String(value));
+          } else if (key === "is_active" || key === "show_in_popular_providers") {
+            multipartPayload.append(key, String(value));
           } else {
             multipartPayload.append(key, value ?? "");
           }
@@ -245,7 +257,8 @@ export default function AdminProvidersPage() {
         meta_title: "",
         meta_description: "",
         meta_keywords: "",
-        is_active: true
+        is_active: true,
+        show_in_popular_providers: false,
       });
       setLogoFile(null);
       
@@ -272,7 +285,8 @@ export default function AdminProvidersPage() {
       meta_title: provider.meta_title || "",
       meta_description: provider.meta_description || "",
       meta_keywords: provider.meta_keywords || "",
-      is_active: provider.is_active !== false
+      is_active: provider.is_active !== false,
+      show_in_popular_providers: provider.show_in_popular_providers !== false,
     });
     setLogoFile(null);
     setShowModal(true);
@@ -353,7 +367,8 @@ export default function AdminProvidersPage() {
                     meta_title: "",
                     meta_description: "",
                     meta_keywords: "",
-                    is_active: true
+                    is_active: true,
+                    show_in_popular_providers: false,
                   });
                   setLogoFile(null);
                 }}
@@ -405,10 +420,24 @@ export default function AdminProvidersPage() {
                       onChange={(e) => setLogoFile(e.target.files?.[0] || null)}
                     />
                     {formData.logo_url && !logoFile ? (
-                      <p className="text-xs text-gray-500 mt-1">Current logo will be kept.</p>
+                      <div className="mt-3 flex items-center gap-3">
+                        <img
+                          src={getOptimizedImageUrl(resolveProviderLogoUrl(formData.logo_url), 120, 120)}
+                          alt={`${formData.name || "Provider"} logo`}
+                          className="h-16 w-16 rounded border border-gray-200 object-contain bg-white p-1"
+                        />
+                        <p className="text-xs text-gray-500">Current logo. Upload a new file to replace it.</p>
+                      </div>
                     ) : null}
                     {logoFile ? (
-                      <p className="text-xs text-green-600 mt-1">New logo selected: {logoFile.name}</p>
+                      <div className="mt-3 flex items-center gap-3">
+                        <img
+                          src={URL.createObjectURL(logoFile)}
+                          alt="New logo preview"
+                          className="h-16 w-16 rounded border border-gray-200 object-contain bg-white p-1"
+                        />
+                        <p className="text-xs text-green-600">New logo selected: {logoFile.name}</p>
+                      </div>
                     ) : null}
                   </div>
                 </div>
@@ -540,6 +569,21 @@ export default function AdminProvidersPage() {
                     onChange={(e) => setFormData({ ...formData, meta_keywords: e.target.value })}
                     placeholder="keyword1, keyword2, keyword3"
                   />
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="show_in_popular_providers"
+                    checked={formData.show_in_popular_providers}
+                    onCheckedChange={(checked) =>
+                      setFormData({
+                        ...formData,
+                        show_in_popular_providers: checked === true,
+                      })
+                    }
+                  />
+                  <Label htmlFor="show_in_popular_providers" className="font-normal">
+                    Show in Popular Providers section (home page)
+                  </Label>
                 </div>
                 <div className="flex items-center space-x-2">
                   <input
@@ -675,6 +719,7 @@ export default function AdminProvidersPage() {
                       <th className="text-left p-3 font-semibold text-gray-700">Name</th>
                       <th className="text-left p-3 font-semibold text-gray-700">Slug</th>
                       <th className="text-left p-3 font-semibold text-gray-700">Meta Title</th>
+                      <th className="text-center p-3 font-semibold text-gray-700">Popular</th>
                       <th className="text-center p-3 font-semibold text-gray-700">Status</th>
                       <th className="text-center p-3 font-semibold text-gray-700">Actions</th>
                     </tr>
@@ -703,6 +748,17 @@ export default function AdminProvidersPage() {
                         <td className="p-3 text-gray-700">{provider.slug}</td>
                         <td className="p-3 text-gray-600 text-sm max-w-sm truncate">
                           {provider.meta_title || "-"}
+                        </td>
+                        <td className="p-3 text-center">
+                          <Badge
+                            className={
+                              provider.show_in_popular_providers !== false
+                                ? "bg-blue-100 text-blue-700 border-0"
+                                : "bg-gray-100 text-gray-700 border-0"
+                            }
+                          >
+                            {provider.show_in_popular_providers !== false ? "Yes" : "No"}
+                          </Badge>
                         </td>
                         <td className="p-3 text-center">
                           <Badge className={provider.is_active !== false ? "bg-green-100 text-green-700 border-0" : "bg-gray-100 text-gray-700 border-0"}>

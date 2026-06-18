@@ -6,7 +6,7 @@ const API_BASE_URL =
 
 async function getProviders() {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/providers/`, {
+    const res = await fetch(`${API_BASE_URL}/api/providers/?popular_only=true`, {
       next: { revalidate: 300 },
     });
 
@@ -15,7 +15,13 @@ async function getProviders() {
     const data = await res.json();
     if (!Array.isArray(data)) return [];
 
-    return data.filter((p) => p.is_active !== false);
+    return data.filter(
+      (p) =>
+        p.is_active !== false &&
+        (p.show_in_popular_providers === true ||
+          p.show_in_popular_providers === undefined ||
+          p.show_in_popular_providers === null)
+    );
   } catch {
     return [];
   }

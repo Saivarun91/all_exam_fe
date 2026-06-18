@@ -3,14 +3,49 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { ChevronDown, Search } from "lucide-react";
+import { Check, ChevronsUpDown, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { createSlug } from "@/lib/utils";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { createSlug, cn } from "@/lib/utils";
 
 export default function HeroSearchClient({ providers }) {
   const router = useRouter();
   const [selectedProvider, setSelectedProvider] = useState("");
   const [searchKeyword, setSearchKeyword] = useState("");
+  const [providerDropdownOpen, setProviderDropdownOpen] = useState(false);
+  const [providerSearch, setProviderSearch] = useState("");
+
+  const selectedProviderName =
+    providers.find((provider) => provider.slug === selectedProvider)?.name ||
+    "";
+
+  const filteredProviders = providers.filter((provider) => {
+    const query = providerSearch.trim().toLowerCase();
+    if (!query) return true;
+    return (
+      provider.name?.toLowerCase().includes(query) ||
+      provider.slug?.toLowerCase().includes(query)
+    );
+  });
+
+  const handleProviderDropdownChange = (open) => {
+    setProviderDropdownOpen(open);
+    if (!open) {
+      setProviderSearch("");
+    }
+  };
 
   const handleSearch = () => {
     let targetUrl = "/exams";
@@ -38,27 +73,92 @@ export default function HeroSearchClient({ providers }) {
     >
       <div className="flex flex-col md:flex-row gap-3 items-center">
 
-        <div className="relative w-full md:w-[200px] shrink-0">
-          <select
-            id="hero-search-provider"
-            aria-label="Exam provider (optional)"
-            value={selectedProvider}
-            onChange={(e) => setSelectedProvider(e.target.value)}
-            className="w-full appearance-none bg-white/95 h-11 min-h-[44px] rounded-md border border-input px-3 pr-9 text-sm text-[#0C1A35] shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
+        <div className="relative w-full md:w-[240px] shrink-0">
+          <Popover
+            open={providerDropdownOpen}
+            onOpenChange={handleProviderDropdownChange}
           >
-            <option value="" data-i18n="home.search.provider">
-              Select Provider
-            </option>
-            {providers.map((provider) => (
-              <option key={provider.id} value={provider.slug}>
-                {provider.name}
-              </option>
-            ))}
-          </select>
-          <ChevronDown
-            className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 opacity-50 text-[#0C1A35]"
-            aria-hidden
-          />
+            <PopoverTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                role="combobox"
+                aria-expanded={providerDropdownOpen}
+                aria-label="Exam provider (optional)"
+                id="hero-search-provider"
+                className="w-full justify-between bg-white/95 h-11 min-h-[44px] rounded-md border border-input px-3 text-sm font-normal text-[#0C1A35] shadow-xs hover:bg-white/95"
+              >
+                <span className="truncate">
+                  {selectedProviderName || (
+                    <span data-i18n="home.search.provider">Select Provider</span>
+                  )}
+                </span>
+                <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent
+              className="w-[var(--radix-popover-trigger-width)] min-w-[260px] max-w-[min(100vw-2rem,360px)] p-0 z-[100]"
+              align="start"
+              sideOffset={6}
+            >
+              <Command shouldFilter={false}>
+                <CommandInput
+                  placeholder="Search provider..."
+                  value={providerSearch}
+                  onValueChange={setProviderSearch}
+                />
+                <CommandList className="max-h-[260px]">
+                  {providerSearch.trim() && filteredProviders.length === 0 ? (
+                    <CommandEmpty>No provider found.</CommandEmpty>
+                  ) : (
+                    <CommandGroup>
+                      {!providerSearch.trim() && (
+                        <CommandItem
+                          value="select-provider"
+                          className="min-h-[40px] cursor-pointer"
+                          onSelect={() => {
+                            setSelectedProvider("");
+                            setProviderDropdownOpen(false);
+                            setProviderSearch("");
+                          }}
+                        >
+                          <Check
+                            className={cn(
+                              "mr-2 size-4",
+                              !selectedProvider ? "opacity-100" : "opacity-0"
+                            )}
+                          />
+                          <span data-i18n="home.search.provider">Select Provider</span>
+                        </CommandItem>
+                      )}
+                      {filteredProviders.map((provider) => (
+                        <CommandItem
+                          key={provider.id}
+                          value={provider.slug}
+                          className="min-h-[40px] cursor-pointer"
+                          onSelect={() => {
+                            setSelectedProvider(provider.slug);
+                            setProviderDropdownOpen(false);
+                            setProviderSearch("");
+                          }}
+                        >
+                          <Check
+                            className={cn(
+                              "mr-2 size-4",
+                              selectedProvider === provider.slug
+                                ? "opacity-100"
+                                : "opacity-0"
+                            )}
+                          />
+                          <span className="truncate">{provider.name}</span>
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  )}
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
         </div>
 
         <Input

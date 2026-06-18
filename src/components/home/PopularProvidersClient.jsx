@@ -404,6 +404,7 @@ function AnimatedCarousel({
 
   const totalWidth = 136 * providers.length;
   const MotionComponent = MotionDiv;
+  const isLoopEnabled = duplicatedProviders.length > providers.length;
 
   // fallback (before framer loads)
   if (!motionLoaded || !MotionComponent) {
@@ -473,15 +474,19 @@ function AnimatedCarousel({
       <MotionComponent
         ref={animationRef}
         className="flex gap-4 md:gap-6"
-        animate={!isHovered ? { x: [0, -totalWidth] } : {}}
-        transition={{
-          x: {
-            repeat: Infinity,
-            repeatType: "loop",
-            duration: 20,
-            ease: "linear",
-          },
-        }}
+        animate={isLoopEnabled && !isHovered ? { x: [0, -totalWidth] } : {}}
+        transition={
+          isLoopEnabled
+            ? {
+                x: {
+                  repeat: Infinity,
+                  repeatType: "loop",
+                  duration: 50,
+                  ease: "linear",
+                },
+              }
+            : undefined
+        }
         style={{ width: "max-content" }}
       >
         {duplicatedProviders.map((provider, index) => {
@@ -550,7 +555,9 @@ export default function PopularProvidersClient({ providers, logoSize = 80 }) {
 
   if (!providers?.length) return null;
 
-  const duplicatedProviders = [...providers, ...providers];
+  // Avoid visible duplicate cards when only a few providers are selected.
+  const duplicatedProviders =
+    providers.length >= 4 ? [...providers, ...providers] : providers;
 
   return (
     <div className="relative overflow-hidden">

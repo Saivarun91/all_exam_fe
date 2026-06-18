@@ -86,6 +86,9 @@ export default function PricingPlansAdmin() {
     title: "Choose Your Access Plan",
     subtitle: "Unlock full access for this exam — all questions, explanations, analytics, and unlimited attempts.",
   });
+  const [pricingSettings, setPricingSettings] = useState({
+    gst_percentage: 0,
+  });
 
   // Pricing Plans
   const [pricingPlans, setPricingPlans] = useState([]);
@@ -98,6 +101,8 @@ export default function PricingPlansAdmin() {
     duration_days: 30,
     price: "",
     original_price: "",
+    price_usd: "",
+    original_price_usd: "",
     discount_percentage: 0,
     per_day_cost: "",
     popular: false,
@@ -318,6 +323,17 @@ export default function PricingPlansAdmin() {
           title: data.hero_title || "Choose Your Access Plan",
           subtitle: data.hero_subtitle || "Unlock full access for this exam — all questions, explanations, analytics, and unlimited attempts.",
         });
+        setPricingSettings({
+          gst_percentage: Number(
+            data?.gst_percentage ??
+            data?.tax_percentage ??
+            data?.pricing_plans?.find((p) => p?.gst_percentage != null)?.gst_percentage ??
+            data?.pricing_plans?.find((p) => p?.tax_percentage != null)?.tax_percentage ??
+            data?.pricing_tax?.gst_percentage ??
+            data?.platform_settings?.gst_percentage ??
+            0
+          ) || 0,
+        });
         
         // Set pricing plans
         setPricingPlans(data.pricing_plans || []);
@@ -352,9 +368,12 @@ export default function PricingPlansAdmin() {
     setMessage("");
 
     try {
+      const gstPct = Number(pricingSettings.gst_percentage) || 0;
       const payload = {
         hero_title: heroData.title,
         hero_subtitle: heroData.subtitle,
+        gst_percentage: gstPct,
+        tax_percentage: gstPct,
         pricing_plans: pricingPlans.map(plan => {
           let durationText = plan.duration;
         
@@ -371,11 +390,17 @@ export default function PricingPlansAdmin() {
             duration_days: Number(plan.duration_days) || 30,
             price: Number(plan.price) || 0,
             original_price: Number(plan.original_price) || 0,
+            price_inr: Number(plan.price) || 0,
+            original_price_inr: Number(plan.original_price) || 0,
+            price_usd: Number(plan.price_usd) || 0,
+            original_price_usd: Number(plan.original_price_usd) || 0,
             discount_percentage: Number(plan.discount_percentage) || 0,
             per_day_cost: Number(plan.per_day_cost) || 0,
             popular: plan.popular || false,
             features: Array.isArray(plan.features) ? plan.features : [],
             status: plan.status || "active",
+            gst_percentage: gstPct,
+            tax_percentage: gstPct,
           };
         }),
         pricing_features: features,
@@ -418,6 +443,8 @@ export default function PricingPlansAdmin() {
       duration_days: 30,
       price: "",
       original_price: "",
+      price_usd: "",
+      original_price_usd: "",
       discount_percentage: 0,
       per_day_cost: "",
       popular: false,
@@ -441,6 +468,8 @@ export default function PricingPlansAdmin() {
       duration_days: plan.duration_days || 30,
       price: plan.price || "",
       original_price: plan.original_price || "",
+      price_usd: plan.price_usd || "",
+      original_price_usd: plan.original_price_usd || "",
       discount_percentage: plan.discount_percentage || 0,
       per_day_cost: plan.per_day_cost || "",
       popular: plan.popular || plan.is_popular || false,
@@ -835,6 +864,18 @@ export default function PricingPlansAdmin() {
                 </Button>
               </CardHeader>
               <CardContent>
+                <div className="mb-4 p-4 rounded-lg border border-gray-200 bg-gray-50">
+                  <Label>GST Percentage (from admin)</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={pricingSettings.gst_percentage}
+                    onChange={(e) => setPricingSettings((prev) => ({ ...prev, gst_percentage: e.target.value }))}
+                    className="mt-2 max-w-xs"
+                    placeholder="Enter GST percentage"
+                  />
+                </div>
                 <div className="space-y-4">
                   {pricingPlans.map((plan, idx) => (
                     <div key={idx} className="p-4 border rounded-lg flex items-center justify-between">
@@ -846,13 +887,20 @@ export default function PricingPlansAdmin() {
                           )}
                         </div>
                         <p className="text-sm text-gray-600">{plan.duration || `${plan.duration_months} month(s) (${plan.duration_days} days)`}</p>
-                        {/* <p className="text-sm font-medium">₹{plan.price} {plan.original_price && <span className="line-through text-gray-500">₹{plan.original_price}</span>}</p> */}
                         <p className="text-sm font-medium">
-                          ₹{plan.price ?? '-'}
-                          {plan.original_price > 0 && (
-                            <span className="line-through text-gray-500 ml-2">₹{plan.original_price}</span>
+                          ${plan.price_usd ?? "-"}
+                          {plan.original_price_usd > 0 && (
+                            <span className="line-through text-gray-500 ml-2">${plan.original_price_usd}</span>
                           )}
                         </p>
+                        {plan.price > 0 && (
+                          <p className="text-sm text-gray-500">
+                            ₹{plan.price}
+                            {plan.original_price > 0 && (
+                              <span className="line-through ml-2">₹{plan.original_price}</span>
+                            )}
+                          </p>
+                        )}
                       </div>
                       <div className="flex gap-2">
                         <Button variant="outline" size="sm" onClick={() => handleEditPlan(plan, idx)}>
@@ -1094,7 +1142,7 @@ export default function PricingPlansAdmin() {
                   value={planFormData.duration_days}
                   onChange={(e) => {
                     const days = parseInt(e.target.value) || 30;
-                    const price = parseFloat(planFormData.price) || 0;
+                    const price = parseFloat(planFormData.price_usd) || parseFloat(planFormData.price) || 0;
                     const perDayCost = days > 0 && price > 0 ? (price / days).toFixed(2) : "";
                     setPlanFormData({
                       ...planFormData,
@@ -1109,34 +1157,68 @@ export default function PricingPlansAdmin() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>Price (₹) *</Label>
+                <Label>Price ($) *</Label>
+                <Input
+                  type="number"
+                  value={planFormData.price_usd}
+                  onChange={(e) => {
+                    const priceUsd = e.target.value;
+                    const days = planFormData.duration_days || 30;
+                    const perDayCost =
+                      days > 0 && priceUsd ? (parseFloat(priceUsd) / days).toFixed(2) : "";
+                    setPlanFormData({
+                      ...planFormData,
+                      price_usd: priceUsd,
+                      per_day_cost: perDayCost,
+                    });
+                  }}
+                  placeholder="9.99"
+                  className="mt-2"
+                  required
+                />
+              </div>
+              <div>
+                <Label>Original Price ($) *</Label>
+                <Input
+                  type="number"
+                  value={planFormData.original_price_usd}
+                  onChange={(e) => {
+                    const originalUsd = e.target.value;
+                    const priceUsd = parseFloat(planFormData.price_usd) || 0;
+                    const discount = originalUsd
+                      ? Math.round(((parseFloat(originalUsd) - priceUsd) / parseFloat(originalUsd)) * 100)
+                      : 0;
+                    setPlanFormData({
+                      ...planFormData,
+                      original_price_usd: originalUsd,
+                      discount_percentage: discount,
+                    });
+                  }}
+                  placeholder="19.99"
+                  className="mt-2"
+                  required
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Price (₹) <span className="text-gray-400 font-normal">(optional)</span></Label>
                 <Input
                   type="number"
                   value={planFormData.price}
                   onChange={(e) => setPlanFormData({ ...planFormData, price: e.target.value })}
                   placeholder="299"
                   className="mt-2"
-                  required
                 />
               </div>
               <div>
-                <Label>Original Price (₹) *</Label>
+                <Label>Original Price (₹) <span className="text-gray-400 font-normal">(optional)</span></Label>
                 <Input
                   type="number"
                   value={planFormData.original_price}
-                  onChange={(e) => {
-                    const original = e.target.value;
-                    const price = parseFloat(planFormData.price) || 0;
-                    const discount = original ? Math.round(((parseFloat(original) - price) / parseFloat(original)) * 100) : 0;
-                    setPlanFormData({
-                      ...planFormData,
-                      original_price: original,
-                      discount_percentage: discount,
-                    });
-                  }}
+                  onChange={(e) => setPlanFormData({ ...planFormData, original_price: e.target.value })}
                   placeholder="599"
                   className="mt-2"
-                  required
                 />
               </div>
             </div>
@@ -1154,7 +1236,7 @@ export default function PricingPlansAdmin() {
                 <Label>Per Day Cost (Auto-calculated)</Label>
                 <Input
                   value={planFormData.per_day_cost || (() => {
-                    const price = parseFloat(planFormData.price) || 0;
+                    const price = parseFloat(planFormData.price_usd) || parseFloat(planFormData.price) || 0;
                     const days = planFormData.duration_days || 30;
                     return days > 0 ? (price / days).toFixed(2) : "";
                   })()}

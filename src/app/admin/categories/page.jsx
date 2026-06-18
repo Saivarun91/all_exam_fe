@@ -81,6 +81,7 @@ function parseBoolean(value) {
 }
 
 const CATEGORY_TEXT_LIMIT = 150;
+const CATEGORY_DESCRIPTION_LIMIT = 50;
 
 function clampCategoryText(value, limit = CATEGORY_TEXT_LIMIT) {
   return String(value || "").slice(0, limit);
@@ -315,7 +316,7 @@ export default function AdminCategoriesPage() {
     title: categoryData.title,
     slug: categoryData.slug,
     main_category: categoryData.main_category,
-    description: categoryData.description,
+    description: clampCategoryText(categoryData.description, CATEGORY_DESCRIPTION_LIMIT),
     content: categoryData.content,
     faqs: (categoryData.faqs || [])
       .map((faq) => ({
@@ -656,7 +657,7 @@ export default function AdminCategoriesPage() {
       title: cat.title || "",
       slug: cat.slug || "",
       main_category: cat.main_category || "",
-      description: cat.description || "",
+      description: clampCategoryText(cat.description || "", CATEGORY_DESCRIPTION_LIMIT),
       content: normalizeContentForEditor(cat.content || ""),
       faqs: Array.isArray(cat.faqs) ? cat.faqs : [],
       icon: cat.icon || ICON_OPTIONS[0],
@@ -1310,16 +1311,16 @@ export default function AdminCategoriesPage() {
                       onChange={(e) =>
                         setCategoryData({
                           ...categoryData,
-                          description: clampCategoryText(e.target.value),
+                          description: clampCategoryText(e.target.value, CATEGORY_DESCRIPTION_LIMIT),
                         })
                       }
-                      maxLength={CATEGORY_TEXT_LIMIT}
+                      maxLength={CATEGORY_DESCRIPTION_LIMIT}
                       className="w-full border border-gray-300 rounded-lg p-3 text-base focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
                       rows={4}
                       placeholder="Describe what this category includes..."
                     />
                     <p className="text-xs text-gray-500 mt-1">
-                      Brief description of the category ({(categoryData.description || "").length}/{CATEGORY_TEXT_LIMIT} characters)
+                      Brief description of the category ({(categoryData.description || "").length}/{CATEGORY_DESCRIPTION_LIMIT} characters)
                     </p>
               </div>
 

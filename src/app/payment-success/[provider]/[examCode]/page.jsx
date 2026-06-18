@@ -3,9 +3,10 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { CheckCircle, ArrowRight, BookOpen, Trophy, Sparkles, Gift } from "lucide-react";
+import { CheckCircle, ArrowRight, BookOpen, Trophy, Sparkles, Gift, Download, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { downloadInvoice } from "@/lib/downloadInvoice";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
@@ -18,11 +19,15 @@ export default function PaymentSuccessPage() {
   
   const [exam, setExam] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [paymentId, setPaymentId] = useState(null);
+  const [downloadingInvoice, setDownloadingInvoice] = useState(false);
 
   useEffect(() => {
-    // Set page title
     document.title = "Payment Successful - Enrollment Confirmed | AllExamQuestions";
-    
+    const storedPaymentId = sessionStorage.getItem("last_payment_id");
+    if (storedPaymentId) {
+      setPaymentId(storedPaymentId);
+    }
     if (provider && examCode) {
       fetchExamData();
     }
@@ -59,6 +64,21 @@ export default function PaymentSuccessPage() {
   }
 
   const examTitle = exam?.title || `${provider?.toUpperCase()} ${examCode?.toUpperCase()}`;
+
+  const handleDownloadInvoice = async () => {
+    if (!paymentId) {
+      alert("Invoice is not available yet. Check Billing History in your profile.");
+      return;
+    }
+    try {
+      setDownloadingInvoice(true);
+      await downloadInvoice(paymentId);
+    } catch (error) {
+      alert(error.message || "Failed to download invoice");
+    } finally {
+      setDownloadingInvoice(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-blue-50 to-purple-50">
@@ -143,7 +163,7 @@ export default function PaymentSuccessPage() {
           </Card>
 
           {/* Action Buttons */}
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <div className="flex flex-col sm:flex-row gap-4 justify-center flex-wrap">
             <Button
               size="lg"
               onClick={() => router.push(`/exams/${provider}/${examCode}/practice`)}
@@ -153,6 +173,28 @@ export default function PaymentSuccessPage() {
               Start Practicing Now
               <ArrowRight className="w-5 h-5 ml-2" />
             </Button>
+
+            {paymentId && (
+              <Button
+                size="lg"
+                variant="outline"
+                onClick={handleDownloadInvoice}
+                disabled={downloadingInvoice}
+                className="border-2 border-[#1A73E8] text-[#1A73E8] hover:bg-blue-50 px-8 py-6 text-lg font-semibold"
+              >
+                {downloadingInvoice ? (
+                  <>
+                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                    Downloading...
+                  </>
+                ) : (
+                  <>
+                    <Download className="w-5 h-5 mr-2" />
+                    Download Invoice
+                  </>
+                )}
+              </Button>
+            )}
             
             <Button
               size="lg"

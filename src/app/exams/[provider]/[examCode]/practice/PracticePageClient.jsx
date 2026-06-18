@@ -14,7 +14,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 
-import { buildPracticeTestSeoSegment } from "@/utils/practiceTestRouting";
+import { buildPracticeTestSeoSegment, getExamPricingPath } from "@/utils/practiceTestRouting";
 
 function getTestKey(test, index) {
   return String(test?.id || test?.slug || test?.name || `practice-test-${index}`);
@@ -77,7 +77,12 @@ export default function PracticePageClient({
   };
 
   const handleViewPricing = () => {
-    const url = `/exams/${provider}/${examCode}/practice/pricing`;
+    const url =
+      getExamPricingPath({
+        slug: examSlug,
+        title: examTitle,
+        code: examCode,
+      }) || `/exams/${provider}/${examCode}/practice/pricing`;
 
     if (!checkLogin()) {
       setPendingTestUrl(url);

@@ -743,6 +743,16 @@ export default async function PricingPage({ params }) {
         pricing_testimonials: courseData.pricing_testimonials || [],
         pricing_faqs: courseData.pricing_faqs || [],
         pricing_comparison: courseData.pricing_comparison || [],
+        gst_percentage:
+          courseData.gst_percentage ??
+          courseData.tax_percentage ??
+          courseData.pricing_plans?.find((p) => p?.gst_percentage != null)?.gst_percentage ??
+          0,
+        tax_percentage:
+          courseData.gst_percentage ??
+          courseData.tax_percentage ??
+          courseData.pricing_plans?.find((p) => p?.tax_percentage != null)?.tax_percentage ??
+          0,
       };
     }
   } catch (err) {

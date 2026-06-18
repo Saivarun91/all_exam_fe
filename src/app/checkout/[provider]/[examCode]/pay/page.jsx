@@ -292,6 +292,10 @@ export default function CheckoutPage() {
       }
 
       console.log("Payment verified:", verifyData);
+
+      if (verifyData.payment_id) {
+        sessionStorage.setItem("last_payment_id", verifyData.payment_id);
+      }
       
       // Redirect to success page
       setProcessing(false);
