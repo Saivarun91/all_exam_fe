@@ -10,6 +10,7 @@ import ListPagination, {
 } from "@/components/common/ListPagination";
 import { t, tf } from "@/lib/uiStrings";
 import { resolveCategoryImageUrl } from "@/lib/categoryImage";
+import OptimizedImage from "@/components/common/OptimizedImage";
 
 const TOP_CATEGORIES_PAGE_SIZE = 8;
 
@@ -25,13 +26,14 @@ function CategoryListItem({ category }) {
     >
       <span className="flex items-center gap-3 min-w-0">
         {imageSrc ? (
-          <span className="w-10 h-10 rounded-lg border border-[#DDE7FF] bg-[#F7FAFF] flex items-center justify-center p-1 shrink-0">
-            <img
+          <span className="relative block h-10 w-10 shrink-0 overflow-hidden rounded-lg border border-[#DDE7FF] bg-[#F7FAFF] p-1">
+            <OptimizedImage
               src={imageSrc}
               alt={title || t("common.category")}
-              className="w-full h-full object-contain"
-              loading="lazy"
-              decoding="async"
+              fill
+              sizes="40px"
+              className="object-contain"
+              objectFit="contain"
             />
           </span>
         ) : (

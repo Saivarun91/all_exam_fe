@@ -1453,28 +1453,20 @@ import {
   pathsMatchPublicUrl,
   trimPublicPathSegment,
 } from "@/utils/practiceTestRouting";
-
-export const dynamic = "force-dynamic";
+import { fetchExamByLegacyRoute } from "@/lib/loadExamDetailPage";
+export const revalidate = 300;
 
 export async function generateMetadata({ params }) {
   const { provider, examCode } = await params;
 
-  const API_BASE =
-    process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
-
   try {
-    const res = await fetch(
-      `${API_BASE}/api/courses/exams/${provider}-${examCode}/`,
-      { cache: "no-store" }
-    );
+    const exam = await fetchExamByLegacyRoute(provider, examCode);
 
-    if (!res.ok) {
+    if (!exam) {
       return {
         title: "Exam | AllExamQuestions",
       };
     }
-
-    const exam = await res.json();
 
     const pageTitle = exam.meta_title
       ? exam.meta_title + " | All Exam Questions"
@@ -1525,24 +1517,14 @@ export async function generateMetadata({ params }) {
 export default async function ExamDetailPage({ params }) {
   const { provider, examCode } = await params;
 
-  const API_BASE =
-    process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
-
   let exam;
 
   try {
-    const url = `${API_BASE}/api/courses/exams/${provider}-${examCode}/`;
+    exam = await fetchExamByLegacyRoute(provider, examCode);
 
-    const res = await fetch(url, { cache: "no-store" });
-
-    console.log("FETCH URL:", url);
-
-    if (!res.ok) {
-      console.log("API FAILED:", res.status);
+    if (!exam) {
       notFound();
     }
-
-    exam = await res.json();
 
     const canonicalLanding = getExamLandingPath(exam);
     const legacyPath = `/exams/${provider}/${examCode}`;
@@ -1805,8 +1787,6 @@ export default async function ExamDetailPage({ params }) {
     testimonials: pickArray("testimonials"),
     faqs: pickArray("faqs"),
   };
-
-  console.log("SERVER HTML DATA:", examData.title);
 
   return (
     <ExamDetailClient

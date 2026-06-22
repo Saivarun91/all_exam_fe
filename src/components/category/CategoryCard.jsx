@@ -16,8 +16,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   getCategoryPagePath,
-  resolveCategoryImageUrl,
+  getCategoryImageSrc,
 } from "@/lib/categoryImage";
+import OptimizedImage from "@/components/common/OptimizedImage";
 import { t, tf } from "@/lib/uiStrings";
 
 const ICON_MAP = {
@@ -37,16 +38,17 @@ function CategoryCardImage({ imageSrc, title, Icon, imageFit = "cover" }) {
   if (showImage) {
     return (
       <div
-        className={`w-full aspect-[17/11] overflow-hidden border-b border-[#DDE7FF] bg-[#F7FAFF] ${
+        className={`relative w-full aspect-[17/11] overflow-hidden border-b border-[#DDE7FF] bg-[#F7FAFF] ${
           fitWholeImage ? "flex items-center justify-center p-2" : ""
         }`}
       >
-        <img
+        <OptimizedImage
           src={imageSrc}
           alt={title || "Category"}
-          className={`w-full h-full ${fitWholeImage ? "object-contain" : "object-cover"}`}
-          loading="lazy"
-          decoding="async"
+          fill
+          sizes="(max-width: 768px) 100vw, 400px"
+          className={fitWholeImage ? "object-contain" : "object-cover"}
+          objectFit={fitWholeImage ? "contain" : "cover"}
           onError={() => setImageFailed(true)}
         />
       </div>
@@ -68,7 +70,7 @@ export default function CategoryCard({
   imageFit = "cover",
 }) {
   const Icon = ICON_MAP[category?.icon] || Folder;
-  const imageSrc = resolveCategoryImageUrl(category?.image_url);
+  const imageSrc = getCategoryImageSrc(category);
   const displayName = category?.name || category?.title || t("common.category");
   const description = category?.description || "";
   const categoryHref = getCategoryPagePath(category);

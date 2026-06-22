@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { isSitemapPathname } from "./lib/sitemapUtils";
 import { trimOfficialDetailsPathSegment } from "./app/exams/[provider]/[examCode]/examInfoUtils";
 import { isOfficialDetailsOnlyCourse } from "./lib/examListingFilters";
+import { middlewareFetchOptions } from "./lib/serverRevalidate";
 import {
   FREE_PRACTICE_TEST_LANDING_SUFFIX,
   getExamLandingPath,
@@ -9,6 +10,8 @@ import {
   getExamPricingPath,
   pathsMatchPublicUrl,
   probeExamLookupCandidates,
+  buildPracticeTestInternalPath,
+  stripExamPublicPathSuffix,
 } from "./utils/practiceTestRouting";
 
 async function fetchExamByPathProbe(apiBaseUrl, pathSegment) {
@@ -16,7 +19,7 @@ async function fetchExamByPathProbe(apiBaseUrl, pathSegment) {
     try {
       const res = await fetch(
         `${apiBaseUrl}/api/courses/exams/${encodeURIComponent(candidate)}/`,
-        { cache: "no-store" }
+        middlewareFetchOptions()
       );
       if (res.ok) {
         const exam = await res.json();
@@ -235,7 +238,7 @@ export async function middleware(request) {
       try {
         const providerRes = await fetch(
           `${API_BASE_URL}/api/providers/${slug}/`,
-          { cache: "no-store" }
+          middlewareFetchOptions()
         );
         if (providerRes.ok) {
           url.pathname = `/${slug}`;
@@ -258,7 +261,7 @@ export async function middleware(request) {
       try {
         const providerRes = await fetch(
           `${API_BASE_URL}/api/providers/${prov}/`,
-          { cache: "no-store" }
+          middlewareFetchOptions()
         );
         if (providerRes.ok) {
           url.pathname = `/${prov}/search/${kw}`;
@@ -316,10 +319,18 @@ export async function middleware(request) {
           if (duplicatedBase) {
             withoutSuffix = duplicatedBase[1];
           }
-          const examForCanonical = await fetchExamByPathProbe(
-            API_BASE_URL,
-            withoutSuffix
-          );
+          const examLookupKeys = [
+            withoutSuffix,
+            stripExamPublicPathSuffix(withoutSuffix),
+          ].filter(Boolean);
+          let examForCanonical = null;
+          for (const lookupKey of examLookupKeys) {
+            examForCanonical = await fetchExamByPathProbe(
+              API_BASE_URL,
+              lookupKey
+            );
+            if (examForCanonical) break;
+          }
           if (examForCanonical) {
             const { buildPracticeTestSeoSegment } = await import(
               "./utils/practiceTestRouting"
@@ -334,6 +345,13 @@ export async function middleware(request) {
               url.pathname = canonical;
               return NextResponse.redirect(url, 308);
             }
+            const rewritePath = buildPracticeTestInternalPath(
+              examForCanonical,
+              slug
+            );
+            if (rewritePath) {
+              return NextResponse.rewrite(new URL(rewritePath, request.url));
+            }
           } else if (duplicatedBase) {
             url.pathname = `/${duplicatedBase[1]}-free-practice-test-${testNum}`;
             return NextResponse.redirect(url, 308);
@@ -345,22 +363,15 @@ export async function middleware(request) {
             try {
               const res = await fetch(
                 `${API_BASE_URL}/api/courses/exams/${encodeURIComponent(candidate)}/`,
-                { cache: "no-store" }
+                middlewareFetchOptions()
               );
               if (!res.ok) continue;
               const exam = await res.json();
               if (!exam || typeof exam !== "object") continue;
 
-              const providerSlug = exam?.provider_slug || toSlug(exam?.provider || "");
-              const examSlug = exam?.slug || candidate;
-              const examCode = examSlug.startsWith(`${providerSlug}-`)
-                ? examSlug.slice(providerSlug.length + 1)
-                : examSlug;
-
-              if (providerSlug && examCode) {
-                return NextResponse.rewrite(
-                  new URL(`/exams/${providerSlug}/${examCode}/practice/${slug}`, request.url)
-                );
+              const rewritePath = buildPracticeTestInternalPath(exam, slug);
+              if (rewritePath) {
+                return NextResponse.rewrite(new URL(rewritePath, request.url));
               }
             } catch {
               // Continue probing suffix candidates.
@@ -391,7 +402,7 @@ export async function middleware(request) {
             try {
               const res = await fetch(
                 `${API_BASE_URL}/api/courses/exams/${encodeURIComponent(candidate)}/`,
-                { cache: "no-store" }
+                middlewareFetchOptions()
               );
               if (!res.ok) continue;
               const exam = await res.json();
@@ -417,7 +428,7 @@ export async function middleware(request) {
         const categoryUrl = `${API_BASE_URL}/api/categories/${slug}/`;
         const providerUrl = `${API_BASE_URL}/api/providers/${slug}/`;
 
-        const categoryRes = await fetch(categoryUrl, { cache: "no-store" }).catch(
+        const categoryRes = await fetch(categoryUrl, middlewareFetchOptions()).catch(
           () => null
         );
 
@@ -470,7 +481,7 @@ export async function middleware(request) {
           }
         }
 
-        const providerRes = await fetch(providerUrl, { cache: "no-store" }).catch(
+        const providerRes = await fetch(providerUrl, middlewareFetchOptions()).catch(
           () => null
         );
 
@@ -496,7 +507,7 @@ export async function middleware(request) {
       try {
         const providerRes = await fetch(
           `${API_BASE_URL}/api/providers/${providerSlug}/`,
-          { cache: "no-store" }
+          middlewareFetchOptions()
         );
         if (providerRes.ok) {
           const keywordSeg = segments[2];

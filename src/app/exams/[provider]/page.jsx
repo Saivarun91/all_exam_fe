@@ -95,7 +95,7 @@ async function fetchData() {
       aboutRes,
       examsSeoRes,
     ] = await Promise.all([
-      fetch(`${API_BASE_URL}/api/providers/`, { cache: "no-store" }),
+      fetch(`${API_BASE_URL}/api/providers/?lite=1`, { cache: "no-store" }),
       fetch(`${API_BASE_URL}/api/categories/`, { cache: "no-store" }),
       fetch(`${API_BASE_URL}/api/courses/`, { cache: "no-store" }),
       fetch(`${API_BASE_URL}/api/home/exams-trust-bar/`, { cache: "no-store" }),

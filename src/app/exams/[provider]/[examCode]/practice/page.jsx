@@ -653,16 +653,18 @@ export default async function PracticePage(props) {
 
   const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
 
-  const normalizedProvider = provider.toLowerCase().replace(/_/g, "-");
-  const normalizedExamCode = examCode.toLowerCase().replace(/_/g, "-");
-  const slug = `${normalizedProvider}-${normalizedExamCode}`;
-
   let examData = null;
 
   try {
-    const res = await fetch(`${API_BASE}/api/courses/exams/${slug}/`, { cache: "no-store" });
-    if (!res.ok) throw new Error("Exam not found");
-    examData = await res.json();
+    const { fetchExamByIdentifier } = await import("@/lib/loadExamDetailPage");
+    examData = await fetchExamByIdentifier(examCode);
+    if (!examData) {
+      const res = await fetch(`${API_BASE}/api/courses/exams/${examCode}/`, {
+        cache: "no-store",
+      });
+      if (res.ok) examData = await res.json();
+    }
+    if (!examData) throw new Error("Exam not found");
   } catch (err) {
     console.error(err);
     return notFound();
@@ -670,7 +672,7 @@ export default async function PracticePage(props) {
 
   const { getExamPracticePath } = await import("@/utils/practiceTestRouting");
   const practicePath = getExamPracticePath({
-    slug: examData.slug || slug,
+    slug: examData.slug || examCode,
     title: examData.title,
     code: examData.code,
   });
@@ -776,7 +778,7 @@ export default async function PracticePage(props) {
         provider={provider}
         examCode={examCode}
         examTitle={exam.title}
-        examSlug={examData.slug || slug}
+        examSlug={examData.slug || examCode}
       >
         <PracticeTopicsSection topics={topics} topicsHeading={topicsHeading} />
       </PracticePageClient>

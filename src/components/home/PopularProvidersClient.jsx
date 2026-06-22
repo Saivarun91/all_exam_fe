@@ -355,6 +355,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { getOptimizedImageUrl } from "../../utils/imageUtils";
+import OptimizedImage from "@/components/common/OptimizedImage";
 
 import {
   Cloud,
@@ -430,17 +431,14 @@ function AnimatedCarousel({
                   style={{ height: logoSize, width: logoSize }}
                 >
                   {hasLogo ? (
-                    <img
-                      src={getOptimizedImageUrl(
-                        provider.logo_url,
-                        logoSize,
-                        logoSize
-                      )}
+                    <OptimizedImage
+                      src={provider.logo_url}
                       alt={provider.name}
                       width={logoSize}
                       height={logoSize}
                       className="object-contain"
-                      loading="lazy"
+                      sizes={`${logoSize}px`}
+                      crop="fit"
                     />
                   ) : (
                     <div
@@ -509,18 +507,14 @@ function AnimatedCarousel({
                   style={{ height: logoSize, width: logoSize }}
                 >
                   {hasLogo ? (
-                    <img
-                      src={getOptimizedImageUrl(
-                        provider.logo_url,
-                        logoSize,
-                        logoSize
-                      )}
+                    <OptimizedImage
+                      src={provider.logo_url}
                       alt={provider.name}
                       width={logoSize}
                       height={logoSize}
                       className="object-contain"
-                      loading="lazy"
-                      onError={(e) => (e.currentTarget.style.display = "none")}
+                      sizes={`${logoSize}px`}
+                      crop="fit"
                     />
                   ) : (
                     <div

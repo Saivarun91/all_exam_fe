@@ -227,38 +227,16 @@
 
 
 import "./globals.css";
-import { cache } from "react";
+import dynamic from "next/dynamic";
 import { Poppins } from "next/font/google";
 import Header from "../components/layout/Header";
-import Footer from "../components/layout/Footer";
 import Providers from "../components/providers";
 import { ROBOTS_INDEX } from "@/lib/seoRobots";
+import { fetchPublicBrandSettings } from "@/lib/fetchPublicBrandSettings";
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
-
-const fetchPublicBrandSettings = cache(async function fetchPublicBrandSettings() {
-  try {
-    const res = await fetch(`${API_BASE_URL}/api/settings/public/`, {
-      next: { revalidate: 300 },
-      headers: { Accept: "application/json" },
-    });
-    if (!res.ok) return { logoUrl: "", siteName: "" };
-
-    const data = await res.json();
-    if (!data.success) return { logoUrl: "", siteName: "" };
-
-    const siteRaw = data.site_name;
-    const siteName =
-      siteRaw != null && String(siteRaw).trim() ? String(siteRaw).trim() : "";
-
-    return {
-      logoUrl: data.logo_url || "",
-      siteName,
-    };
-  } catch {
-    return { logoUrl: "", siteName: "" };
-  }
+const Footer = dynamic(() => import("../components/layout/FooterWrapper"), {
+  ssr: true,
+  loading: () => <div className="h-64" aria-hidden />,
 });
 
 const poppins = Poppins({
@@ -271,23 +249,34 @@ const poppins = Poppins({
   variable: "--font-poppins",
 });
 
-export const metadata = {
-  title: "AllExamQuestions - Certification Practice Tests",
-  description:
-    "Accurate, updated, exam-style questions trusted by thousands of professionals.",
-  robots: ROBOTS_INDEX,
-  alternates: {
-    canonical: "https://allexamquestions.com/",
-  },
-  icons: {
-    icon: [
-      { url: "/favicon-new.ico" },
-      { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
-      { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
-    ],
-    apple: "/apple-touch-icon.png",
-  },
-};
+const BRAND_NAME_FALLBACK = "All Exam Questions";
+
+export async function generateMetadata() {
+  const { siteName } = await fetchPublicBrandSettings();
+  const brandName = siteName || BRAND_NAME_FALLBACK;
+
+  return {
+    metadataBase: new URL("https://allexamquestions.com"),
+    title: {
+      default: `${brandName} - Certification Practice Tests`,
+      template: `%s | ${brandName}`,
+    },
+    description:
+      "Accurate, updated, exam-style questions trusted by thousands of professionals.",
+    robots: ROBOTS_INDEX,
+    alternates: {
+      canonical: "https://allexamquestions.com/",
+    },
+    icons: {
+      icon: [
+        { url: "/favicon-new.ico" },
+        { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
+        { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
+      ],
+      apple: "/apple-touch-icon.png",
+    },
+  };
+}
 
 export default async function RootLayout({ children }) {
   const { logoUrl: initialLogoUrl, siteName: initialSiteName } =

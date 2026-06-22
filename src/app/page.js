@@ -223,6 +223,8 @@ import HeroSection from "../components/home/HeroSection";
 import BlogSection from "../components/home/BlogSection";
 import HomeScrollHandler from "../components/home/HomeScrollHandler";
 
+export const revalidate = 60;
+
 const belowFoldFallback = <div className="py-20 bg-gray-50/40" aria-hidden />;
 
 // ================= DYNAMIC COMPONENTS =================

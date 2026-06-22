@@ -18,27 +18,27 @@ function normalizeFaqSection(section = {}) {
 
 async function getFAQData() {
   try {
-    const sectionRes = await fetch(
-      `${API_BASE_URL}/api/home/faqs-section/`,
-      { next: { revalidate: 300 } }
-    );
-    const contentRes = await fetch(
-      `${API_BASE_URL}/api/home/section-content/`,
-      { next: { revalidate: 300 } }
-    );
-
-    const faqRes = await fetch(
-      `${API_BASE_URL}/api/home/faqs/`,
-      { next: { revalidate: 300 } }
-    );
+    const [sectionRes, contentRes, faqRes] = await Promise.all([
+      fetch(`${API_BASE_URL}/api/home/faqs-section/`, {
+        next: { revalidate: 300 },
+      }),
+      fetch(`${API_BASE_URL}/api/home/section-content/`, {
+        next: { revalidate: 300 },
+      }),
+      fetch(`${API_BASE_URL}/api/home/faqs/`, {
+        next: { revalidate: 300 },
+      }),
+    ]);
 
     if (!faqRes.ok) {
       return { section: {}, faqs: [] };
     }
 
-    const sectionJson = await sectionRes.json();
-    const contentJson = await contentRes.json();
-    const faqJson = await faqRes.json();
+    const [sectionJson, contentJson, faqJson] = await Promise.all([
+      sectionRes.json(),
+      contentRes.json(),
+      faqRes.json(),
+    ]);
 
 
     return {

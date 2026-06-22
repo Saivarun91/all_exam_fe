@@ -16,9 +16,9 @@ async function getData() {
         next: { revalidate: 300 },
       }),
       fetch(`${API_BASE_URL}${FEATURED_COURSES_API_PATH}`, {
-        cache: "no-store",
+        next: { revalidate: 300 },
       }),
-      fetch(`${API_BASE_URL}/api/providers/`, {
+      fetch(`${API_BASE_URL}/api/providers/?lite=1`, {
         next: { revalidate: 300 },
       }),
     ]);

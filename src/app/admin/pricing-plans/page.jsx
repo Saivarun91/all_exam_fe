@@ -1,7 +1,6 @@
-
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,11 +35,34 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { Plus, Edit, Trash2, Star, Eye, Save, BookOpen, CheckCircle2, Clock, RefreshCw, Target, BarChart3, TrendingUp, Bell, X, Check } from "lucide-react";
+import { Plus, Edit, Trash2, Star, Eye, Save, BookOpen, CheckCircle2, Clock, RefreshCw, Target, BarChart3, TrendingUp, Bell, X, Check, SearchIcon, ArrowLeft } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { checkAuth, getAuthHeaders } from "@/utils/authCheck";
+import { belongsInExamDetailsManager } from "@/lib/examListingFilters";
+import AdminTablePagination, { ADMIN_TABLE_PAGE_SIZE } from "@/components/admin/AdminTablePagination";
+import { getListPaginationSlice } from "@/components/common/ListPagination";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
+
+const DEFAULT_HERO = {
+  title: "Choose Your Access Plan",
+  subtitle:
+    "Unlock full access for this exam — all questions, explanations, analytics, and unlimited attempts.",
+};
+
+function getCourseId(course) {
+  return course?.id || course?._id || "";
+}
+
+function getPricingAccessType(course) {
+  return String(course?.pricing_access_type || "paid").toLowerCase() === "free"
+    ? "free"
+    : "paid";
+}
+
+function getPricingPlansCount(course) {
+  return Array.isArray(course?.pricing_plans) ? course.pricing_plans.length : 0;
+}
 
 const AVAILABLE_ICONS = [
   { value: "BookOpen", label: "Book Open", icon: BookOpen },
@@ -68,8 +90,11 @@ export default function PricingPlansAdmin() {
   const router = useRouter();
   const [courses, setCourses] = useState([]);
   const [selectedCourse, setSelectedCourse] = useState(null);
+  const [coursesLoading, setCoursesLoading] = useState(true);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [listPage, setListPage] = useState(1);
   const [activeTab, setActiveTab] = useState("hero");
   
   // SEO states
@@ -82,12 +107,10 @@ export default function PricingPlansAdmin() {
   });
 
   // Hero Section
-  const [heroData, setHeroData] = useState({
-    title: "Choose Your Access Plan",
-    subtitle: "Unlock full access for this exam — all questions, explanations, analytics, and unlimited attempts.",
-  });
+  const [heroData, setHeroData] = useState({ ...DEFAULT_HERO });
   const [pricingSettings, setPricingSettings] = useState({
     gst_percentage: 0,
+    pricing_access_type: "paid",
   });
 
   // Pricing Plans
@@ -230,78 +253,139 @@ export default function PricingPlansAdmin() {
   }, [selectedCourse]);
 
   const fetchCourses = async () => {
-    setLoading(true);
+    setCoursesLoading(true);
     try {
-      // Try admin endpoint first
       const res = await fetch(`${API_BASE_URL}/api/courses/admin/list/`, {
-        headers: getAuthHeaders()
+        headers: getAuthHeaders(),
       });
-      
+
       if (res.status === 401) {
         setMessage("❌ Authentication failed. Please log in again.");
         setTimeout(() => router.push("/admin/auth"), 2000);
-        setLoading(false);
         return;
       }
-      
+
       if (!res.ok) {
         throw new Error(`HTTP error! status: ${res.status}`);
       }
-      
+
       const data = await res.json();
-      
-      if (data.success && data.data) {
-        setCourses(Array.isArray(data.data) ? data.data : []);
-      } else if (data.success && data.courses) {
-        setCourses(Array.isArray(data.courses) ? data.courses : []);
-      } else if (Array.isArray(data)) {
-        setCourses(data);
-      } else if (data.courses && Array.isArray(data.courses)) {
-        setCourses(data.courses);
-      } else {
-        // Fallback to public endpoint
-        const publicRes = await fetch(`${API_BASE_URL}/api/courses/`);
-        if (publicRes.ok) {
-          const publicData = await publicRes.json();
-          if (publicData.success && publicData.courses) {
-            setCourses(Array.isArray(publicData.courses) ? publicData.courses : []);
-          } else if (publicData.success && publicData.data) {
-            setCourses(Array.isArray(publicData.data) ? publicData.data : []);
-          } else if (Array.isArray(publicData)) {
-            setCourses(publicData);
-          } else {
-            setCourses([]);
-          }
-        } else {
-          setCourses([]);
-        }
-      }
+      const list = data.success && Array.isArray(data.data) ? data.data : [];
+      setCourses(list.filter(belongsInExamDetailsManager));
     } catch (error) {
       console.error("Error fetching courses:", error);
-      // Fallback to public endpoint
-      try {
-        const res = await fetch(`${API_BASE_URL}/api/courses/`);
-        if (res.ok) {
-          const data = await res.json();
-          if (data.success && data.courses) {
-            setCourses(Array.isArray(data.courses) ? data.courses : []);
-          } else if (data.success && data.data) {
-            setCourses(Array.isArray(data.data) ? data.data : []);
-          } else if (Array.isArray(data)) {
-            setCourses(data);
-          } else {
-            setCourses([]);
-          }
-        } else {
-          setCourses([]);
-        }
-      } catch (err) {
-        console.error("Error fetching courses from public endpoint:", err);
-        setCourses([]);
-        setMessage("❌ Error loading courses. Please try again.");
-      }
+      setCourses([]);
+      setMessage("❌ Error loading exams. Please try again.");
     } finally {
-      setLoading(false);
+      setCoursesLoading(false);
+    }
+  };
+
+  const filteredCourses = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return courses;
+    return courses.filter((course) => {
+      const title = String(course.title || "").toLowerCase();
+      const code = String(course.code || "").toLowerCase();
+      const provider = String(course.provider || "").toLowerCase();
+      const category = String(course.category || "").toLowerCase();
+      const slug = String(course.slug || "").toLowerCase();
+      return (
+        title.includes(query) ||
+        code.includes(query) ||
+        provider.includes(query) ||
+        category.includes(query) ||
+        slug.includes(query)
+      );
+    });
+  }, [courses, searchQuery]);
+
+  const paginatedCourses = useMemo(
+    () => getListPaginationSlice(filteredCourses, listPage, ADMIN_TABLE_PAGE_SIZE),
+    [filteredCourses, listPage]
+  );
+
+  useEffect(() => {
+    setListPage(1);
+  }, [searchQuery]);
+
+  const updateCourseInList = (courseId, updates) => {
+    setCourses((prev) =>
+      prev.map((course) =>
+        getCourseId(course) === String(courseId) ? { ...course, ...updates } : course
+      )
+    );
+  };
+
+  const handleEditCourse = (course) => {
+    setSelectedCourse(course);
+    setActiveTab("hero");
+    setMessage("");
+  };
+
+  const handleBackToList = () => {
+    setSelectedCourse(null);
+    fetchCourses();
+  };
+
+  const handleDeletePricing = async (course) => {
+    const courseId = getCourseId(course);
+    if (!courseId) return;
+
+    const ok = window.confirm(
+      `Clear all pricing data for "${course.title || course.code}"? The exam will remain; only pricing configuration is removed.`
+    );
+    if (!ok) return;
+
+    try {
+      const payload = {
+        hero_title: DEFAULT_HERO.title,
+        hero_subtitle: DEFAULT_HERO.subtitle,
+        gst_percentage: 0,
+        tax_percentage: 0,
+        pricing_access_type: "paid",
+        pricing_plans: [],
+        pricing_features: [],
+        pricing_comparison: [],
+        pricing_testimonials: [],
+        pricing_faqs: [],
+      };
+
+      const res = await fetch(`${API_BASE_URL}/api/courses/admin/${courseId}/pricing/`, {
+        method: "PUT",
+        headers: {
+          ...getAuthHeaders(),
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data?.success === false) {
+        setMessage(`❌ Error: ${data?.error || "Failed to clear pricing data"}`);
+        return;
+      }
+
+      updateCourseInList(courseId, {
+        hero_title: DEFAULT_HERO.title,
+        hero_subtitle: DEFAULT_HERO.subtitle,
+        gst_percentage: 0,
+        pricing_access_type: "paid",
+        pricing_plans: [],
+        pricing_features: [],
+        pricing_comparison: [],
+        pricing_testimonials: [],
+        pricing_faqs: [],
+      });
+
+      if (getCourseId(selectedCourse) === String(courseId)) {
+        setSelectedCourse(null);
+      }
+
+      setMessage("✅ Pricing data cleared successfully.");
+      setTimeout(() => setMessage(""), 3000);
+    } catch (error) {
+      setMessage(`❌ Error: ${error.message}`);
     }
   };
 
@@ -333,6 +417,10 @@ export default function PricingPlansAdmin() {
             data?.platform_settings?.gst_percentage ??
             0
           ) || 0,
+          pricing_access_type:
+            String(data?.pricing_access_type || "paid").toLowerCase() === "free"
+              ? "free"
+              : "paid",
         });
         
         // Set pricing plans
@@ -369,11 +457,16 @@ export default function PricingPlansAdmin() {
 
     try {
       const gstPct = Number(pricingSettings.gst_percentage) || 0;
+      const accessType =
+        String(pricingSettings.pricing_access_type || "paid").toLowerCase() === "free"
+          ? "free"
+          : "paid";
       const payload = {
         hero_title: heroData.title,
         hero_subtitle: heroData.subtitle,
         gst_percentage: gstPct,
         tax_percentage: gstPct,
+        pricing_access_type: accessType,
         pricing_plans: pricingPlans.map(plan => {
           let durationText = plan.duration;
         
@@ -422,6 +515,18 @@ export default function PricingPlansAdmin() {
       const data = await res.json();
 
       if (res.ok && data.success) {
+        const courseId = getCourseId(selectedCourse);
+        updateCourseInList(courseId, {
+          hero_title: heroData.title,
+          hero_subtitle: heroData.subtitle,
+          gst_percentage: gstPct,
+          pricing_access_type: accessType,
+          pricing_plans: pricingPlans,
+          pricing_features: features,
+          pricing_comparison: comparisonRows,
+          pricing_testimonials: testimonials,
+          pricing_faqs: faqs,
+        });
         setMessage("✅ All pricing data saved successfully!");
         setTimeout(() => setMessage(""), 3000);
       } else {
@@ -502,6 +607,15 @@ export default function PricingPlansAdmin() {
       setPricingPlans(pricingPlans.filter((_, i) => i !== index));
     }
   };
+
+  const calculateDailyPrice = (priceUsd, days) => {
+    const priceNum = Number(priceUsd);
+    const daysNum = Number(days);
+    if (!priceNum || !daysNum) return "";
+    return `$${(priceNum / daysNum).toFixed(2)}/day`;
+  };
+
+  const isFreeExam = pricingSettings.pricing_access_type === "free";
 
   // Feature Handlers
   const resetFeatureForm = () => {
@@ -680,14 +794,17 @@ export default function PricingPlansAdmin() {
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6 bg-gray-50 min-h-screen">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-3xl font-bold text-[#0C1A35]">Pricing Plans Management</h1>
-          <p className="text-[#0C1A35]/70 mt-1">Manage all pricing page sections for courses</p>
-        </div>
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold text-[#0C1A35]">Pricing Plans Management</h1>
+        <p className="text-[#0C1A35]/70 mt-1">
+          {selectedCourse
+            ? `Configure pricing sections for ${selectedCourse.title || selectedCourse.code}`
+            : "Manage pricing for exams added in Exam Details Manager"}
+        </p>
       </div>
 
-      {/* SEO Meta Information Card */}
+      {/* SEO Meta Information Card — list view only */}
+      {!selectedCourse && (
       <Card className="mb-6 border border-blue-200">
         <CardHeader>
           <CardTitle className="text-xl text-[#0C1A35]">SEO Meta Information</CardTitle>
@@ -741,56 +858,7 @@ export default function PricingPlansAdmin() {
           </Button>
         </CardContent>
       </Card>
-
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex gap-3 items-center">
-          <Select 
-            value={selectedCourse ? (selectedCourse.id || selectedCourse._id || String(selectedCourse.id) || String(selectedCourse._id)) : ""} 
-            onValueChange={(value) => {
-              const course = courses.find(c => {
-                const cId = c.id || c._id || String(c.id) || String(c._id);
-                return cId === value || String(cId) === String(value);
-              });
-              setSelectedCourse(course);
-            }}
-          >
-            <SelectTrigger className="w-64 border-gray-300">
-              <SelectValue placeholder="Select a course..." />
-            </SelectTrigger>
-            <SelectContent>
-              {courses.length === 0 ? (
-                <div className="p-4 text-sm text-gray-500">No courses available</div>
-              ) : (
-                courses.map((course) => {
-                  const courseId = course.id || course._id || String(course.id) || String(course._id);
-                  const courseTitle = course.title || course.name || "Untitled Course";
-                  const courseCode = course.code || "";
-                  return (
-                    <SelectItem key={courseId} value={String(courseId)}>
-                      {courseTitle} {courseCode && `(${courseCode})`}
-                    </SelectItem>
-                  );
-                })
-              )}
-            </SelectContent>
-          </Select>
-          {selectedCourse && (
-            <Button
-              onClick={() => {
-                const provider = selectedCourse.provider?.slug || 
-                               selectedCourse.provider?.name?.toLowerCase() || 
-                               (typeof selectedCourse.provider === 'string' ? selectedCourse.provider.toLowerCase() : 'aws');
-                window.open(`/exams/${provider}/${selectedCourse.code}/practice/pricing`, "_blank");
-              }}
-              variant="outline"
-              className="gap-2 border-gray-300"
-            >
-              <Eye className="w-4 h-4" />
-              Preview
-            </Button>
-          )}
-        </div>
-      </div>
+      )}
 
       {message && (
         <div className={`p-4 rounded-lg mb-4 ${message.includes('✅') ? 'bg-green-50 text-green-800 border border-green-200' : 'bg-red-50 text-red-800 border border-red-200'}`}>
@@ -800,14 +868,168 @@ export default function PricingPlansAdmin() {
 
       {!selectedCourse ? (
         <Card className="border-gray-200 shadow-sm bg-white">
-          <CardContent className="p-12 text-center">
-            <p className="text-gray-600 text-base">Please select a course to manage pricing sections</p>
+          <CardHeader>
+            <CardTitle className="text-[#0C1A35]">All Exams</CardTitle>
+            <div className="relative mt-3">
+              <SearchIcon
+                className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#0C1A35]/40"
+                aria-hidden
+              />
+              <Input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search by title, code, provider, category, or slug..."
+                className="pl-9"
+              />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Title</TableHead>
+                  <TableHead>Code</TableHead>
+                  <TableHead>Provider</TableHead>
+                  <TableHead>Category</TableHead>
+                  <TableHead>Access</TableHead>
+                  <TableHead>Plans</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {coursesLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center text-[#0C1A35]/60 py-8">
+                      Loading exams...
+                    </TableCell>
+                  </TableRow>
+                ) : filteredCourses.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center text-[#0C1A35]/60 py-8">
+                      No exams found. Add exams in Exam Details Manager first.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  paginatedCourses.items.map((course) => {
+                    const accessType = getPricingAccessType(course);
+                    const plansCount = getPricingPlansCount(course);
+                    return (
+                      <TableRow key={getCourseId(course)}>
+                        <TableCell className="font-medium text-[#0C1A35]">
+                          {course.title || "Untitled"}
+                        </TableCell>
+                        <TableCell>{course.code || "-"}</TableCell>
+                        <TableCell>{course.provider || "-"}</TableCell>
+                        <TableCell>{course.category || "-"}</TableCell>
+                        <TableCell>
+                          <Badge
+                            className={
+                              accessType === "free"
+                                ? "bg-green-100 text-green-700 border-0"
+                                : "bg-blue-100 text-blue-700 border-0"
+                            }
+                          >
+                            {accessType === "free" ? "Free" : "Paid"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {accessType === "free" ? (
+                            <span className="text-gray-400">-</span>
+                          ) : plansCount > 0 ? (
+                            <Badge className="bg-indigo-100 text-indigo-700 border-0">
+                              {plansCount} plan{plansCount !== 1 ? "s" : ""}
+                            </Badge>
+                          ) : (
+                            <Badge variant="secondary">None</Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="inline-flex gap-2 justify-end">
+                            <Button
+                              size="icon"
+                              variant="outline"
+                              onClick={() => handleEditCourse(course)}
+                              title="Edit pricing"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              size="icon"
+                              variant="destructive"
+                              onClick={() => handleDeletePricing(course)}
+                              title="Clear pricing data"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
+            {!coursesLoading && filteredCourses.length > 0 && (
+              <AdminTablePagination
+                currentPage={paginatedCourses.page}
+                totalPages={paginatedCourses.totalPages}
+                totalItems={paginatedCourses.totalItems}
+                onPageChange={setListPage}
+                itemLabel="exams"
+              />
+            )}
           </CardContent>
         </Card>
       ) : (
         <>
+          <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-center gap-4">
+              <Button variant="outline" size="sm" onClick={handleBackToList} className="gap-2 shrink-0">
+                <ArrowLeft className="w-4 h-4" />
+                Back to All Exams
+              </Button>
+              <div>
+                <h2 className="text-xl font-semibold text-[#0C1A35]">
+                  {selectedCourse.title || "Untitled Exam"}
+                </h2>
+                <p className="text-sm text-[#0C1A35]/60 mt-0.5">
+                  {selectedCourse.provider || "-"} • {selectedCourse.code || "-"}
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                onClick={() => {
+                  const provider =
+                    selectedCourse.provider?.slug ||
+                    selectedCourse.provider?.name?.toLowerCase() ||
+                    (typeof selectedCourse.provider === "string"
+                      ? selectedCourse.provider.toLowerCase()
+                      : "aws");
+                  window.open(
+                    `/exams/${provider}/${selectedCourse.code}/practice/pricing`,
+                    "_blank"
+                  );
+                }}
+                variant="outline"
+                className="gap-2 border-gray-300"
+              >
+                <Eye className="w-4 h-4" />
+                Preview Pricing Page
+              </Button>
+              <Button
+                onClick={handleSaveAll}
+                disabled={loading}
+                className="bg-[#1A73E8] hover:bg-[#1557B0] gap-2"
+              >
+                <Save className="w-4 h-4" />
+                {loading ? "Saving..." : "Save All Changes"}
+              </Button>
+            </div>
+          </div>
+
           {/* Tabs */}
-          <div className="flex gap-2 border-b border-gray-200">
+          <div className="flex flex-wrap gap-2 border-b border-gray-200 bg-white rounded-t-lg px-2 pt-2">
             {["hero", "plans", "features", "comparison", "testimonials", "faqs"].map((tab) => (
               <button
                 key={tab}
@@ -858,64 +1080,188 @@ export default function PricingPlansAdmin() {
             <Card className="bg-white border-gray-200 shadow-sm">
               <CardHeader className="flex items-center justify-between bg-gray-50 border-b border-gray-200">
                 <CardTitle className="text-[#0C1A35]">Pricing Plans</CardTitle>
-                <Button onClick={handleAddPlan} className="gap-2">
-                  <Plus className="w-4 h-4" />
-                  Add Plan
-                </Button>
+                {!isFreeExam && (
+                  <Button onClick={handleAddPlan} className="gap-2">
+                    <Plus className="w-4 h-4" />
+                    Add Plan
+                  </Button>
+                )}
               </CardHeader>
               <CardContent>
-                <div className="mb-4 p-4 rounded-lg border border-gray-200 bg-gray-50">
-                  <Label>GST Percentage (from admin)</Label>
-                  <Input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={pricingSettings.gst_percentage}
-                    onChange={(e) => setPricingSettings((prev) => ({ ...prev, gst_percentage: e.target.value }))}
-                    className="mt-2 max-w-xs"
-                    placeholder="Enter GST percentage"
-                  />
+                <div className="mb-4 grid gap-4 md:grid-cols-2">
+                  <div className="p-4 rounded-lg border border-gray-200 bg-gray-50">
+                    <Label>Exam Access Type</Label>
+                    <Select
+                      value={pricingSettings.pricing_access_type || "paid"}
+                      onValueChange={(value) =>
+                        setPricingSettings((prev) => ({
+                          ...prev,
+                          pricing_access_type: value,
+                        }))
+                      }
+                    >
+                      <SelectTrigger className="mt-2">
+                        <SelectValue placeholder="Select access type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="paid">Paid</SelectItem>
+                        <SelectItem value="free">Free</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-gray-500 mt-2">
+                      {isFreeExam
+                        ? "Users can access all questions for this exam without enrolling or paying."
+                        : "Users get limited free trial questions. Full access requires enrollment via a pricing plan."}
+                    </p>
+                  </div>
+                  <div className="p-4 rounded-lg border border-gray-200 bg-gray-50">
+                    <Label>GST Percentage (from admin)</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={pricingSettings.gst_percentage}
+                      onChange={(e) =>
+                        setPricingSettings((prev) => ({
+                          ...prev,
+                          gst_percentage: e.target.value,
+                        }))
+                      }
+                      className="mt-2"
+                      placeholder="Enter GST percentage"
+                      disabled={isFreeExam}
+                    />
+                    {isFreeExam && (
+                      <p className="text-xs text-gray-500 mt-2">GST applies only to paid exams.</p>
+                    )}
+                  </div>
                 </div>
-                <div className="space-y-4">
-                  {pricingPlans.map((plan, idx) => (
-                    <div key={idx} className="p-4 border rounded-lg flex items-center justify-between">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-semibold">{plan.name}</h3>
-                          {plan.popular && (
-                            <Badge className="bg-yellow-100 text-yellow-700">Most Popular</Badge>
-                          )}
-                        </div>
-                        <p className="text-sm text-gray-600">{plan.duration || `${plan.duration_months} month(s) (${plan.duration_days} days)`}</p>
-                        <p className="text-sm font-medium">
-                          ${plan.price_usd ?? "-"}
-                          {plan.original_price_usd > 0 && (
-                            <span className="line-through text-gray-500 ml-2">${plan.original_price_usd}</span>
-                          )}
-                        </p>
-                        {plan.price > 0 && (
-                          <p className="text-sm text-gray-500">
-                            ₹{plan.price}
-                            {plan.original_price > 0 && (
-                              <span className="line-through ml-2">₹{plan.original_price}</span>
-                            )}
-                          </p>
-                        )}
-                      </div>
-                      <div className="flex gap-2">
-                        <Button variant="outline" size="sm" onClick={() => handleEditPlan(plan, idx)}>
-                          <Edit className="w-4 h-4" />
-                        </Button>
-                        <Button variant="outline" size="sm" onClick={() => handleDeletePlan(idx)}>
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                  {pricingPlans.length === 0 && (
-                    <p className="text-center text-gray-500 py-8">No pricing plans added yet</p>
-                  )}
-                </div>
+
+                {isFreeExam ? (
+                  <div className="rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-800">
+                    This exam is set to <strong>Free</strong>. Pricing plans are not required. Users will have full question access.
+                  </div>
+                ) : pricingPlans.length === 0 ? (
+                  <p className="text-center text-gray-500 py-8">No pricing plans added yet</p>
+                ) : (
+                  <div className="overflow-x-auto rounded-lg border border-gray-200">
+                    <table className="w-full border-collapse">
+                      <thead>
+                        <tr className="border-b bg-gray-50">
+                          <th className="text-left p-3 font-semibold text-gray-700">Plan Name</th>
+                          <th className="text-left p-3 font-semibold text-gray-700">Duration</th>
+                          <th className="text-left p-3 font-semibold text-gray-700">Price ($)</th>
+                          <th className="text-left p-3 font-semibold text-gray-700">Price (₹)</th>
+                          <th className="text-center p-3 font-semibold text-gray-700">Discount</th>
+                          <th className="text-center p-3 font-semibold text-gray-700">Popular</th>
+                          <th className="text-center p-3 font-semibold text-gray-700">Status</th>
+                          <th className="text-center p-3 font-semibold text-gray-700">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {pricingPlans.map((plan, idx) => {
+                          const days =
+                            plan.duration_days ||
+                            (parseInt(plan.duration_months, 10) * 30) ||
+                            30;
+                          const dailyPrice = calculateDailyPrice(plan.price_usd, days);
+                          return (
+                            <tr key={idx} className="border-b hover:bg-gray-50">
+                              <td className="p-3">
+                                <div className="font-medium text-gray-900">{plan.name}</div>
+                                {dailyPrice && (
+                                  <div className="text-xs text-gray-500 mt-1">{dailyPrice}</div>
+                                )}
+                              </td>
+                              <td className="p-3 text-gray-700">
+                                {plan.duration ||
+                                  `${plan.duration_months} month(s) (${days} days)`}
+                              </td>
+                              <td className="p-3">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-semibold text-gray-900">
+                                    ${plan.price_usd ?? "-"}
+                                  </span>
+                                  {Number(plan.original_price_usd) > 0 &&
+                                    Number(plan.original_price_usd) !== Number(plan.price_usd) && (
+                                      <span className="text-sm text-gray-400 line-through">
+                                        ${plan.original_price_usd}
+                                      </span>
+                                    )}
+                                </div>
+                              </td>
+                              <td className="p-3">
+                                {Number(plan.price) > 0 ? (
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-semibold text-gray-900">₹{plan.price}</span>
+                                    {Number(plan.original_price) > 0 &&
+                                      Number(plan.original_price) !== Number(plan.price) && (
+                                        <span className="text-sm text-gray-400 line-through">
+                                          ₹{plan.original_price}
+                                        </span>
+                                      )}
+                                  </div>
+                                ) : (
+                                  <span className="text-gray-400">-</span>
+                                )}
+                              </td>
+                              <td className="p-3 text-center">
+                                {Number(plan.discount_percentage) > 0 ? (
+                                  <Badge className="bg-green-100 text-green-700 border-0">
+                                    {plan.discount_percentage}% OFF
+                                  </Badge>
+                                ) : (
+                                  <span className="text-gray-400">-</span>
+                                )}
+                              </td>
+                              <td className="p-3 text-center">
+                                {plan.popular || plan.is_popular ? (
+                                  <Badge className="bg-blue-100 text-blue-700 border-0">
+                                    <Star className="h-3 w-3 mr-1 inline" />
+                                    Popular
+                                  </Badge>
+                                ) : (
+                                  <span className="text-gray-400">-</span>
+                                )}
+                              </td>
+                              <td className="p-3 text-center">
+                                <Badge
+                                  className={
+                                    (plan.status || "active") === "active"
+                                      ? "bg-green-100 text-green-700 border-0"
+                                      : "bg-gray-100 text-gray-700 border-0"
+                                  }
+                                >
+                                  {(plan.status || "active") === "active" ? "Active" : "Inactive"}
+                                </Badge>
+                              </td>
+                              <td className="p-3">
+                                <div className="flex gap-2 justify-center">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleEditPlan(plan, idx)}
+                                    title="Edit plan"
+                                  >
+                                    <Edit className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    variant="destructive"
+                                    size="sm"
+                                    onClick={() => handleDeletePlan(idx)}
+                                    title="Delete plan"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}
@@ -1268,6 +1614,21 @@ export default function PricingPlansAdmin() {
                 checked={planFormData.popular}
                 onCheckedChange={(checked) => setPlanFormData({ ...planFormData, popular: checked })}
               />
+            </div>
+            <div>
+              <Label>Status</Label>
+              <Select
+                value={planFormData.status || "active"}
+                onValueChange={(value) => setPlanFormData({ ...planFormData, status: value })}
+              >
+                <SelectTrigger className="mt-2">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="inactive">Inactive</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="flex gap-3 justify-end">
               <Button variant="outline" onClick={() => setPlanDialogOpen(false)}>

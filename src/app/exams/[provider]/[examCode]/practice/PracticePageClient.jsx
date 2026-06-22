@@ -215,7 +215,10 @@ export default function PracticePageClient({
                   if (typeof window !== "undefined") {
                     sessionStorage.setItem(`autostart:${startModalUrl}`, "1");
                   }
-                  router.push(startModalUrl);
+                  const autostartUrl = startModalUrl.includes("?")
+                    ? `${startModalUrl}&autostart=1`
+                    : `${startModalUrl}?autostart=1`;
+                  router.push(autostartUrl);
                 }}
               >
                 Start Test Now

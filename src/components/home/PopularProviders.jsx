@@ -6,9 +6,12 @@ const API_BASE_URL =
 
 async function getProviders() {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/providers/?popular_only=true`, {
-      next: { revalidate: 300 },
-    });
+    const res = await fetch(
+      `${API_BASE_URL}/api/providers/?popular_only=true&lite=1`,
+      {
+        next: { revalidate: 300 },
+      }
+    );
 
     if (!res.ok) return [];
 
@@ -57,8 +60,10 @@ export default async function PopularProviders() {
 
   if (!providers.length) return null;
 
-  const sectionSettings = await getSectionSettings();
-  const settings = await getCarouselSettings();
+  const [sectionSettings, settings] = await Promise.all([
+    getSectionSettings(),
+    getCarouselSettings(),
+  ]);
 
   const schemaItems = providers.map((provider) => ({
     name: provider.name,

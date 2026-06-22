@@ -51,36 +51,54 @@ export default function TestReview() {
   useEffect(() => {
     const fetchExamData = async () => {
       try {
-        // Normalize provider and examCode
-        const normalizedProvider = provider.toLowerCase().replace(/_/g, '-');
-        const normalizedExamCode = examCode.toLowerCase().replace(/_/g, '-');
-        const slug = `${normalizedProvider}-${normalizedExamCode}`;
-        
-        const res = await fetch(`${API_BASE_URL}/api/courses/exams/${slug}/`);
-        if (res.ok) {
-          const data = await res.json();
-          setExam(data);
-        
-          if (typeof window !== "undefined") {
-            const finalTitle =
-              data.meta_title
-                ? `${data.meta_title} - Test Review`
-                : `${data.title} (${data.code}) - Test Review | AllExamQuestions`;
-        
-            document.title = finalTitle;
-        
-            // Optional: Also update meta description dynamically
-            let metaDescriptionTag = document.querySelector("meta[name='description']");
-            if (!metaDescriptionTag) {
-              metaDescriptionTag = document.createElement("meta");
-              metaDescriptionTag.name = "description";
-              document.head.appendChild(metaDescriptionTag);
-            }
-        
-            metaDescriptionTag.content =
-              data.meta_description ||
-              `Review your ${data.title} practice test results on AllExamQuestions.`;
+        const normalizedExamCode = decodeURIComponent(String(examCode || ""))
+          .trim()
+          .toLowerCase()
+          .replace(/_/g, "-");
+        const normalizedProvider = decodeURIComponent(String(provider || ""))
+          .trim()
+          .toLowerCase()
+          .replace(/_/g, "-");
+
+        const slugCandidates = [
+          normalizedExamCode,
+          normalizedProvider && normalizedExamCode
+            ? `${normalizedProvider}-${normalizedExamCode}`
+            : "",
+        ].filter(Boolean);
+
+        let data = null;
+        for (const slug of slugCandidates) {
+          const res = await fetch(
+            `${API_BASE_URL}/api/courses/exams/${encodeURIComponent(slug)}/`
+          );
+          if (res.ok) {
+            data = await res.json();
+            break;
           }
+        }
+
+        if (!data) return;
+
+        setExam(data);
+
+        if (typeof window !== "undefined") {
+          const finalTitle = data.meta_title
+            ? `${data.meta_title} - Test Review`
+            : `${data.title} (${data.code}) - Test Review | AllExamQuestions`;
+
+          document.title = finalTitle;
+
+          let metaDescriptionTag = document.querySelector("meta[name='description']");
+          if (!metaDescriptionTag) {
+            metaDescriptionTag = document.createElement("meta");
+            metaDescriptionTag.name = "description";
+            document.head.appendChild(metaDescriptionTag);
+          }
+
+          metaDescriptionTag.content =
+            data.meta_description ||
+            `Review your ${data.title} practice test results on AllExamQuestions.`;
         }
       } catch (error) {
         console.error("Error fetching exam data:", error);
@@ -279,13 +297,25 @@ export default function TestReview() {
   const scorePercentage = verifiedCompleted > 0 ? Math.round((verifiedCorrectAnswers / verifiedCompleted) * 100) : 0;
   const isPartialTest = verifiedCompleted < totalQuestions;
 
+  const examDisplayName =
+    exam?.title?.trim() ||
+    exam?.name?.trim() ||
+    decodeURIComponent(String(examCode || ""))
+      .replace(/-/g, " ")
+      .replace(/\b\w/g, (char) => char.toUpperCase()) ||
+    "Exam";
+
   // Use calculated topic performance or fallback to overall
   const displayTopicPerformance = topicPerformance.length > 0 ? topicPerformance : [
     { topic: "Overall Performance", correct: verifiedCorrectAnswers, total: verifiedCompleted, percentage: scorePercentage }
   ];
 
   const handleRetakeTest = () => {
-    router.push(`/exams/${provider}/${examCode}/practice/1`);
+    const testPath = `/exams/${provider}/${examCode}/practice/1`;
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem(`autostart:${testPath}`, "1");
+    }
+    router.push(`${testPath}?autostart=1`);
   };
 
   const handleEnrollClick = () => {
@@ -442,7 +472,7 @@ export default function TestReview() {
             <h1 className="text-3xl md:text-4xl font-bold text-[#0C1A35] mb-2">
               {isPartialTest ? "Free Trial Complete!" : "Test Complete!"}
             </h1>
-            <p className="text-[#0C1A35]/70">{exam?.title || `${(provider || "").toUpperCase()} ${(examCode || "").toUpperCase()}`.trim() || "Exam"} - Practice Test</p>
+            <p className="text-[#0C1A35]/70">{examDisplayName} - Practice Test</p>
           </div>
 
           {/* Score Card */}
@@ -750,7 +780,7 @@ export default function TestReview() {
           
           <div className="p-6">
             <p className="text-center text-[#0C1A35]/70 mb-6">
-              Unlock all features for {examCode.toUpperCase()} exam preparation
+              Unlock all features for {examDisplayName} exam preparation
             </p>
 
             <div className="grid md:grid-cols-2 gap-6">

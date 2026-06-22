@@ -123,6 +123,8 @@ export default function TestPlayerClient({ exam, questions, test, provider, exam
   const [navigatorPage, setNavigatorPage] = useState(1);
   const [attemptId, setAttemptId] = useState(null);
   const [isStartingTest, setIsStartingTest] = useState(false);
+  const [authReady, setAuthReady] = useState(false);
+  const [autostartPending, setAutostartPending] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
   const handleSubmitRef = useRef(null);
@@ -191,8 +193,15 @@ export default function TestPlayerClient({ exam, questions, test, provider, exam
     return FREE_QUESTIONS_LIMIT;
   }, [test, currentTest]);
 
+  const isFreeExam = useMemo(() => {
+    const accessType = exam?.pricing_access_type || "paid";
+    return String(accessType).toLowerCase() === "free";
+  }, [exam?.pricing_access_type]);
+
+  const hasFullAccess = isEnrolled || isFreeExam;
+
   const getAccessibleCount = () =>
-    isEnrolled
+    hasFullAccess
       ? questions.length
       : Math.min(freeQuestionsLimit, questions.length);
 
@@ -212,11 +221,18 @@ export default function TestPlayerClient({ exam, questions, test, provider, exam
   useEffect(() => {
     const token = getAuthToken();
     setIsLoggedIn(!!token);
+    setAuthReady(true);
   }, []);
 
   // Check enrollment status
   useEffect(() => {
     const checkEnrollment = async () => {
+      if (isFreeExam) {
+        setIsEnrolled(true);
+        setCheckingEnrollment(false);
+        return;
+      }
+
       const token = getAuthToken();
       
       if (!token || !exam?.id) {
@@ -246,7 +262,7 @@ export default function TestPlayerClient({ exam, questions, test, provider, exam
     if (exam) {
       checkEnrollment();
     }
-  }, [exam]);
+  }, [exam, isFreeExam]);
 
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
@@ -275,7 +291,7 @@ export default function TestPlayerClient({ exam, questions, test, provider, exam
   };
 
   const canAccessQuestion = (questionNum) => {
-    return isEnrolled || questionNum <= freeQuestionsLimit;
+    return hasFullAccess || questionNum <= freeQuestionsLimit;
   };
 
   const handleAnswerChange = (optionText, checked = null) => {
@@ -307,7 +323,7 @@ export default function TestPlayerClient({ exam, questions, test, provider, exam
   const handleNext = () => {
     const nextQuestion = currentQuestion + 1;
     
-    if (!isEnrolled && nextQuestion > freeQuestionsLimit && nextQuestion <= questions.length) {
+    if (!hasFullAccess && nextQuestion > freeQuestionsLimit && nextQuestion <= questions.length) {
       setShowUpgradeModal(true);
       return;
     }
@@ -589,7 +605,7 @@ const timeTaken = `${minutes}:${seconds.toString().padStart(2, '0')}`;
         incorrectAnswers: totalAccessible - (submitData.score || 0) - unanswered,
         unanswered,
         timeTaken,
-        hasFullAccess: isEnrolled,
+        hasFullAccess: hasFullAccess,
         answers: answers,
         percentage: submitData.percentage || 0,
         passed: submitData.passed || false,
@@ -677,11 +693,32 @@ const timeTaken = `${minutes}:${seconds.toString().padStart(2, '0')}`;
     const pathKey = `autostart:${window.location.pathname}`;
     const fromSession = sessionStorage.getItem(pathKey) === "1";
     if (fromQuery || fromSession) {
+      sessionStorage.removeItem(pathKey);
       setAutostartRequested(true);
+      setAutostartPending(true);
     }
   }, []);
 
   const autostartFiredRef = useRef(false);
+
+  const resolveApiTestId = () => {
+    const raw = test?.id ?? test?._id ?? testId;
+    if (raw == null || raw === "") return String(testId ?? "1");
+    const rawStr = String(raw).trim();
+    if (/^\d+$/.test(rawStr)) return rawStr;
+    const practiceTests = exam?.practice_tests_list || [];
+    const match = practiceTests.find(
+      (t) =>
+        String(t?.id || t?._id || "") === rawStr ||
+        String(t?.slug || "").replace(/-[a-f0-9]{8}$/i, "") ===
+          rawStr.replace(/-[a-f0-9]{8}$/i, "")
+    );
+    if (match) {
+      const idx = practiceTests.indexOf(match);
+      return String(idx >= 0 ? idx + 1 : rawStr);
+    }
+    return rawStr;
+  };
 
   const handleStartTest = async () => {
     if (isStartingTest || testStarted) {
@@ -689,86 +726,70 @@ const timeTaken = `${minutes}:${seconds.toString().padStart(2, '0')}`;
     }
 
     if (questions.length === 0) {
+      setAutostartPending(false);
       return;
     }
 
     setIsStartingTest(true);
     try {
-      if (!isLoggedIn) {
-        startGuestTestSession();
-        return;
-      }
-
       const token = getAuthToken();
-      if (!token) {
-        startGuestTestSession();
-        return;
-      }
+      const tokenValid = !!token && token.split(".").length === 3;
+      const useServerAttempt =
+        tokenValid && isLoggedIn && hasFullAccess && !!exam?.id;
 
-      if (token.split('.').length !== 3) {
-        if (typeof window !== 'undefined') {
-          localStorage.removeItem('token');
+      if (!useServerAttempt) {
+        if (token && !tokenValid && typeof window !== "undefined") {
+          localStorage.removeItem("token");
+          setIsLoggedIn(false);
         }
-        // Token is invalid/expired; treat user as guest so the free test opens immediately.
         startGuestTestSession();
         return;
       }
 
-      const examId = exam.id ? String(exam.id) : null;
-      
-      if (!examId) {
-        alert('Error: Could not find exam information. Please try again.');
+      const examId = String(exam.id);
+      const apiTestId = resolveApiTestId();
+      let response;
+
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 12000);
+        response = await fetch(`${API_BASE_URL}/api/exams/attempt/get-or-create/`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            exam_id: examId,
+            test_id: apiTestId,
+          }),
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+      } catch {
+        startGuestTestSession();
         return;
       }
-
-      const response = await fetch(`${API_BASE_URL}/api/exams/attempt/get-or-create/`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          exam_id: examId,
-          test_id: String(testId)
-        })
-      });
 
       const responseText = await response.text();
 
       if (!response.ok) {
-        let errorMessage = 'Error starting test. Please try again.';
-        let errorData = {};
-        
-        try {
-          errorData = JSON.parse(responseText);
-        } catch (jsonError) {
-          errorMessage = responseText || `Server error (${response.status})`;
+        if (response.status === 401 && typeof window !== "undefined") {
+          localStorage.removeItem("token");
+          setIsLoggedIn(false);
         }
-        
-        if (errorData && typeof errorData === 'object' && Object.keys(errorData).length > 0) {
-          errorMessage = errorData.message || errorData.error || errorMessage;
-        }
-        
-        if (response.status === 401) {
-          if (typeof window !== 'undefined') {
-            localStorage.removeItem('token');
-          }
-          setShowLoginPrompt(true);
-          return;
-        }
-        
-        alert(errorMessage);
+        startGuestTestSession();
         return;
       }
 
       let attemptData;
       try {
         attemptData = JSON.parse(responseText);
-      } catch (parseError) {
-        alert('Invalid response from server. Please try again.');
+      } catch {
+        startGuestTestSession();
         return;
       }
-      
+
       if (attemptData.success && attemptData.attempt_id) {
         const limitMinutes = Math.max(
           1,
@@ -785,7 +806,6 @@ const timeTaken = `${minutes}:${seconds.toString().padStart(2, '0')}`;
             initialSeconds = Math.max(0, totalSeconds - elapsed);
           }
         }
-        // Expired resume would leave 0s and used to fire submit on first tick — give full allowance for this session.
         if (initialSeconds <= 0) {
           initialSeconds = totalSeconds;
         }
@@ -795,33 +815,37 @@ const timeTaken = `${minutes}:${seconds.toString().padStart(2, '0')}`;
         setTimeRemaining(initialSeconds);
         setTestStarted(true);
       } else {
-        const errorMsg = attemptData.message || 'Invalid response from server. Please try again.';
-        alert(errorMsg);
+        startGuestTestSession();
       }
-    } catch (error) {
-      const errorMsg = error.message || 'Network error. Please check your connection and try again.';
-      alert(errorMsg);
+    } catch {
+      startGuestTestSession();
     } finally {
       setIsStartingTest(false);
+      setAutostartPending(false);
     }
   };
 
   // If requested via URL flag, skip the "Ready" screen and start immediately.
-  // This is opt-in only: existing behavior is unchanged unless autostart=1 is present.
   useEffect(() => {
     if (!autostartRequested) return;
     if (autostartFiredRef.current) return;
     if (testStarted) return;
     if (!exam) return;
     if (!questions || questions.length === 0) return;
+    if (!authReady || checkingEnrollment) return;
 
-    if (typeof window !== "undefined") {
-      const pathKey = `autostart:${window.location.pathname}`;
-      sessionStorage.removeItem(pathKey);
-    }
     autostartFiredRef.current = true;
     void handleStartTest();
-  }, [autostartRequested, testStarted, exam, questions?.length]);
+  }, [
+    autostartRequested,
+    testStarted,
+    exam,
+    questions?.length,
+    authReady,
+    checkingEnrollment,
+    hasFullAccess,
+    isLoggedIn,
+  ]);
 
   
 
@@ -839,6 +863,18 @@ const timeTaken = `${minutes}:${seconds.toString().padStart(2, '0')}`;
           <Button asChild className="bg-[#1A73E8] text-white hover:bg-[#1557B0]">
             <Link href={practiceHubPath}>Back to Practice Tests</Link>
           </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!testStarted && autostartPending) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center space-y-4 px-4">
+          <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-[#1A73E8]/20 border-t-[#1A73E8]" />
+          <p className="text-lg font-medium text-[#0C1A35]">Opening your test...</p>
+          <p className="text-sm text-[#0C1A35]/60">Please wait a moment</p>
         </div>
       </div>
     );
@@ -875,7 +911,7 @@ const timeTaken = `${minutes}:${seconds.toString().padStart(2, '0')}`;
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-2xl mx-auto">
                   <div className="p-4 bg-blue-50 rounded-lg border border-blue-100">
                     <div className="text-3xl font-bold text-[#1A73E8] mb-1">
-                      {isEnrolled ? questions.length : `${Math.min(freeQuestionsLimit, questions.length)} Free`}
+                      {hasFullAccess ? questions.length : `${Math.min(freeQuestionsLimit, questions.length)} Free`}
                     </div>
                     <div className="text-sm text-[#0C1A35]/70">Questions</div>
                   </div>
@@ -921,11 +957,11 @@ const timeTaken = `${minutes}:${seconds.toString().padStart(2, '0')}`;
     ? (answers[currentQuestion] || "") 
     : (Array.isArray(answers[currentQuestion]) ? answers[currentQuestion] : []);
   const totalQuestions = questions.length;
-  const accessibleQuestions = isEnrolled ? totalQuestions : Math.min(freeQuestionsLimit, totalQuestions);
+  const accessibleQuestions = hasFullAccess ? totalQuestions : Math.min(freeQuestionsLimit, totalQuestions);
   const answeredCount = getAnsweredCount();
   const progressPercentage = (answeredCount / accessibleQuestions) * 100;
   const atFreeQuestionLimit =
-    !isEnrolled &&
+    !hasFullAccess &&
     (currentQuestion >= accessibleQuestions ||
       answeredCount >= accessibleQuestions);
 
@@ -997,7 +1033,7 @@ const timeTaken = `${minutes}:${seconds.toString().padStart(2, '0')}`;
                 <span>Remaining:</span>
                 <span className="font-medium text-[#0C1A35]">{getRemainingCount()}</span>
               </div>
-              {!isEnrolled && totalQuestions > freeQuestionsLimit && (
+              {!hasFullAccess && totalQuestions > freeQuestionsLimit && (
                 <div className="flex justify-between text-[#0C1A35]/70 mt-2 pt-2 border-t border-gray-200">
                   <span className="text-xs">Locked:</span>
                   <span className="font-medium text-[#0C1A35] text-xs">{totalQuestions - freeQuestionsLimit} questions</span>

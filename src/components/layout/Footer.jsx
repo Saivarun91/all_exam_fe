@@ -10,6 +10,7 @@ import { useLogoUrl } from "@/hooks/useLogoUrl";
 import { useSocialMediaUrls } from "@/hooks/useSocialMediaUrls";
 import { t } from "@/lib/uiStrings";
 import { getOptimizedImageUrl } from "@/utils/imageUtils";
+import OptimizedImage from "@/components/common/OptimizedImage";
 import Image from "next/image";
 /**
  * Footer Component
@@ -32,28 +33,32 @@ function FooterProviderLink({ provider, href }) {
   );
 }
 
-const Footer = () => {
+const Footer = ({ initialProviders = [], initialLogoUrl = "" }) => {
   const pathname = usePathname();
   const router = useRouter();
   const siteName = useSiteName();
   const contactDetails = useContactDetails();
-  const logoUrl = useLogoUrl();
+  const logoUrl = useLogoUrl(initialLogoUrl);
   const socialUrls = useSocialMediaUrls();
-  const [providers, setProviders] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [providers, setProviders] = useState(initialProviders);
+  const [loading, setLoading] = useState(initialProviders.length === 0);
 
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
 
-  // Fetch providers dynamically
+  // Fetch providers only when not preloaded from the server layout.
   useEffect(() => {
+    if (initialProviders.length > 0) {
+      setLoading(false);
+      return;
+    }
+
     const fetchFooterData = async () => {
       try {
-        // Fetch providers
         const providersRes = await fetch(`${API_BASE_URL}/api/providers/`);
         if (providersRes.ok) {
           const providersData = await providersRes.json();
           if (Array.isArray(providersData)) {
-            setProviders(providersData.filter(p => p.is_active !== false).slice(0, 10)); // Limit to 10 providers
+            setProviders(providersData.filter(p => p.is_active !== false).slice(0, 10));
           }
         }
       } catch (error) {
@@ -64,7 +69,7 @@ const Footer = () => {
     };
 
     fetchFooterData();
-  }, []);
+  }, [initialProviders.length]);
 
   // Available resources pages (only show what exists)
   const availableResources = [
@@ -317,18 +322,17 @@ const Footer = () => {
         <div className="border-t border-[#1A73E8]/15 pt-4 md:pt-5 mt-4 md:mt-5 flex flex-col md:flex-row justify-between items-center gap-3 md:gap-0">
           <div className="flex items-center gap-2">
             {logoUrl ? (
-              <img 
-                // src={getOptimizedImageUrl(logoUrl, 100, 24)} 
-                src={logoUrl}
-                alt={siteName || "Logo"} 
-                width={100}
-                height={24}
-                className="h-6 w-auto  object-contain"
-                style={{ height: 'auto' }}
-                loading="lazy"
-                sizes="(max-width: 768px) 80px, 100px"
-                decoding="async"
-              />
+              <span className="relative block h-16 w-[180px] shrink-0">
+                <OptimizedImage
+                  src={getOptimizedImageUrl(logoUrl, 180, 64, "fit")}
+                  alt={siteName || "Logo"}
+                  fill
+                  sizes="180px"
+                  className="object-contain object-left"
+                  objectFit="contain"
+                  crop="fit"
+                />
+              </span>
             ) : (
             <GraduationCap className="w-5 h-5 md:w-6 md:h-6 text-[#1A73E8]" />
             )}

@@ -1,5 +1,4 @@
 // app/providers/page.jsx
-import Link from "next/link";
 import BreadcrumbJsonLd from "@/components/BreadcrumbJsonLd";
 import SiteBreadcrumbs, {
   SiteBreadcrumbBar,
@@ -7,9 +6,8 @@ import SiteBreadcrumbs, {
 } from "@/components/common/SiteBreadcrumbs";
 import { cache } from "react";
 import { logServerFetchError } from "@/lib/serverFetchLog";
-import ProviderCardExams from "@/components/provider/ProviderCardExams";
-import { getOptimizedImageUrl } from "@/utils/imageUtils";
-import { publicFetchOptions } from "@/lib/serverRevalidate";
+import ProvidersListClient from "@/components/provider/ProvidersListClient";
+import { publicFetchOptions, providersListUrl } from "@/lib/serverRevalidate";
 import { filterPublicExamListings } from "@/lib/examListingFilters";
 
 const PROVIDERS_BREADCRUMB_ITEMS = [
@@ -17,12 +15,7 @@ const PROVIDERS_BREADCRUMB_ITEMS = [
   { label: "Providers", href: "/providers" },
 ];
 
-/** Every provider logo uses the same height; width scales within this box (fits wide logos). */
-const PROVIDER_LOGO_HEIGHT = 72;
-const PROVIDER_LOGO_MAX_WIDTH = 220;
-
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
+const API_BASE_URL =  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 const SITE_URL = "https://allexamquestions.com";
 
 const fetchProvidersPageSeo = cache(async function fetchProvidersPageSeo() {
@@ -100,7 +93,7 @@ export default async function ProvidersPage() {
   let courses = [];
   try {
     const [providersRes, coursesRes] = await Promise.all([
-      fetch(`${API_BASE_URL}/api/providers/`, publicFetchOptions()),
+      fetch(providersListUrl(API_BASE_URL), publicFetchOptions()),
       fetch(`${API_BASE_URL}/api/courses/`, publicFetchOptions()),
     ]);
 
@@ -153,6 +146,42 @@ export default async function ProvidersPage() {
     return acc;
   }, {});
 
+  const providerItems = normalizedProviders.map((provider) => {
+    const providerIdKey = String(provider?.id || "").trim();
+    const providerSlugKey = String(provider?.slug || "").toLowerCase().trim();
+    const providerNameKey = String(provider?.name || "").toLowerCase().trim();
+    const examCount =
+      providerExamCountMap[providerIdKey] ??
+      providerExamCountMap[providerSlugKey] ??
+      providerExamCountMap[providerNameKey] ??
+      0;
+
+    const examsForProvider = (
+      providerExamsMap[providerIdKey] ??
+      providerExamsMap[providerSlugKey] ??
+      providerExamsMap[providerNameKey] ??
+      []
+    )
+      .slice()
+      .sort((a, b) =>
+        String(a?.title || a?.name || "").localeCompare(
+          String(b?.title || b?.name || ""),
+          undefined,
+          { sensitivity: "base" }
+        )
+      );
+
+    return {
+      id: provider.id,
+      slug: provider.slug,
+      name: provider.name,
+      description: provider.description || "",
+      logo: provider?.logo_url || provider?.logoUrl || provider?.logo || "",
+      examCount,
+      exams: examsForProvider,
+    };
+  });
+
   return (
     <>
       <BreadcrumbJsonLd items={toBreadcrumbJsonLdItems(PROVIDERS_BREADCRUMB_ITEMS)} />
@@ -160,104 +189,11 @@ export default async function ProvidersPage() {
         <SiteBreadcrumbs items={PROVIDERS_BREADCRUMB_ITEMS} />
       </SiteBreadcrumbBar>
       <div className="container mx-auto px-4 py-10">
-      <h1 className="text-2xl md:text-3xl font-bold text-center mb-8">
-        All Providers
-      </h1>
+        <h1 className="text-2xl md:text-3xl font-bold text-center mb-8">
+          All Providers
+        </h1>
 
-      {normalizedProviders.length === 0 ? (
-        <p className="text-center">No providers found.</p>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {normalizedProviders.map((provider) => {
-            const providerLogo =
-              provider?.logo_url || provider?.logoUrl || provider?.logo || "";
-            const providerIdKey = String(provider?.id || "").trim();
-            const providerSlugKey = String(provider?.slug || "")
-              .toLowerCase()
-              .trim();
-            const providerNameKey = String(provider?.name || "")
-              .toLowerCase()
-              .trim();
-            const examCount =
-              providerExamCountMap[providerIdKey] ??
-              providerExamCountMap[providerSlugKey] ??
-              providerExamCountMap[providerNameKey] ??
-              0;
-
-            const examsForProvider = (
-              providerExamsMap[providerIdKey] ??
-              providerExamsMap[providerSlugKey] ??
-              providerExamsMap[providerNameKey] ??
-              []
-            )
-              .slice()
-              .sort((a, b) =>
-                String(a?.title || a?.name || "")
-                  .localeCompare(String(b?.title || b?.name || ""), undefined, {
-                    sensitivity: "base",
-                  })
-              );
-
-            return (
-              <div
-                key={provider.id}
-                className="flex flex-col h-full border border-[#DDE7FF] rounded-lg p-5 shadow-sm hover:shadow-md bg-white"
-              >
-                {providerLogo && (
-                  <Link
-                    href={`/providers/${provider.slug}`}
-                    className="mb-4 flex w-full shrink-0 items-center justify-center"
-                    style={{
-                      height: PROVIDER_LOGO_HEIGHT,
-                      minHeight: PROVIDER_LOGO_HEIGHT,
-                    }}
-                    aria-label={`View exams by ${provider.name}`}
-                  >
-                    <img
-                      src={getOptimizedImageUrl(
-                        providerLogo,
-                        PROVIDER_LOGO_MAX_WIDTH,
-                        PROVIDER_LOGO_HEIGHT,
-                        "fit"
-                      )}
-                      alt={provider.name}
-                      width={PROVIDER_LOGO_MAX_WIDTH}
-                      height={PROVIDER_LOGO_HEIGHT}
-                      className="block object-contain object-center"
-                      style={{
-                        height: PROVIDER_LOGO_HEIGHT,
-                        minHeight: PROVIDER_LOGO_HEIGHT,
-                        maxHeight: PROVIDER_LOGO_HEIGHT,
-                        width: "auto",
-                        maxWidth: PROVIDER_LOGO_MAX_WIDTH,
-                        objectFit: "contain",
-                        objectPosition: "center",
-                      }}
-                      loading="lazy"
-                      decoding="async"
-                    />
-                  </Link>
-                )}
-                <div className="flex items-start justify-between gap-3 border-b border-[#E8EEF5] pb-3">
-                  <h2 className="text-base font-semibold min-w-0 flex-1">
-                    <Link
-                      href={`/providers/${provider.slug}`}
-                      className="text-[#1A73E8] hover:underline font-semibold leading-snug"
-                    >
-                      {provider.name}
-                    </Link>
-                  </h2>
-                  <p className="text-sm text-[#0C1A35]/70 whitespace-nowrap shrink-0">
-                    {examCount} Exam{examCount === 1 ? "" : "s"}
-                  </p>
-                </div>
-
-                <ProviderCardExams exams={examsForProvider} />
-              </div>
-            );
-          })}
-        </div>
-      )}
+        <ProvidersListClient providers={providerItems} />
       </div>
     </>
   );

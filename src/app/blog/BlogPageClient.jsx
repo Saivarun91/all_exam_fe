@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/select";
 import { ArrowRight, Calendar, Search } from "lucide-react";
 import { getOptimizedImageUrl } from "@/utils/imageUtils";
+import OptimizedImage from "@/components/common/OptimizedImage";
 
 const POSTS_PER_PAGE = 9;
 
@@ -149,19 +150,15 @@ export default function BlogPageClient({ articles }) {
                   <Card className="overflow-hidden hover:shadow-[0_6px_20px_rgba(26,115,232,0.15)] hover:-translate-y-1 transition-all duration-300 border-[#DDE7FF] cursor-pointer bg-white shadow-[0_2px_8px_rgba(26,115,232,0.08)] h-full flex flex-col">
                     {article.image_url ? (
                       <div className="relative w-full overflow-hidden bg-white">
-                        <img
+                        <OptimizedImage
                           src={getOptimizedImageUrl(article.image_url, 400, 225)}
                           alt={article.title}
                           width={400}
                           height={225}
-                          className="w-full h-auto block transition-transform duration-300 group-hover:scale-[1.02]"
-                          loading="lazy"
+                          aspectRatio="16 / 9"
+                          className="transition-transform duration-300 group-hover:scale-[1.02]"
                           sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 400px"
-                          decoding="async"
-                          onError={(e) => {
-                            e.target.src =
-                              "https://via.placeholder.com/400x300/1A73E8/ffffff?text=Blog+Post";
-                          }}
+                          fallbackSrc="https://via.placeholder.com/400x300/1A73E8/ffffff?text=Blog+Post"
                         />
                         {article.category && (
                           <div className="absolute top-3 left-3">

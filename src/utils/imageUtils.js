@@ -112,6 +112,11 @@ export function getOptimizedImageUrl(url, width, height = null, crop = 'limit') 
     return url;
   }
 
+  // SVG logos/icons: serve directly (same as admin preview); transforms can break vectors.
+  if (/\.svg(?:\?|$)/i.test(url)) {
+    return url;
+  }
+
   const cropMode = ['limit', 'pad', 'fill', 'fit'].includes(crop) ? crop : 'limit';
 
   if (url.includes('res.cloudinary.com')) {
@@ -189,4 +194,69 @@ export function getOptimizedImageUrl(url, width, height = null, crop = 'limit') 
   }
 
   return url;
+}
+
+const LOCAL_IMAGE_HOSTS = new Set(["images.unsplash.com", "res.cloudinary.com"]);
+
+/** Resolve backend media/API paths to an absolute URL the browser can load. */
+export function resolvePublicImageUrl(url) {
+  if (!url || typeof url !== "string") return "";
+  const trimmed = url.trim();
+  if (!trimmed) return "";
+  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) return trimmed;
+  if (trimmed.startsWith("//")) return `https:${trimmed}`;
+  if (trimmed.startsWith("/api/")) {
+    const base = (process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000").replace(
+      /\/$/,
+      ""
+    );
+    return `${base}${trimmed}`;
+  }
+  return trimmed;
+}
+
+function getApiImageHostname() {
+  try {
+    const base = process.env.NEXT_PUBLIC_API_BASE_URL || "";
+    if (!base) return null;
+    return new URL(base).hostname;
+  } catch {
+    return null;
+  }
+}
+
+/** Whether Next.js <Image> can optimize this src (WebP/AVIF + sizing). */
+export function isNextOptimizableSrc(src) {
+  if (!src || typeof src !== "string") return false;
+  const resolved = resolvePublicImageUrl(src);
+  if (/\.svg(?:\?|$)/i.test(resolved)) return false;
+  if (resolved.startsWith("/") && !resolved.startsWith("//")) return true;
+
+  try {
+    const { hostname, protocol } = new URL(resolved);
+    if (protocol !== "http:" && protocol !== "https:") return false;
+    // Next.js blocks private/local upstreams in the image optimizer (SSRF protection).
+    if (
+      hostname === "127.0.0.1" ||
+      hostname === "localhost" ||
+      hostname.endsWith(".local")
+    ) {
+      return false;
+    }
+    if (LOCAL_IMAGE_HOSTS.has(hostname)) return true;
+    const apiHost = getApiImageHostname();
+    if (apiHost && hostname === apiHost) return true;
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+export function resolveOptimizedSrc(src, width, height = null, crop = "limit") {
+  const resolved = resolvePublicImageUrl(src);
+  if (!resolved) return "";
+  if (resolved.includes("res.cloudinary.com")) {
+    return getOptimizedImageUrl(resolved, width, height, crop);
+  }
+  return resolved;
 }

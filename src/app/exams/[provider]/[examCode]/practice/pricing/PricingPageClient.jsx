@@ -473,6 +473,11 @@ export default function PricingPageClient({ provider, examCode, pricingData, err
       setCheckingEnrollment(false);
       return;
     }
+    if (String(pricingData?.pricing_access_type || "paid").toLowerCase() === "free") {
+      setIsEnrolled(true);
+      setCheckingEnrollment(false);
+      return;
+    }
     const checkEnrollment = async () => {
       try {
         const token = localStorage.getItem("token");
@@ -492,7 +497,7 @@ export default function PricingPageClient({ provider, examCode, pricingData, err
       }
     };
     checkEnrollment();
-  }, [pricingData?.course_id]);
+  }, [pricingData?.course_id, pricingData?.pricing_access_type]);
 
   const handleUpgrade = (plan) => {
     const planSlug = plan.name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
@@ -527,8 +532,10 @@ export default function PricingPageClient({ provider, examCode, pricingData, err
     pricing_faqs = [],
     pricing_comparison = [],
     currency: courseCurrency = "INR",
+    pricing_access_type = "paid",
   } = pricingData;
   const effectiveCurrency = DISPLAY_CURRENCY;
+  const isFreeExam = String(pricing_access_type || "paid").toLowerCase() === "free";
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-[#F5F8FC] to-white">
@@ -548,8 +555,8 @@ export default function PricingPageClient({ provider, examCode, pricingData, err
         </div>
       </section>
 
-      {/* Already Enrolled */}
-      {!checkingEnrollment && isEnrolled && (
+      {/* Free exam or enrolled access */}
+      {!checkingEnrollment && (isFreeExam || isEnrolled) && (
         <section id="pricing-cards" className="py-16 px-4">
           <div className="container mx-auto max-w-4xl">
             <Card className="border-2 border-[#10B981] bg-gradient-to-br from-[#10B981]/5 to-[#059669]/5 shadow-lg">
@@ -559,9 +566,19 @@ export default function PricingPageClient({ provider, examCode, pricingData, err
                     <CheckCircle2 className="w-10 h-10 text-white" />
                   </div>
                 </div>
-                <h2 className="text-3xl font-bold text-[#0C1A35] mb-3">You're Already Enrolled!</h2>
+                <h2 className="text-3xl font-bold text-[#0C1A35] mb-3">
+                  {isFreeExam ? "Free Access — All Questions Available" : "You're Already Enrolled!"}
+                </h2>
                 <p className="text-lg text-[#0C1A35]/80 mb-6">
-                  You have full access to <span className="font-semibold text-[#1A73E8]">{course_title}</span>. Start practicing now!
+                  {isFreeExam ? (
+                    <>
+                      <span className="font-semibold text-[#1A73E8]">{course_title}</span> is free. You can practice all questions without payment.
+                    </>
+                  ) : (
+                    <>
+                      You have full access to <span className="font-semibold text-[#1A73E8]">{course_title}</span>. Start practicing now!
+                    </>
+                  )}
                 </p>
                 <div className="flex flex-col sm:flex-row gap-4 justify-center">
                   <Button onClick={() => router.push(`/exams/${provider}/${examCode}/practice`)} className="bg-[#1A73E8] hover:bg-[#1557B0] text-white font-semibold px-8 py-6 text-lg">
@@ -578,7 +595,7 @@ export default function PricingPageClient({ provider, examCode, pricingData, err
       )}
 
       {/* Pricing Cards */}
-      {!checkingEnrollment && !isEnrolled && (
+      {!checkingEnrollment && !isEnrolled && !isFreeExam && (
         <section id="pricing-cards" className="py-16 px-4">
           <div className="container mx-auto max-w-7xl">
             <div className="grid md:grid-cols-3 gap-6 lg:gap-8">

@@ -9,6 +9,7 @@ import SiteBreadcrumbs, {
 } from "@/components/common/SiteBreadcrumbs";
 import { publicFetchOptions } from "@/lib/serverRevalidate";
 import { filterPublicExamListings } from "@/lib/examListingFilters";
+import OptimizedImage from "@/components/common/OptimizedImage";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
@@ -311,11 +312,16 @@ export default async function ProviderPage({ params }) {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     {(provider?.logo_url || provider?.logoUrl) ? (
-                      <img
-                        src={provider.logo_url || provider.logoUrl}
-                        alt={`${providerName} logo`}
-                        className="h-10 w-10 rounded-lg object-contain bg-white/10 p-1"
-                      />
+                      <span className="relative block h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-white/10 p-1">
+                        <OptimizedImage
+                          src={provider.logo_url || provider.logoUrl}
+                          alt={`${providerName} logo`}
+                          fill
+                          sizes="40px"
+                          className="rounded-lg object-contain"
+                          crop="fit"
+                        />
+                      </span>
                     ) : null}
                     <div>
                       <div className="text-xs font-medium uppercase tracking-wide text-cyan-300">

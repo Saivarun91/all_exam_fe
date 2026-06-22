@@ -1,8 +1,10 @@
+import { cache } from "react";
 import {
   buildOfficialDetailsPublicUrl,
   getOfficialDetailsPath,
 } from "@/app/exams/[provider]/[examCode]/examInfoUtils";
 import { hasOfficialDetailsData } from "@/components/exam/OfficialExamDetailsView";
+import { examFetchOptions } from "@/lib/serverRevalidate";
 import {
   getExamLandingPath,
   getExamPracticePath,
@@ -30,7 +32,9 @@ export function toExamSlug(value = "") {
     .replace(/^-+|-+$/g, "");
 }
 
-export async function fetchExamByIdentifier(identifier) {
+export const fetchExamByIdentifier = cache(async function fetchExamByIdentifier(
+  identifier
+) {
   const raw = trimPublicPathSegment(identifier);
   if (!raw) return null;
 
@@ -55,7 +59,7 @@ export async function fetchExamByIdentifier(identifier) {
     try {
       const res = await fetch(
         `${API_BASE}/api/courses/exams/${encodeURIComponent(candidate)}/`,
-        { cache: "no-store" }
+        examFetchOptions()
       );
       if (!res.ok) continue;
       const exam = await res.json();
@@ -66,7 +70,24 @@ export async function fetchExamByIdentifier(identifier) {
   }
 
   return null;
-}
+});
+
+export const fetchExamByLegacyRoute = cache(
+  async function fetchExamByLegacyRoute(provider, examCode) {
+    if (!provider || !examCode) return null;
+    try {
+      const res = await fetch(
+        `${API_BASE}/api/courses/exams/${provider}-${examCode}/`,
+        examFetchOptions()
+      );
+      if (!res.ok) return null;
+      const exam = await res.json();
+      return exam && typeof exam === "object" ? exam : null;
+    } catch {
+      return null;
+    }
+  }
+);
 
 function pickFromExam(exam, ...keys) {
   for (const k of keys) {

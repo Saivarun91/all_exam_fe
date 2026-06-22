@@ -8,8 +8,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useSiteName } from "@/hooks/useSiteName";
 import { useLogoUrl, getLogoUrl } from "@/hooks/useLogoUrl";
 import { t } from "@/lib/uiStrings";
-
-
+import OptimizedImage from "@/components/common/OptimizedImage";
 
 const Header = ({ initialLogoUrl = "", initialSiteName = "" }) => {
   const pathname = usePathname();
@@ -141,18 +140,18 @@ const Header = ({ initialLogoUrl = "", initialSiteName = "" }) => {
           aria-label={siteName?.trim() ? `AllExamQuestions home — ${siteName}` : "AllExamQuestions home"}
         >
           {displayLogoUrl ? (
-            <img
-              src={displayLogoUrl}
-              alt={siteName || "Logo"}
-              width={120}
-              height={32}
-              className="h-8 w-auto object-contain"
-              style={{ height: "auto" }}
-              loading="eager"
-              fetchPriority="low"
-              sizes="(max-width: 768px) 80px, 120px"
-              decoding="async"
-            />
+            <span className="relative block h-16 w-[180px] shrink-0">
+              <OptimizedImage
+                src={displayLogoUrl}
+                alt={siteName || "Logo"}
+                fill
+                priority
+                sizes="180px"
+                className="object-contain object-left"
+                objectFit="contain"
+                crop="fit"
+              />
+            </span>
           ) : (
             <GraduationCap
               className="w-8 h-8 md:w-9 md:h-9 text-[#1A73E8]"

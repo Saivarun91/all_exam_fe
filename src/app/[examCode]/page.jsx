@@ -1,18 +1,24 @@
 import { notFound, redirect } from "next/navigation";
 
 import ExamDetailClient from "@/app/exams/[provider]/[examCode]/ExamDetailClient";
+import TestPlayerClient from "@/components/TestPlayerClient";
 import {
   buildExamDetailPayload,
   fetchExamByIdentifier,
-  toExamSlug,
 } from "@/lib/loadExamDetailPage";
-import { getExamLandingPath, pathsMatchPublicUrl } from "@/utils/practiceTestRouting";
+import { loadPracticeTestPageData } from "@/lib/loadPracticeTestPage";
+import {
+  getExamLandingPath,
+  pathsMatchPublicUrl,
+  stripExamPublicPathSuffix,
+} from "@/utils/practiceTestRouting";
 import { isOfficialDetailsOnlyCourse } from "@/lib/examListingFilters";
 import { ROBOTS_INDEX, ROBOTS_NOINDEX } from "@/lib/seoRobots";
 
 export const dynamic = "force-dynamic";
 
 const SITE_URL = "https://allexamquestions.com";
+const PRACTICE_TEST_URL = /-free-practice-test-(\d+)$/i;
 
 export async function generateMetadata({ params }) {
   const { examCode } = await params;
@@ -52,6 +58,31 @@ export default async function SlugExamDetailPage({ params }) {
   }
 
   const rawExamCode = decodeURIComponent(String(examCode || "").trim());
+
+  if (PRACTICE_TEST_URL.test(rawExamCode)) {
+    const examKey = stripExamPublicPathSuffix(rawExamCode);
+    const exam = await fetchExamByIdentifier(examKey || rawExamCode);
+    if (!exam) {
+      notFound();
+    }
+
+    const data = await loadPracticeTestPageData({ exam, testId: rawExamCode });
+    if (!data) {
+      notFound();
+    }
+
+    return (
+      <TestPlayerClient
+        exam={data.exam}
+        questions={data.questions}
+        test={data.test}
+        provider={exam.provider_slug || ""}
+        examCode={exam.slug || examKey}
+        testId={data.resolvedTestId ?? rawExamCode}
+      />
+    );
+  }
+
   const exam = await fetchExamByIdentifier(rawExamCode);
 
   if (!exam) {

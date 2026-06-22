@@ -210,6 +210,8 @@
 import WebSiteJsonLd from "@/components/WebSiteJsonLd";
 import HeroSearchClient from "./HeroSearchClient";
 import HeroSocialProof from "./HeroSocialProof";
+import { getOptimizedImageUrl } from "@/utils/imageUtils";
+import { providersListUrl, publicFetchOptions } from "@/lib/serverRevalidate";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
@@ -230,12 +232,7 @@ async function getHeroData() {
 
 async function getProviders() {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/providers/`, {
-      // cache: "no-store",
-      next: {
-        revalidate: 3600,
-      },
-    });
+    const res = await fetch(providersListUrl(API_BASE_URL), publicFetchOptions());
     const data = await res.json();
     if (Array.isArray(data)) {
       return data.filter((p) => p.is_active !== false);
@@ -245,8 +242,10 @@ async function getProviders() {
 }
 
 export default async function HeroSection() {
-  const heroData = await getHeroData();
-  const providers = await getProviders();
+  const [heroData, providers] = await Promise.all([
+    getHeroData(),
+    getProviders(),
+  ]);
 
 
   const stats =
@@ -276,12 +275,18 @@ export default async function HeroSection() {
     : {};
 
   const bgUrl = heroData?.background_image_url;
+  const optimizedBgUrl = bgUrl
+    ? getOptimizedImageUrl(bgUrl, 1920, 1080)
+    : null;
 
   return (
       <section
         className="relative min-h-[450px] md:min-h-[550px] flex items-center overflow-hidden"
-        style={bgUrl ? backgroundStyle : {}}
+        style={optimizedBgUrl ? backgroundStyle : {}}
       >
+      {optimizedBgUrl ? (
+        <link rel="preload" as="image" href={optimizedBgUrl} />
+      ) : null}
       <WebSiteJsonLd heroData={heroData} siteName="AllExamQuestions" />
 
       {bgUrl ? (

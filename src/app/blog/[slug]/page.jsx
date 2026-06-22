@@ -375,6 +375,7 @@
 
 
 import Link from "next/link";
+import { cache } from "react";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -384,10 +385,15 @@ import SiteBreadcrumbs, {
   toBreadcrumbJsonLdItems,
 } from "@/components/common/SiteBreadcrumbs";
 import { getOptimizedImageUrl } from "@/utils/imageUtils";
+import OptimizedImage from "@/components/common/OptimizedImage";
 import BlogPostFaqs from "@/components/blog/BlogPostFaqs";
-import BlogInlineContentSlider from "@/components/blog/BlogInlineContentSlider";
+import BlogInlineContentSliderLazy from "@/components/blog/BlogInlineContentSliderLazy";
 import TipTapContent from "@/components/editor/TipTapContent";
 import { splitBlogContentAtMiddle } from "@/lib/splitBlogContent";
+import { fetchPublicBrandSettings } from "@/lib/fetchPublicBrandSettings";
+import { publicFetchOptions } from "@/lib/serverRevalidate";
+
+export const revalidate = 60;
 
 /** Prefer 127.0.0.1 on the server so Node does not resolve localhost to ::1 while Django listens on IPv4 only. */
 const API_BASE_URL = (
@@ -398,7 +404,7 @@ async function fetchRelatedBlogs(category, currentSlug) {
   try {
     const res = await fetch(
       `${API_BASE_URL}/api/home/blog-posts/?category=${encodeURIComponent(category)}`,
-      { cache: "no-store" }
+      publicFetchOptions()
     );
 
     const data = await res.json();
@@ -427,8 +433,8 @@ function normalizeBlogPayload(data) {
   return null;
 }
 
-// Fetch single blog by slug
-async function fetchBlog(slug) {
+// Fetch single blog by slug (deduped per request for metadata + page)
+const fetchBlog = cache(async function fetchBlog(slug) {
   if (!slug || typeof slug !== "string") {
     return { blog: null, error: true };
   }
@@ -436,7 +442,7 @@ async function fetchBlog(slug) {
   const url = `${API_BASE_URL}/api/home/blog-posts/slug/${pathSlug}/`;
   try {
     const res = await fetch(url, {
-      cache: "no-store",
+      ...publicFetchOptions(),
       headers: { Accept: "application/json" },
     });
     let data = null;
@@ -452,28 +458,7 @@ async function fetchBlog(slug) {
     console.error("Error fetching blog:", err);
     return { blog: null, error: true };
   }
-}
-
-async function fetchPublicBrandSettings() {
-  try {
-    const res = await fetch(`${API_BASE_URL}/api/settings/public/`, {
-      cache: "no-store",
-      headers: { Accept: "application/json" },
-    });
-
-    if (!res.ok) {
-      return { logoUrl: "" };
-    }
-
-    const data = await res.json();
-
-    return {
-      logoUrl: data.logo_url || "",
-    };
-  } catch {
-    return { logoUrl: "" };
-  }
-}
+});
 
 
 
@@ -581,8 +566,10 @@ export default async function BlogDetailPage({ params }) {
   if (error || !blog) {
     notFound();
   }
-  const relatedBlogs = await fetchRelatedBlogs(blog.category, blog.slug);
-  const { logoUrl } = await fetchPublicBrandSettings();
+  const [relatedBlogs, { logoUrl }] = await Promise.all([
+    fetchRelatedBlogs(blog.category, blog.slug),
+    fetchPublicBrandSettings(),
+  ]);
   const contentSliderType = String(blog.content_slider_type || "").trim();
   const contentSliderRef = String(blog.content_slider_ref || "").trim();
   const hasContentSlider =
@@ -656,15 +643,15 @@ export default async function BlogDetailPage({ params }) {
               </div>
               {blog.image_url && (
                 <div className="relative w-full mb-8 rounded-xl overflow-hidden border border-slate-200/70 bg-white">
-                  <img
-                    src={getOptimizedImageUrl(blog.image_url, 1200, 675)}
+                  <OptimizedImage
+                    src={blog.image_url}
                     alt={blog.title || "Blog Image"}
                     width={1200}
                     height={675}
-                    className="w-full h-auto block"
-                    loading="lazy"
+                    aspectRatio="16 / 9"
+                    priority
                     sizes="(max-width: 768px) 100vw, (max-width: 1024px) 90vw, 1200px"
-                    decoding="async"
+                    containerClassName="w-full"
                   />
                 </div>
               )}
@@ -681,7 +668,7 @@ export default async function BlogDetailPage({ params }) {
                     />
                   ) : null}
                   {hasContentSlider ? (
-                    <BlogInlineContentSlider
+                    <BlogInlineContentSliderLazy
                       sliderType={contentSliderType}
                       sliderRef={contentSliderRef}
                     />
@@ -711,11 +698,14 @@ export default async function BlogDetailPage({ params }) {
 
                   {/* Logo */}
                   {logoUrl && (
-                    <div className="flex-shrink-0 -mt-8">
-                      <img
-                        src={logoUrl}
+                    <div className="flex-shrink-0 -mt-8 relative h-24 w-24 md:h-28 md:w-28">
+                      <OptimizedImage
+                        src={getOptimizedImageUrl(logoUrl, 112, 112, "fit")}
                         alt="AllExamQuestions Editorial Team"
-                        className="w-24 h-24 md:w-28 md:h-28 object-contain"
+                        fill
+                        sizes="112px"
+                        className="object-contain"
+                        crop="fit"
                       />
                     </div>
                   )}
@@ -780,11 +770,15 @@ export default async function BlogDetailPage({ params }) {
                     className="flex gap-3 py-3 group"
                   >
                     {/* Image */}
-                    <img
-                      src={getOptimizedImageUrl(item.image_url, 100, 100)}
-                      alt={item.title}
-                      className="w-16 h-16 object-cover rounded-lg flex-shrink-0"
-                    />
+                    <span className="relative block h-16 w-16 shrink-0 overflow-hidden rounded-lg">
+                      <OptimizedImage
+                        src={item.image_url}
+                        alt={item.title}
+                        fill
+                        sizes="64px"
+                        className="rounded-lg"
+                      />
+                    </span>
 
                     {/* Text */}
                     <div className="flex flex-col justify-between">

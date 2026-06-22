@@ -1042,100 +1042,39 @@
 
 import TestPlayerClient from "@/components/TestPlayerClient";
 import { notFound } from "next/navigation";
-import { normalizePracticeTestUrlSegment } from "@/utils/practiceTestRouting";
+import {
+  loadPracticeTestPageData,
+  resolveExamForPracticeRoute,
+} from "@/lib/loadPracticeTestPage";
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
-
-
-  export async function generateMetadata(props) {
-    const { provider, examCode, testId } = await props.params;
-  
-    const API_BASE =
-      process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
-  
-    try {
-      const normalizedProvider = provider.toLowerCase().replace(/_/g, "-");
-      const normalizedExamCode = examCode.toLowerCase().replace(/_/g, "-");
-      const slug = `${normalizedProvider}-${normalizedExamCode}`;
-  
-      const res = await fetch(
-        `${API_BASE}/api/courses/exams/${slug}/`,
-        { cache: "no-store" }
-      );
-  
-      if (!res.ok) {
-        return {
-          title: `${examCode} Practice Test`,
-        };
-      }
-  
-      const exam = await res.json();
-  
-      return {
-        title: exam.meta_title
-          ? `${exam.meta_title} - ${testId}`
-          : `${exam.title} - ${testId} Practice Test`,
-  
-        description:
-          exam.meta_description ||
-          `Take ${testId} for ${exam.title} with real exam-style questions.`,
-  
-        keywords: exam.meta_keywords || "",
-  
-        alternates: {
-          canonical: `https://allexamquestions.com/exams/${provider}/${examCode}`,
-        },
-      };
-    } catch (error) {
-      return {
-        title: `${examCode} Practice Test`,
-      };
-    }
-  }
+export const dynamic = "force-dynamic";
 
 async function getExamData(provider, examCode, testId) {
+  const exam = await resolveExamForPracticeRoute(provider, examCode);
+  if (!exam) return null;
+  return loadPracticeTestPageData({ exam, testId });
+}
+
+export async function generateMetadata(props) {
+  const { provider, examCode, testId } = await props.params;
+
   try {
-    const normalizedProvider = provider.toLowerCase().replace(/_/g, "-");
-    const normalizedExamCode = examCode.toLowerCase().replace(/_/g, "-");
-    const slug = `${normalizedProvider}-${normalizedExamCode}`;
-
-    const examRes = await fetch(
-      `${API_BASE_URL}/api/courses/exams/${slug}/`,
-      { cache: "no-store" }
-    );
-
-    if (!examRes.ok) return null;
-
-    const exam = await examRes.json();
-
-    const rawSegment = String(testId ?? "").trim();
-    let resolvedTestId = normalizePracticeTestUrlSegment(testId, exam);
-    if (!resolvedTestId) resolvedTestId = rawSegment;
-    if (
-      resolvedTestId.includes("GridFS") ||
-      resolvedTestId.includes("gridfs")
-    ) {
-      return null;
+    const exam = await resolveExamForPracticeRoute(provider, examCode);
+    if (!exam) {
+      return { title: `${examCode} Practice Test` };
     }
 
-    const questionsRes = await fetch(
-      `${API_BASE_URL}/api/questions/test/${exam.id}/${encodeURIComponent(resolvedTestId)}/`,
-      { cache: "no-store" }
-    );
-
-    let questions = [];
-    let test = null;
-
-    if (questionsRes.ok) {
-      const data = await questionsRes.json();
-      questions = data.questions || [];
-      test = data.test || null;
-    }
-
-    return { exam, questions, test, resolvedTestId };
-  } catch (error) {
-    return null;
+    return {
+      title: exam.meta_title
+        ? `${exam.meta_title} - ${testId}`
+        : `${exam.title} - Practice Test`,
+      description:
+        exam.meta_description ||
+        `Take a practice test for ${exam.title} with real exam-style questions.`,
+      keywords: exam.meta_keywords || "",
+    };
+  } catch {
+    return { title: `${examCode} Practice Test` };
   }
 }
 
@@ -1154,7 +1093,7 @@ export default async function Page({ params }) {
       questions={data.questions}
       test={data.test}
       provider={provider}
-      examCode={examCode}
+      examCode={data.exam.slug || examCode}
       testId={data.resolvedTestId ?? testId}
     />
   );

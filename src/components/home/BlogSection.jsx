@@ -472,6 +472,7 @@ import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { ArrowRight } from "lucide-react";
 import { getOptimizedImageUrl } from "../../utils/imageUtils";
+import OptimizedImage from "@/components/common/OptimizedImage";
 import BlogCollectionJsonLd from "../BlogCollectionJsonLd";
 
 const API_BASE_URL =
@@ -564,13 +565,16 @@ export default async function BlogSection() {
                 <Card className="overflow-hidden bg-white border-[#DDE7FF] hover:shadow-xl hover:-translate-y-1 transition duration-300 h-full flex flex-col">
 
                   {/* IMAGE */}
-                  <div className="relative w-full h-[220px] bg-gray-100">
-
-                    <img
+                  <div className="relative w-full bg-gray-100">
+                    <OptimizedImage
                       src={imgSrc}
                       alt={article.title}
-                      className="w-full h-full object-cover transition duration-500 hover:scale-105"
-                      loading="lazy"
+                      width={600}
+                      height={340}
+                      aspectRatio="600 / 340"
+                      className="transition duration-500 hover:scale-105"
+                      sizes="360px"
+                      containerClassName="w-full"
                     />
 
                     {article.category && (

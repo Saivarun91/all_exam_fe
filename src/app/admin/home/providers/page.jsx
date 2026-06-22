@@ -13,6 +13,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { PlusCircle, Edit, Trash2, Search, ArrowLeft } from "lucide-react";
 import { checkAuth, getAuthHeaders, getAuthHeadersForUpload } from "@/utils/authCheck";
 import { getOptimizedImageUrl } from "@/utils/imageUtils";
+import {
+  convertImageFileToWebp,
+} from "@/utils/convertImageToWebp";
 import TipTapEditor from "@/components/editor/TipTapEditor";
 import AdminTablePagination, { ADMIN_TABLE_PAGE_SIZE } from "@/components/admin/AdminTablePagination";
 import { getListPaginationSlice } from "@/components/common/ListPagination";
@@ -198,6 +201,7 @@ export default function AdminProvidersPage() {
       let headers = {};
       let body;
       if (logoFile) {
+        const webpLogo = await convertImageFileToWebp(logoFile);
         const multipartPayload = new FormData();
         Object.entries(basePayload).forEach(([key, value]) => {
           if (key === "faqs") {
@@ -208,7 +212,7 @@ export default function AdminProvidersPage() {
             multipartPayload.append(key, value ?? "");
           }
         });
-        multipartPayload.append("logo", logoFile);
+        multipartPayload.append("logo", webpLogo);
         headers = { ...getAuthHeadersForUpload() };
         body = multipartPayload;
       } else {
@@ -294,6 +298,53 @@ export default function AdminProvidersPage() {
     });
     setLogoFile(null);
     setShowModal(true);
+  };
+
+  const handleRemoveLogo = async () => {
+    setLogoFile(null);
+    setFormData((prev) => ({ ...prev, logo_url: "" }));
+
+    if (!editing) {
+      setMessage("✅ Logo removed.");
+      setTimeout(() => setMessage(""), 3000);
+      return;
+    }
+
+    try {
+      const res = await fetch(
+        `${API_BASE_URL}/api/providers/admin/${editing}/update/`,
+        {
+          method: "PUT",
+          headers: getAuthHeaders(),
+          body: JSON.stringify({
+            logo_url: "",
+            remove_logo: "true",
+          }),
+        }
+      );
+      const result = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(result?.error || result?.message || "Failed to remove logo");
+      }
+
+      const savedProvider = result?.data || null;
+      if (savedProvider?.id) {
+        setProviders((prev) =>
+          prev.map((p) => (p.id === savedProvider.id ? savedProvider : p))
+        );
+      } else {
+        fetchProviders();
+      }
+
+      setMessage("✅ Logo removed successfully!");
+      setTimeout(() => setMessage(""), 3000);
+    } catch (error) {
+      console.error("Error removing logo:", error);
+      setMessage(
+        `❌ ${error instanceof Error ? error.message : "Error removing logo"}`
+      );
+      setTimeout(() => setMessage(""), 3000);
+    }
   };
 
   const handleDelete = async (id) => {
@@ -430,7 +481,21 @@ export default function AdminProvidersPage() {
                           alt={`${formData.name || "Provider"} logo`}
                           className="h-16 w-16 rounded border border-gray-200 object-contain bg-white p-1"
                         />
-                        <p className="text-xs text-gray-500">Current logo. Upload a new file to replace it.</p>
+                        <div className="flex flex-col gap-2">
+                          <p className="text-xs text-gray-500">
+                            Current logo. Upload a new file to replace it.
+                          </p>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={handleRemoveLogo}
+                            className="w-fit border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+                          >
+                            <Trash2 className="mr-1 h-3.5 w-3.5" />
+                            Remove
+                          </Button>
+                        </div>
                       </div>
                     ) : null}
                     {logoFile ? (
@@ -440,7 +505,21 @@ export default function AdminProvidersPage() {
                           alt="New logo preview"
                           className="h-16 w-16 rounded border border-gray-200 object-contain bg-white p-1"
                         />
-                        <p className="text-xs text-green-600">New logo selected: {logoFile.name}</p>
+                        <div className="flex flex-col gap-2">
+                          <p className="text-xs text-green-600">
+                            New logo selected: {logoFile.name}
+                          </p>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setLogoFile(null)}
+                            className="w-fit border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+                          >
+                            <Trash2 className="mr-1 h-3.5 w-3.5" />
+                            Remove
+                          </Button>
+                        </div>
                       </div>
                     ) : null}
                   </div>

@@ -189,10 +189,6 @@ export default function CheckoutPage() {
     const localeRegion = Intl.DateTimeFormat().resolvedOptions().locale?.split("-")?.[1]?.toUpperCase();
     if (localeRegion) {
       setDetectedCountryCode(localeRegion);
-      setBillingDetails((prev) => ({
-        ...prev,
-        country: prev.country || (localeRegion === INDIA_COUNTRY_CODE ? "India" : "United States"),
-      }));
     }
   }, []);
 

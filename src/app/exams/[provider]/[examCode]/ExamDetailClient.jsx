@@ -1361,10 +1361,14 @@ export default function ExamDetailClient({ examData, provider, examCode }) {
                 className="bg-[#1A73E8] hover:bg-[#1557B0] text-white sm:min-w-[160px]"
                 onClick={() => {
                   if (!startModalUrl) return;
+                  setStartModalOpen(false);
                   if (typeof window !== "undefined") {
                     sessionStorage.setItem(`autostart:${startModalUrl}`, "1");
                   }
-                  router.push(startModalUrl);
+                  const autostartUrl = startModalUrl.includes("?")
+                    ? `${startModalUrl}&autostart=1`
+                    : `${startModalUrl}?autostart=1`;
+                  router.push(autostartUrl);
                 }}
               >
                 Start Test Now

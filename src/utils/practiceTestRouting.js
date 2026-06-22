@@ -113,12 +113,27 @@ export function probeExamLookupCandidates(pathSegment) {
   if (!raw) return [];
 
   const candidates = [raw];
+  const stripped = stripExamPublicPathSuffix(raw);
+  if (stripped && stripped !== raw && !candidates.includes(stripped)) {
+    candidates.push(stripped);
+  }
+
   const normalized = slugifySegment(raw);
   if (normalized && normalized !== raw && !candidates.includes(normalized)) {
     candidates.push(normalized);
   }
 
-  const parts = (normalized || raw).split("-").filter(Boolean);
+  const normalizedStripped = stripExamPublicPathSuffix(normalized || raw);
+  if (
+    normalizedStripped &&
+    normalizedStripped !== normalized &&
+    normalizedStripped !== raw &&
+    !candidates.includes(normalizedStripped)
+  ) {
+    candidates.push(normalizedStripped);
+  }
+
+  const parts = (normalizedStripped || normalized || raw).split("-").filter(Boolean);
   for (let take = 1; take <= Math.min(7, parts.length); take += 1) {
     const candidate = parts.slice(parts.length - take).join("-");
     if (candidate && !candidates.includes(candidate)) candidates.push(candidate);
@@ -191,6 +206,20 @@ export function buildPracticeTestSeoSegment({
   }
 
   return `${base}-free-practice-test-${testNumber}`;
+}
+
+/** Internal Next.js route for a pretty practice-test URL segment. */
+export function buildPracticeTestInternalPath(exam, publicPracticeSlug) {
+  if (!exam || !publicPracticeSlug) return null;
+
+  const providerSlug =
+    trimPublicPathSegment(exam.provider_slug) || slugifySegment(exam.provider || "");
+  const examRouteCode = getStoredExamSlug(exam) || trimPublicPathSegment(exam.slug);
+  const slug = trimPublicPathSegment(publicPracticeSlug);
+
+  if (!providerSlug || !examRouteCode || !slug) return null;
+
+  return `/exams/${providerSlug}/${examRouteCode}/practice/${slug}`;
 }
 
 /** Public practice hub path: /[exam-name]-[exam-code]/practice */

@@ -90,10 +90,36 @@ const nextConfig = {
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: 'res.cloudinary.com', // Allow Cloudinary images
-        pathname: '/**', // Allow all paths from Cloudinary
+        hostname: 'res.cloudinary.com',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'images.unsplash.com',
+        pathname: '/**',
+      },
+      {
+        protocol: 'http',
+        hostname: '127.0.0.1',
+        pathname: '/api/**',
+      },
+      {
+        protocol: 'http',
+        hostname: 'localhost',
+        pathname: '/api/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'allexamquestions.com',
+        pathname: '/api/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'api.allexamquestions.com',
+        pathname: '/**',
       },
     ],
+    formats: ['image/avif', 'image/webp'],
   },
 };
 

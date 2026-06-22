@@ -66,6 +66,7 @@ export const SITE_UI_EN = {
   "common.no_categories_found": "No categories found",
   "common.no_categories_in_group": "No categories in this group.",
   "common.search_categories": "Search categories...",
+  "common.search_providers": "Search providers by name, slug, or exam...",
   "common.top_certification_categories": "Top Certification Categories",
   "common.categories_suffix": "Categories",
   "common.all_popular_exams": "All Popular Exams",

@@ -791,6 +791,10 @@ import { Plus, Edit, Trash2, Eye, FileText, Image as ImageIcon, Settings, ArrowL
 import { Badge } from "@/components/ui/badge";
 import { motion } from "framer-motion";
 import { getOptimizedImageUrl } from "@/utils/imageUtils";
+import {
+  convertImageFileToWebp,
+  ensureCloudinaryWebpUrl,
+} from "@/utils/convertImageToWebp";
 import TipTapEditor from "@/components/editor/TipTapEditor";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
@@ -929,11 +933,12 @@ export default function BlogPostsAdmin() {
     setUploading(true);
     setMessage("Uploading image...");
 
-    const imageData = new FormData();
-    imageData.append("file", file);
-    imageData.append("upload_preset", UPLOAD_PRESET);
-
     try {
+      const webpFile = await convertImageFileToWebp(file);
+      const imageData = new FormData();
+      imageData.append("file", webpFile);
+      imageData.append("upload_preset", UPLOAD_PRESET);
+
       const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
         method: "POST",
         body: imageData,
@@ -941,14 +946,21 @@ export default function BlogPostsAdmin() {
 
       const data = await res.json();
       if (data.secure_url) {
-        setFormData((prev) => ({ ...prev, image_url: data.secure_url, thumbnail_url: data.secure_url }));
-        setMessage("✅ Image uploaded successfully!");
+        const webpUrl = ensureCloudinaryWebpUrl(data.secure_url);
+        setFormData((prev) => ({
+          ...prev,
+          image_url: webpUrl,
+          thumbnail_url: webpUrl,
+        }));
+        setMessage("✅ Image uploaded successfully as WebP!");
       } else {
         setMessage("❌ Image upload failed!");
       }
     } catch (err) {
       console.error("Cloudinary Upload Error:", err);
-      setMessage("❌ Image upload failed!");
+      setMessage(
+        `❌ ${err instanceof Error ? err.message : "Image upload failed!"}`
+      );
     } finally {
       setUploading(false);
     }

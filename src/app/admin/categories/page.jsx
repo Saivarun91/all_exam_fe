@@ -10,6 +10,7 @@ import { FiPlus, FiX, FiTrash2, FiEdit } from "react-icons/fi";
 import { Cloud, Shield, Briefcase, Database, Code, TrendingUp, Eye } from "lucide-react";
 import TipTapEditor from "@/components/editor/TipTapEditor";
 import { resolveCategoryImageUrl } from "@/lib/categoryImage";
+import { convertImageFileToWebp } from "@/utils/convertImageToWebp";
 import AdminTablePagination, { ADMIN_TABLE_PAGE_SIZE } from "@/components/admin/AdminTablePagination";
 import { getListPaginationSlice } from "@/components/common/ListPagination";
 import {
@@ -582,9 +583,10 @@ export default function AdminCategoriesPage() {
     setImageUploading(true);
     setSaveMessage("");
     try {
+      const webpFile = await convertImageFileToWebp(file);
       const slug = await resolveCategoryUploadSlug();
       const form = new FormData();
-      form.append("image", file);
+      form.append("image", webpFile);
 
       const imageApiBase = `${resolveCategoryImageApiBase()}/api/categories`;
       const res = await fetch(
@@ -633,6 +635,71 @@ export default function AdminCategoriesPage() {
     } catch (err) {
       setSaveMessage(
         `❌ ${err instanceof Error ? err.message : "Image upload failed"}`
+      );
+    } finally {
+      setImageUploading(false);
+    }
+  };
+
+  const handleRemoveCategoryImage = async () => {
+    setSaveMessage("");
+    const slug = editSlug || String(categoryData.slug || "").trim();
+
+    if (!slug) {
+      setCategoryData((prev) => ({ ...prev, image_url: "" }));
+      setSaveMessage("✅ Image removed.");
+      setTimeout(() => setSaveMessage(""), 3000);
+      return;
+    }
+
+    setImageUploading(true);
+    try {
+      const res = await fetch(
+        `${BASE_URL}/${encodeURIComponent(slug)}/update/`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...buildCategoryRequestBody(),
+            image_url: "",
+            remove_image: true,
+          }),
+        }
+      );
+
+      if (!res.ok) {
+        let errMessage = `Failed to remove image (${res.status})`;
+        try {
+          const errData = await res.json();
+          errMessage = errData?.error || errData?.message || errMessage;
+        } catch {
+          const errText = await res.text();
+          if (errText) errMessage = errText;
+        }
+        throw new Error(errMessage);
+      }
+
+      const saved = await res.json();
+      const savedSlug = saved.slug || slug;
+      const clearedImageUrl = "";
+
+      setCategoryData((prev) => ({ ...prev, image_url: clearedImageUrl }));
+      setCategories((prev) =>
+        prev.map((c) =>
+          c.slug === savedSlug ? { ...c, image_url: clearedImageUrl } : c
+        )
+      );
+      setFilteredCategories((prev) =>
+        prev.map((c) =>
+          c.slug === savedSlug ? { ...c, image_url: clearedImageUrl } : c
+        )
+      );
+
+      setSaveMessage("✅ Image removed successfully!");
+      setTimeout(() => setSaveMessage(""), 3000);
+    } catch (err) {
+      setSaveMessage(
+        `❌ ${err instanceof Error ? err.message : "Failed to remove image"}`
       );
     } finally {
       setImageUploading(false);
@@ -1252,9 +1319,22 @@ export default function AdminCategoriesPage() {
 
                   {resolveCategoryImageUrl(categoryData.image_url) ? (
                     <div className="mt-3 rounded-xl border border-indigo-100 bg-indigo-50/30 p-3">
-                      <p className="text-xs font-semibold text-gray-700 mb-2">
-                        Preview
-                      </p>
+                      <div className="mb-2 flex items-center justify-between gap-3">
+                        <p className="text-xs font-semibold text-gray-700">
+                          Preview
+                        </p>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={imageUploading}
+                          onClick={handleRemoveCategoryImage}
+                          className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+                        >
+                          <FiTrash2 className="mr-1 h-3.5 w-3.5" />
+                          Remove
+                        </Button>
+                      </div>
                       <img
                         src={resolveCategoryImageUrl(categoryData.image_url)}
                         alt="Category"

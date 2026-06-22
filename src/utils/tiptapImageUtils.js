@@ -1,3 +1,5 @@
+import { getOptimizedImageUrl } from "@/utils/imageUtils";
+
 export function buildTiptapImageStyle(width, align = "left") {
   const parts = ["height: auto", "max-width: 100%", "display: block"];
   if (width) {
@@ -110,8 +112,18 @@ export function normalizeTiptapImagesForDisplay(html) {
 
     const altPart = alt ? ` alt="${alt.replace(/"/g, "&quot;")}"` : "";
     const widthPart = width ? ` width="${width}"` : "";
+    const heightPart = width ? ` height="${Math.round(width * 0.5625)}"` : "";
 
-    return `<img src="${src.replace(/"/g, "&quot;")}" data-align="${align}" style="${style}" loading="lazy" decoding="async"${altPart}${widthPart}>`;
+    let displaySrc = src.replace(/"/g, "&quot;");
+    if (src.includes("res.cloudinary.com")) {
+      displaySrc = getOptimizedImageUrl(
+        src,
+        width || 800,
+        width ? Math.round(width * 0.5625) : null
+      ).replace(/"/g, "&quot;");
+    }
+
+    return `<img src="${displaySrc}" data-align="${align}" style="${style}" loading="lazy" decoding="async"${altPart}${widthPart}${heightPart}>`;
   });
 
   return result;

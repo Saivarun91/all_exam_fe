@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import OptimizedImage from "@/components/common/OptimizedImage";
 
 const SOCIAL_PROOF_AVATARS = [
   "https://images.unsplash.com/photo-1560250097-0b93528c311a?w=200&auto=format&fit=crop&q=80",
@@ -46,23 +46,26 @@ export default function HeroSocialProof() {
     <div className="flex flex-col sm:flex-row items-center justify-center gap-3 max-w-3xl mx-auto pt-2">
       <div className="flex -space-x-2 shrink-0">
         {SOCIAL_PROOF_AVATARS.map((src, i) => (
-          <Avatar
+          <div
             key={i}
-            className="w-9 h-9 border-2 border-white/90 shadow-sm ring-2 ring-[#1A73E8]/30"
+            className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full border-2 border-white/90 shadow-sm ring-2 ring-[#1A73E8]/30"
           >
-            <AvatarImage
+            <OptimizedImage
               src={src}
               alt="Professional student"
-              className="object-cover"
+              width={36}
+              height={36}
+              className="rounded-full"
+              objectFit="cover"
+              sizes="36px"
             />
-            <AvatarFallback className="bg-[#1A73E8] text-white text-xs">
-              U
-            </AvatarFallback>
-          </Avatar>
+          </div>
         ))}
       </div>
       <p className="text-sm sm:text-base leading-snug text-center sm:text-left text-[#E7ECF6]">
-        <span className="font-bold text-white tabular-nums">{animatedPercent}%</span>{" "}
+        <span className="font-bold text-white tabular-nums inline-block min-w-[2.75rem] text-center">
+          {animatedPercent}%
+        </span>{" "}
         <span className="font-medium">
           found the questions similar to the certification test
         </span>

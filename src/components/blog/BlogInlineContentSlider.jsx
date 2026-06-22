@@ -23,6 +23,7 @@ import {
 import { createSlug, getExamUrl } from "@/lib/utils";
 import { getCategoryImageSrc, getCategoryPagePath } from "@/lib/categoryImage";
 import { getOptimizedImageUrl } from "@/utils/imageUtils";
+import OptimizedImage from "@/components/common/OptimizedImage";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
@@ -109,13 +110,13 @@ function CategorySlideImage({ imageSrc, categoryLabel }) {
 
   if (showImage) {
     return (
-      <div className="aspect-[17/11] border-b border-slate-200/70 overflow-hidden bg-slate-100">
-        <img
+      <div className="relative aspect-[17/11] border-b border-slate-200/70 overflow-hidden bg-slate-100">
+        <OptimizedImage
           src={imageSrc}
           alt={categoryLabel}
-          className="w-full h-full object-cover object-center transition-transform duration-500 group-hover:scale-[1.03]"
-          loading="lazy"
-          decoding="async"
+          fill
+          sizes="330px"
+          className="transition-transform duration-500 group-hover:scale-[1.03]"
           onError={() => setImageFailed(true)}
         />
       </div>
@@ -218,11 +219,14 @@ function renderProviderSlide(provider, index, keyPrefix) {
           <div className="h-28 sm:h-32 bg-gradient-to-br from-indigo-50 via-sky-50 to-white border-b border-indigo-100/80 flex items-center justify-center px-6">
             <div className="w-[120px] h-[88px] sm:w-[140px] sm:h-[100px] flex items-center justify-center">
               {provider.logo_url ? (
-                <img
-                  src={getOptimizedImageUrl(provider.logo_url, 140, 100)}
+                <OptimizedImage
+                  src={provider.logo_url}
                   alt={provider.name}
-                  className="max-w-full max-h-full w-auto h-auto object-contain transition-transform duration-300 group-hover:scale-105"
-                  loading="lazy"
+                  width={140}
+                  height={100}
+                  className="max-w-full max-h-full object-contain transition-transform duration-300 group-hover:scale-105"
+                  sizes="140px"
+                  crop="fit"
                 />
               ) : (
                 <div className="w-20 h-20 rounded-2xl bg-white border border-indigo-100 flex items-center justify-center shadow-sm">
