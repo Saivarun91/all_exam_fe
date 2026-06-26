@@ -9,6 +9,8 @@ import SiteBreadcrumbs, {
 } from "@/components/common/SiteBreadcrumbs";
 import { publicFetchOptions } from "@/lib/serverRevalidate";
 
+export const revalidate = 60;
+
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 

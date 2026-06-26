@@ -359,7 +359,13 @@ import SiteBreadcrumbs, {
   toBreadcrumbJsonLdItems,
 } from "@/components/common/SiteBreadcrumbs";
 import { filterPublicExamListings } from "@/lib/examListingFilters";
-import { publicFetchOptions, providersListUrl } from "@/lib/serverRevalidate";
+import {
+  coursesFetchOptions,
+  publicFetchOptions,
+  providersListUrl,
+} from "@/lib/serverRevalidate";
+
+export const dynamic = "force-dynamic";
 
 const EXAMS_BREADCRUMB_ITEMS = [
   { label: "Home", href: "/" },
@@ -389,7 +395,7 @@ const fetchData = cache(async function fetchData() {
       await Promise.all([
         fetch(providersListUrl(API_BASE_URL), publicFetchOptions()),
         fetch(`${API_BASE_URL}/api/categories/`, publicFetchOptions()),
-        fetch(`${API_BASE_URL}/api/courses/`, publicFetchOptions()),
+        fetch(`${API_BASE_URL}/api/courses/`, coursesFetchOptions()),
         fetch(`${API_BASE_URL}/api/home/exams-trust-bar/`, publicFetchOptions()),
         fetch(`${API_BASE_URL}/api/home/exams-about/`, publicFetchOptions()),
         fetchExamsPageSeo(),

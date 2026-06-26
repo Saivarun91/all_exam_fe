@@ -11,6 +11,11 @@ export function publicFetchOptions() {
   return { next: { revalidate: PUBLIC_PAGE_REVALIDATE } };
 }
 
+/** Full courses list exceeds Next.js 2MB data cache — skip ISR fetch cache. */
+export function coursesFetchOptions() {
+  return { cache: "no-store" };
+}
+
 /** Listing pages only need id/name/slug/logo — keeps payloads under Next.js 2MB fetch cache. */
 export function providersListUrl(baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000") {
   const root = String(baseUrl || "").replace(/\/$/, "");

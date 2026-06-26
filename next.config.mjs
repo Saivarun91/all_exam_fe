@@ -4,6 +4,8 @@ const nextConfig = {
   reactCompiler: true,
   compress: true,
   poweredByHeader: false,
+  // Remote API calls during SSG can exceed the default 60s when workers contend.
+  staticPageGenerationTimeout: 180,
   compiler: {
     // Keep warn/error logs while trimming other console calls in production bundles.
     removeConsole:
@@ -87,6 +89,7 @@ const nextConfig = {
     ];
   },
   images: {
+    
     remotePatterns: [
       {
         protocol: 'https',
@@ -117,6 +120,10 @@ const nextConfig = {
         protocol: 'https',
         hostname: 'api.allexamquestions.com',
         pathname: '/**',
+      },
+      {
+        protocol: "https",
+        hostname: "backendapi.allexamquestions.com",
       },
     ],
     formats: ['image/avif', 'image/webp'],

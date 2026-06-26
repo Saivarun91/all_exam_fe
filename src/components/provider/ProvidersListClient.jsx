@@ -1,3 +1,133 @@
+// "use client";
+
+// import { useMemo, useState } from "react";
+// import Link from "next/link";
+// import { Search } from "lucide-react";
+// import { Input } from "@/components/ui/input";
+// import ProviderCardExams from "@/components/provider/ProviderCardExams";
+// import { getOptimizedImageUrl } from "@/utils/imageUtils";
+// import OptimizedImage from "@/components/common/OptimizedImage";
+// import { t } from "@/lib/uiStrings";
+
+// const PROVIDER_LOGO_HEIGHT = 72;
+// const PROVIDER_LOGO_MAX_WIDTH = 220;
+
+// function providerMatchesSearch(provider, query) {
+//   const name = String(provider?.name || "").toLowerCase();
+//   const slug = String(provider?.slug || "").toLowerCase();
+//   const description = String(provider?.description || "").toLowerCase();
+
+//   if (name.includes(query) || slug.includes(query) || description.includes(query)) {
+//     return true;
+//   }
+
+//   return (provider?.exams || []).some((exam) => {
+//     const title = String(exam?.title || exam?.name || "").toLowerCase();
+//     const code = String(exam?.code || "").toLowerCase();
+//     return title.includes(query) || code.includes(query);
+//   });
+// }
+
+// export default function ProvidersListClient({ providers = [] }) {
+//   const [searchTerm, setSearchTerm] = useState("");
+
+//   const filteredProviders = useMemo(() => {
+//     const query = searchTerm.trim().toLowerCase();
+//     if (!query) return providers;
+//     return providers.filter((provider) => providerMatchesSearch(provider, query));
+//   }, [providers, searchTerm]);
+
+//   return (
+//     <>
+//       <div className="mb-8">
+//         <div className="relative mx-auto max-w-lg">
+//           <Search
+//             className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#0C1A35]/50"
+//             aria-hidden
+//           />
+//           <Input
+//             value={searchTerm}
+//             onChange={(e) => setSearchTerm(e.target.value)}
+//             placeholder={t("common.search_providers")}
+//             aria-label={t("common.search_providers")}
+//             className="border-[#DDE7FF] pl-10 focus-visible:ring-[#1A73E8]"
+//           />
+//         </div>
+//       </div>
+
+//       {filteredProviders.length === 0 ? (
+//         <p className="py-12 text-center text-[#0C1A35]/60">
+//           {searchTerm.trim()
+//             ? `${t("common.no_providers")} "${searchTerm.trim()}".`
+//             : t("common.no_providers")}
+//         </p>
+//       ) : (
+//         <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+//           {filteredProviders.map((provider) => {
+//             const providerLogo =
+//               provider?.logo_url || provider?.logoUrl || provider?.logo || "";
+
+//             return (
+//               <div
+//                 key={provider.id}
+//                 className="flex h-full flex-col rounded-lg border border-[#DDE7FF] bg-white p-5 shadow-sm hover:shadow-md"
+//               >
+//                 {providerLogo ? (
+//                   <Link
+//                     href={`/providers/${provider.slug}`}
+//                     className="mb-4 flex w-full shrink-0 items-center justify-center"
+//                     style={{
+//                       height: PROVIDER_LOGO_HEIGHT,
+//                       minHeight: PROVIDER_LOGO_HEIGHT,
+//                     }}
+//                     aria-label={`View exams by ${provider.name}`}
+//                   >
+//                     <OptimizedImage
+//                       src={providerLogo}
+//                       alt={provider.name}
+//                       width={PROVIDER_LOGO_MAX_WIDTH}
+//                       height={PROVIDER_LOGO_HEIGHT}
+//                       className="block object-contain object-center"
+//                       style={{
+//                         height: PROVIDER_LOGO_HEIGHT,
+//                         minHeight: PROVIDER_LOGO_HEIGHT,
+//                         maxHeight: PROVIDER_LOGO_HEIGHT,
+//                         maxWidth: PROVIDER_LOGO_MAX_WIDTH,
+//                       }}
+//                       sizes={`${PROVIDER_LOGO_MAX_WIDTH}px`}
+//                       crop="fit"
+//                     />
+//                   </Link>
+//                 ) : null}
+
+//                 <div className="flex items-start justify-between gap-3 border-b border-[#E8EEF5] pb-3">
+//                   <h2 className="min-w-0 flex-1 text-base font-semibold">
+//                     <Link
+//                       href={`/providers/${provider.slug}`}
+//                       className="font-semibold leading-snug text-[#1A73E8] hover:underline"
+//                     >
+//                       {provider.name}
+//                     </Link>
+//                   </h2>
+//                   <p className="shrink-0 whitespace-nowrap text-sm text-[#0C1A35]/70">
+//                     {provider.examCount} Exam{provider.examCount === 1 ? "" : "s"}
+//                   </p>
+//                 </div>
+
+//                 <ProviderCardExams exams={provider.exams || []} />
+//               </div>
+//             );
+//           })}
+//         </div>
+//       )}
+//     </>
+//   );
+// }
+
+
+
+
+
 "use client";
 
 import { useMemo, useState } from "react";
@@ -11,6 +141,9 @@ import { t } from "@/lib/uiStrings";
 
 const PROVIDER_LOGO_HEIGHT = 72;
 const PROVIDER_LOGO_MAX_WIDTH = 220;
+
+// 👉 Pagination config
+const ITEMS_PER_PAGE = 20;
 
 function providerMatchesSearch(provider, query) {
   const name = String(provider?.name || "").toLowerCase();
@@ -30,6 +163,7 @@ function providerMatchesSearch(provider, query) {
 
 export default function ProvidersListClient({ providers = [] }) {
   const [searchTerm, setSearchTerm] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
 
   const filteredProviders = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
@@ -37,8 +171,17 @@ export default function ProvidersListClient({ providers = [] }) {
     return providers.filter((provider) => providerMatchesSearch(provider, query));
   }, [providers, searchTerm]);
 
+  // Reset page when search changes
+  const paginatedData = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredProviders.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredProviders, currentPage]);
+
+  const totalPages = Math.ceil(filteredProviders.length / ITEMS_PER_PAGE);
+
   return (
     <>
+      {/* Search */}
       <div className="mb-8">
         <div className="relative mx-auto max-w-lg">
           <Search
@@ -47,7 +190,10 @@ export default function ProvidersListClient({ providers = [] }) {
           />
           <Input
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => {
+              setSearchTerm(e.target.value);
+              setCurrentPage(1); // reset page on search
+            }}
             placeholder={t("common.search_providers")}
             aria-label={t("common.search_providers")}
             className="border-[#DDE7FF] pl-10 focus-visible:ring-[#1A73E8]"
@@ -55,6 +201,7 @@ export default function ProvidersListClient({ providers = [] }) {
         </div>
       </div>
 
+      {/* No results */}
       {filteredProviders.length === 0 ? (
         <p className="py-12 text-center text-[#0C1A35]/60">
           {searchTerm.trim()
@@ -62,63 +209,103 @@ export default function ProvidersListClient({ providers = [] }) {
             : t("common.no_providers")}
         </p>
       ) : (
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-          {filteredProviders.map((provider) => {
-            const providerLogo =
-              provider?.logo_url || provider?.logoUrl || provider?.logo || "";
+        <>
+          {/* Grid */}
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+            {paginatedData.map((provider) => {
+              const providerLogo =
+                provider?.logo_url || provider?.logoUrl || provider?.logo || "";
 
-            return (
-              <div
-                key={provider.id}
-                className="flex h-full flex-col rounded-lg border border-[#DDE7FF] bg-white p-5 shadow-sm hover:shadow-md"
-              >
-                {providerLogo ? (
-                  <Link
-                    href={`/providers/${provider.slug}`}
-                    className="mb-4 flex w-full shrink-0 items-center justify-center"
-                    style={{
-                      height: PROVIDER_LOGO_HEIGHT,
-                      minHeight: PROVIDER_LOGO_HEIGHT,
-                    }}
-                    aria-label={`View exams by ${provider.name}`}
-                  >
-                    <OptimizedImage
-                      src={providerLogo}
-                      alt={provider.name}
-                      width={PROVIDER_LOGO_MAX_WIDTH}
-                      height={PROVIDER_LOGO_HEIGHT}
-                      className="block object-contain object-center"
+              return (
+                <div
+                  key={provider.id}
+                  className="flex h-full flex-col rounded-lg border border-[#DDE7FF] bg-white p-5 shadow-sm hover:shadow-md"
+                >
+                  {providerLogo ? (
+                    <Link
+                      href={`/providers/${provider.slug}`}
+                      className="mb-4 flex w-full shrink-0 items-center justify-center"
                       style={{
                         height: PROVIDER_LOGO_HEIGHT,
                         minHeight: PROVIDER_LOGO_HEIGHT,
-                        maxHeight: PROVIDER_LOGO_HEIGHT,
-                        maxWidth: PROVIDER_LOGO_MAX_WIDTH,
                       }}
-                      sizes={`${PROVIDER_LOGO_MAX_WIDTH}px`}
-                      crop="fit"
-                    />
-                  </Link>
-                ) : null}
-
-                <div className="flex items-start justify-between gap-3 border-b border-[#E8EEF5] pb-3">
-                  <h2 className="min-w-0 flex-1 text-base font-semibold">
-                    <Link
-                      href={`/providers/${provider.slug}`}
-                      className="font-semibold leading-snug text-[#1A73E8] hover:underline"
+                      aria-label={`View exams by ${provider.name}`}
                     >
-                      {provider.name}
+                      <OptimizedImage
+                        src={providerLogo}
+                        alt={provider.name}
+                        width={PROVIDER_LOGO_MAX_WIDTH}
+                        height={PROVIDER_LOGO_HEIGHT}
+                        className="block object-contain object-center"
+                        style={{
+                          height: PROVIDER_LOGO_HEIGHT,
+                          minHeight: PROVIDER_LOGO_HEIGHT,
+                          maxHeight: PROVIDER_LOGO_HEIGHT,
+                          maxWidth: PROVIDER_LOGO_MAX_WIDTH,
+                        }}
+                        sizes={`${PROVIDER_LOGO_MAX_WIDTH}px`}
+                        crop="fit"
+                      />
                     </Link>
-                  </h2>
-                  <p className="shrink-0 whitespace-nowrap text-sm text-[#0C1A35]/70">
-                    {provider.examCount} Exam{provider.examCount === 1 ? "" : "s"}
-                  </p>
-                </div>
+                  ) : null}
 
-                <ProviderCardExams exams={provider.exams || []} />
-              </div>
-            );
-          })}
-        </div>
+                  <div className="flex items-start justify-between gap-3 border-b border-[#E8EEF5] pb-3">
+                    <h2 className="min-w-0 flex-1 text-base font-semibold">
+                      <Link
+                        href={`/providers/${provider.slug}`}
+                        className="font-semibold leading-snug text-[#1A73E8] hover:underline"
+                      >
+                        {provider.name}
+                      </Link>
+                    </h2>
+                    <p className="shrink-0 whitespace-nowrap text-sm text-[#0C1A35]/70">
+                      {provider.examCount} Exam{provider.examCount === 1 ? "" : "s"}
+                    </p>
+                  </div>
+
+                  <ProviderCardExams exams={provider.exams || []} />
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="mt-10 flex flex-wrap items-center justify-center gap-2">
+              <button
+                onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+                disabled={currentPage === 1}
+                className="rounded border px-4 py-2 disabled:opacity-50"
+              >
+                Prev
+              </button>
+
+              {Array.from({ length: totalPages }, (_, i) => (
+                <button
+                  key={i}
+                  onClick={() => setCurrentPage(i + 1)}
+                  className={`rounded border px-3 py-2 ${
+                    currentPage === i + 1
+                      ? "bg-[#1A73E8] text-white"
+                      : "bg-white"
+                  }`}
+                >
+                  {i + 1}
+                </button>
+              ))}
+
+              <button
+                onClick={() =>
+                  setCurrentPage((p) => Math.min(p + 1, totalPages))
+                }
+                disabled={currentPage === totalPages}
+                className="rounded border px-4 py-2 disabled:opacity-50"
+              >
+                Next
+              </button>
+            </div>
+          )}
+        </>
       )}
     </>
   );

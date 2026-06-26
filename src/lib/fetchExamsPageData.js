@@ -1,5 +1,9 @@
 import { filterPublicExamListings } from "@/lib/examListingFilters";
-import { publicFetchOptions, providersListUrl } from "@/lib/serverRevalidate";
+import {
+  coursesFetchOptions,
+  publicFetchOptions,
+  providersListUrl,
+} from "@/lib/serverRevalidate";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
@@ -10,7 +14,7 @@ export async function fetchExamsPageData() {
       await Promise.all([
         fetch(providersListUrl(API_BASE_URL), publicFetchOptions()),
         fetch(`${API_BASE_URL}/api/categories/`, publicFetchOptions()),
-        fetch(`${API_BASE_URL}/api/courses/`, publicFetchOptions()),
+        fetch(`${API_BASE_URL}/api/courses/`, coursesFetchOptions()),
         fetch(`${API_BASE_URL}/api/home/exams-trust-bar/`, publicFetchOptions()),
         fetch(`${API_BASE_URL}/api/home/exams-about/`, publicFetchOptions()),
       ]);

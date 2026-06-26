@@ -8,6 +8,8 @@ import SiteBreadcrumbs, {
   toBreadcrumbJsonLdItems,
 } from "@/components/common/SiteBreadcrumbs";
 import { publicFetchOptions } from "@/lib/serverRevalidate";
+
+export const revalidate = 60;
 import { filterPublicExamListings } from "@/lib/examListingFilters";
 import OptimizedImage from "@/components/common/OptimizedImage";
 

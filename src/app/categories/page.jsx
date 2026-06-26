@@ -9,6 +9,8 @@ import { attachExamCounts } from "@/lib/categoryCounts";
 import { publicFetchOptions } from "@/lib/serverRevalidate";
 import { t } from "@/lib/uiStrings";
 
+export const revalidate = 60;
+
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 

@@ -10,6 +10,8 @@ import ProvidersListClient from "@/components/provider/ProvidersListClient";
 import { publicFetchOptions, providersListUrl } from "@/lib/serverRevalidate";
 import { filterPublicExamListings } from "@/lib/examListingFilters";
 
+export const revalidate = 60;
+
 const PROVIDERS_BREADCRUMB_ITEMS = [
   { label: "Home", href: "/" },
   { label: "Providers", href: "/providers" },

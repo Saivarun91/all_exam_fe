@@ -642,15 +642,15 @@ export default async function BlogDetailPage({ params }) {
                 </div>
               </div>
               {blog.image_url && (
-                <div className="relative w-full mb-8 rounded-xl overflow-hidden border border-slate-200/70 bg-white">
+                <div className="w-full mb-8 rounded-xl overflow-hidden border border-slate-200/70 bg-white">
                   <OptimizedImage
                     src={blog.image_url}
                     alt={blog.title || "Blog Image"}
                     width={1200}
-                    height={675}
-                    aspectRatio="16 / 9"
+                    height={800}
                     priority
-                    sizes="(max-width: 768px) 100vw, (max-width: 1024px) 90vw, 1200px"
+                    objectFit="contain"
+                    className="w-full h-auto"
                     containerClassName="w-full"
                   />
                 </div>
