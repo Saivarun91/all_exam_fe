@@ -119,6 +119,11 @@ const nextConfig = {
         hostname: 'api.allexamquestions.com',
         pathname: '/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'backendapi.allexamquestions.com',
+        pathname: '/**',
+      },
     ],
     formats: ['image/avif', 'image/webp'],
   },
