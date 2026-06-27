@@ -12,9 +12,57 @@ export function publicFetchOptions() {
 }
 
 /** Listing pages only need id/name/slug/logo — keeps payloads under Next.js 2MB fetch cache. */
-export function providersListUrl(baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000") {
+export function providersListUrl(
+  baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000",
+  params = {}
+) {
   const root = String(baseUrl || "").replace(/\/$/, "");
-  return `${root}/api/providers/?lite=1`;
+  const search = new URLSearchParams({ lite: "1" });
+
+  Object.entries(params).forEach(([key, value]) => {
+    const normalized = String(value ?? "").trim();
+    if (normalized) search.set(key, normalized);
+  });
+
+  return `${root}/api/providers/?${search.toString()}`;
+}
+
+/** Public listing pages only need category label/slug/filter metadata. */
+export function categoriesListUrl(baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000") {
+  const root = String(baseUrl || "").replace(/\/$/, "");
+  return `${root}/api/categories/?lite=1`;
+}
+
+/** Paginated top certification categories for the categories page hero list. */
+export function topCertificationCategoriesUrl(
+  baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000",
+  params = {}
+) {
+  const root = String(baseUrl || "").replace(/\/$/, "");
+  const search = new URLSearchParams();
+
+  Object.entries(params).forEach(([key, value]) => {
+    const normalized = String(value ?? "").trim();
+    if (normalized) search.set(key, normalized);
+  });
+
+  return `${root}/api/categories/top-certifications/?${search.toString()}`;
+}
+
+/** Public exam listings use the lite course shape; detail pages keep the full API. */
+export function coursesListUrl(
+  baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000",
+  params = {}
+) {
+  const root = String(baseUrl || "").replace(/\/$/, "");
+  const search = new URLSearchParams({ lite: "1" });
+
+  Object.entries(params).forEach(([key, value]) => {
+    const normalized = String(value ?? "").trim();
+    if (normalized) search.set(key, normalized);
+  });
+
+  return `${root}/api/courses/?${search.toString()}`;
 }
 
 export function publicProvidersFetchOptions() {

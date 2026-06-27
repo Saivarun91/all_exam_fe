@@ -313,20 +313,31 @@
 
 import BackButton from "./BackButton";
 import TipTapContent from "@/components/editor/TipTapContent";
+import { publicFetchOptions } from "@/lib/serverRevalidate";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
 
 // Fetch Terms & Conditions from API
 async function getTermsAndConditions() {
-  const res = await fetch(`${API_BASE_URL}/api/settings/terms-of-service/`, {
-    cache: "no-store", // always fetch fresh data
-  });
-  if (!res.ok) throw new Error("Failed to fetch Terms & Conditions");
-  return res.json();
+  try {
+    const res = await fetch(
+      `${API_BASE_URL}/api/settings/terms-of-service/`,
+      publicFetchOptions()
+    );
+    if (!res.ok) throw new Error("Failed to fetch Terms & Conditions");
+    return res.json();
+  } catch (error) {
+    console.error("Error fetching Terms & Conditions:", error);
+    return {
+      content: "Terms & Conditions content will be updated by admin.",
+      meta_title: "Terms and Conditions",
+      meta_description: "",
+      meta_keywords: "",
+    };
+  }
 }
 
-// Force dynamic rendering (not statically generated)
-export const dynamic = "force-dynamic";
+export const revalidate = 60;
 
 // Generate dynamic metadata for this page
 export async function generateMetadata() {

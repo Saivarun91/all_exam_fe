@@ -4,6 +4,7 @@ const nextConfig = {
   reactCompiler: true,
   compress: true,
   poweredByHeader: false,
+  staticPageGenerationTimeout: 180,
   compiler: {
     // Keep warn/error logs while trimming other console calls in production bundles.
     removeConsole:
@@ -16,8 +17,8 @@ const nextConfig = {
   // Enable experimental features for better optimization
   experimental: {
     staleTimes: {
-      dynamic: 30,
-      static: 180,
+      dynamic: 0,
+      static: 30,
     },
     optimizePackageImports: [
       'lucide-react',

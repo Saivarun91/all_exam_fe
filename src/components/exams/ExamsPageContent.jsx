@@ -618,7 +618,7 @@
 
 "use client";
 
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -650,6 +650,7 @@ import ListPagination, {
   DEFAULT_LIST_PAGE_SIZE,
   getListPaginationSlice,
 } from "@/components/common/ListPagination";
+import { categoriesListUrl, coursesListUrl, providersListUrl } from "@/lib/serverRevalidate";
 import { t, tf } from "@/lib/uiStrings";
 import EntityText, {
   CourseTitleText,
@@ -659,6 +660,47 @@ import TipTapContent from "@/components/editor/TipTapContent";
 import { filterPublicExamListings } from "@/lib/examListingFilters";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
+
+function normalizePaginatedExamPayload(data) {
+  if (Array.isArray(data)) {
+    return {
+      exams: filterPublicExamListings(data),
+      pagination: {
+        count: data.length,
+        page: 1,
+        page_size: DEFAULT_LIST_PAGE_SIZE,
+        total_pages: Math.max(1, Math.ceil(data.length / DEFAULT_LIST_PAGE_SIZE)),
+      },
+    };
+  }
+
+  const results = Array.isArray(data?.results) ? data.results : [];
+  return {
+    exams: filterPublicExamListings(results),
+    pagination: {
+      count: Number(data?.count) || results.length,
+      page: Number(data?.page) || 1,
+      page_size: Number(data?.page_size) || DEFAULT_LIST_PAGE_SIZE,
+      total_pages: Number(data?.total_pages) || 1,
+    },
+  };
+}
+
+function ExamCardSkeleton() {
+  return (
+    <Card className="relative overflow-hidden p-6 border border-[#DDE7FF] bg-white shadow-sm h-full flex flex-col animate-pulse">
+      <div className="absolute inset-x-0 top-0 h-1 bg-[#DDE7FF]" aria-hidden />
+      <div className="flex gap-2 mb-4 pt-1">
+        <div className="h-6 w-20 rounded-full bg-[#E8EEF7]" />
+        <div className="h-6 w-24 rounded-full bg-[#E8EEF7]" />
+      </div>
+      <div className="h-7 w-4/5 rounded bg-[#E8EEF7] mb-2" />
+      <div className="h-4 w-24 rounded bg-[#E8EEF7] mb-4" />
+      <div className="h-10 w-full rounded-lg bg-[#F0F4FA] mb-5" />
+      <div className="mt-auto h-10 w-full rounded-lg bg-[#DDE7FF]" />
+    </Card>
+  );
+}
 
 function getTrustBarGridClass(count) {
   if (count <= 1) return "grid-cols-1";
@@ -713,6 +755,41 @@ const PROVIDER_BADGE_CLASS =
 const CATEGORY_BADGE_CLASS =
   "border border-[#B8C8E0] bg-gradient-to-r from-[#EEF2F9] to-[#F8FAFD] text-[#0C1A35] text-xs font-semibold shadow-sm hover:from-[#E2E9F5] hover:to-[#EEF2F9] hover:text-[#1A73E8] hover:border-[#1A73E8]/30 transition-all";
 
+function IntentPrefetchLink({ href, children, onMouseEnter, onFocus, onTouchStart, ...props }) {
+  const router = useRouter();
+  const prefetched = useRef(false);
+
+  const prefetchOnIntent = () => {
+    if (prefetched.current || typeof href !== "string" || !href || href === "#") {
+      return;
+    }
+    prefetched.current = true;
+    router.prefetch(href);
+  };
+
+  return (
+    <Link
+      href={href}
+      prefetch={false}
+      onMouseEnter={(event) => {
+        prefetchOnIntent();
+        onMouseEnter?.(event);
+      }}
+      onFocus={(event) => {
+        prefetchOnIntent();
+        onFocus?.(event);
+      }}
+      onTouchStart={(event) => {
+        prefetchOnIntent();
+        onTouchStart?.(event);
+      }}
+      {...props}
+    >
+      {children}
+    </Link>
+  );
+}
+
 export default function ExamsPageContent({
   initialProvider = [],
   initialKeyword = "",
@@ -722,9 +799,11 @@ export default function ExamsPageContent({
   initialTrustBarData = [],
   initialAboutData = {},
   initialPageHeading = "All Popular Exams",
+  initialExamsPagination = null,
   showBrowseLinks = false,
   linksOnly = false,
   usePathBasedRouting = false,
+  backendPagination = false,
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -742,7 +821,9 @@ export default function ExamsPageContent({
   const [aboutSection, setAboutSection] = useState(initialAboutData);
   const [pageHeading] = useState(initialPageHeading);
   const [loading, setLoading] = useState(false);
+  const [pageLoading, setPageLoading] = useState(false);
   const [listPage, setListPage] = useState(1);
+  const [backendPageMeta, setBackendPageMeta] = useState(initialExamsPagination);
   const isInitializing = useRef(true);
   const hasInitialized = useRef(false);
 
@@ -792,6 +873,45 @@ export default function ExamsPageContent({
     router.replace(newUrl, { scroll: false });
   };
 
+  const fetchBackendPage = async (page) => {
+    const params = {
+      page,
+      page_size: Number(backendPageMeta?.page_size) || DEFAULT_LIST_PAGE_SIZE,
+      q: searchKeyword,
+      provider: selectedProviders[0] || "",
+      category: selectedCategories[0] || "",
+      min_questions: minQuestions > 0 ? minQuestions : "",
+    };
+    const url = coursesListUrl(API_BASE_URL, params);
+    if (process.env.NODE_ENV !== "production") {
+      console.log("[ExamsPageContent] courses API hit:", url);
+    }
+
+    setPageLoading(true);
+    try {
+      const res = await fetch(url);
+      const payload = normalizePaginatedExamPayload(await res.json());
+      setAllExams(payload.exams);
+      setBackendPageMeta(payload.pagination);
+      if (process.env.NODE_ENV !== "production") {
+        console.log("[ExamsPageContent] courses API data:", {
+          pagination: payload.pagination,
+          itemCount: payload.exams.length,
+          sample: payload.exams.slice(0, 3).map((exam) => ({
+            id: exam.id,
+            title: exam.title || exam.name,
+            code: exam.code,
+            provider: exam.provider,
+          })),
+        });
+      }
+    } catch (error) {
+      console.error("Error loading exams page:", error);
+    } finally {
+      setPageLoading(false);
+    }
+  };
+
   // Initialize from URL params if available (only on first mount and not using path-based routing)
   useEffect(() => {
     if (usePathBasedRouting) {
@@ -831,11 +951,37 @@ export default function ExamsPageContent({
     }, 100);
   }, [searchParams, usePathBasedRouting]);
 
+  useEffect(() => {
+    setProviders(initialProvidersData);
+  }, [initialProvidersData]);
+
+  useEffect(() => {
+    setCategories(initialCategoriesData);
+  }, [initialCategoriesData]);
+
+  useEffect(() => {
+    setAllExams(filterPublicExamListings(initialExamsData));
+  }, [initialExamsData]);
+
+  useEffect(() => {
+    setBackendPageMeta(initialExamsPagination);
+  }, [initialExamsPagination]);
+
+  useEffect(() => {
+    if (!backendPagination || typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (!params.has("page")) return;
+    params.delete("page");
+    const query = params.toString();
+    const cleanUrl = `${window.location.pathname}${query ? `?${query}` : ""}`;
+    window.history.replaceState(window.history.state, "", cleanUrl);
+  }, [backendPagination]);
+
   // Load filter metadata when a page passes exams but not sidebar data (e.g. search routes).
   useEffect(() => {
     const needsProviders = providers.length === 0;
     const needsCategories = categories.length === 0;
-    const needsExams = allExams.length === 0;
+    const needsExams = !backendPagination && allExams.length === 0;
     if (!needsProviders && !needsCategories && !needsExams) return;
 
     let cancelled = false;
@@ -845,17 +991,17 @@ export default function ExamsPageContent({
         const tasks = [];
         if (needsProviders) {
           tasks.push(
-            fetch(`${API_BASE_URL}/api/providers/`).then((res) => res.json())
+            fetch(providersListUrl(API_BASE_URL)).then((res) => res.json())
           );
         }
         if (needsCategories) {
           tasks.push(
-            fetch(`${API_BASE_URL}/api/categories/`).then((res) => res.json())
+            fetch(categoriesListUrl(API_BASE_URL)).then((res) => res.json())
           );
         }
         if (needsExams) {
           tasks.push(
-            fetch(`${API_BASE_URL}/api/courses/`).then((res) => res.json())
+            fetch(coursesListUrl(API_BASE_URL)).then((res) => res.json())
           );
         }
 
@@ -967,7 +1113,7 @@ export default function ExamsPageContent({
   }, [allExams]);
 
   /** Normalize provider display names so EC-Council (ASCII hyphen) matches EC–Council (unicode dash) for filtering. */
-  const normalizeProviderNameKey = (name) => {
+  const normalizeProviderNameKey = useCallback((name) => {
     if (!name) return "";
     return name
       .toString()
@@ -975,10 +1121,10 @@ export default function ExamsPageContent({
       .trim()
       .replace(/[\u2010\u2011\u2012\u2013\u2014\u2212]/g, "-")
       .replace(/\s+/g, " ");
-  };
+  }, []);
 
   /** Canonical slug for an exam row — must stay in sync with checkbox values (provider.slug from API). */
-  const getExamProviderSlugForFilter = (exam) => {
+  const getExamProviderSlugForFilter = useCallback((exam) => {
     if (exam?.provider_slug) {
       return String(exam.provider_slug).toLowerCase().trim();
     }
@@ -988,7 +1134,7 @@ export default function ExamsPageContent({
     );
     if (match?.slug) return String(match.slug).toLowerCase().trim();
     return createSlug(normalizeProviderNameKey(exam?.provider || "").replace(/ /g, "-"));
-  };
+  }, [normalizeProviderNameKey, providers]);
 
   const getProviderPageUrl = (exam) => {
     const providerName = exam?.provider?.toLowerCase?.().trim?.() || "";
@@ -1140,7 +1286,7 @@ export default function ExamsPageContent({
   // const totalQuestions = filteredExams.reduce((sum, exam) => sum + (exam.questions || 0), 0);
   // const updatedThisWeek = filteredExams.length; // All are considered recent
 
-  const filteredExams = useMemo(() => {
+  const clientFilteredExams = useMemo(() => {
     const q = searchKeyword?.trim().toLowerCase() || "";
     const selectedProviderKeys = selectedProviders.map((s) =>
       String(s || "").toLowerCase().trim()
@@ -1192,8 +1338,9 @@ export default function ExamsPageContent({
     selectedCategories,
     searchKeyword,
     minQuestions,
-    providers,
+    getExamProviderSlugForFilter,
   ]);
+  const filteredExams = backendPagination ? allExams : clientFilteredExams;
   // ✅ ADD THESE BACK
   const totalQuestions = filteredExams.reduce(
     (sum, exam) => sum + (exam.questions || 0),
@@ -1202,20 +1349,71 @@ export default function ExamsPageContent({
 
   const updatedThisWeek = filteredExams.length;
 
-  const examPagination = useMemo(
-    () => getListPaginationSlice(filteredExams, listPage, DEFAULT_LIST_PAGE_SIZE),
-    [filteredExams, listPage]
-  );
+  const examPagination = useMemo(() => {
+    if (backendPagination) {
+      const totalItems =
+        Number(backendPageMeta?.count) || filteredExams.length;
+      const pageSize =
+        Number(backendPageMeta?.page_size) || DEFAULT_LIST_PAGE_SIZE;
+      const totalPages =
+        Number(backendPageMeta?.total_pages) ||
+        Math.max(1, Math.ceil(totalItems / pageSize) || 1);
+      const page = Math.min(
+        Math.max(1, Number(backendPageMeta?.page) || 1),
+        totalPages
+      );
+      return {
+        page,
+        totalPages,
+        totalItems,
+        startIndex: (page - 1) * pageSize,
+        endIndex: Math.min(page * pageSize, totalItems),
+        items: filteredExams,
+      };
+    }
+    return getListPaginationSlice(filteredExams, listPage, DEFAULT_LIST_PAGE_SIZE);
+  }, [backendPagination, backendPageMeta, filteredExams, listPage]);
 
   useEffect(() => {
+    if (process.env.NODE_ENV === "production") return;
+    console.log("[ExamsPageContent] frontend data received:", {
+      backendPagination,
+      pagination: {
+        page: examPagination.page,
+        totalPages: examPagination.totalPages,
+        totalItems: examPagination.totalItems,
+        pageSize:
+          Number(backendPageMeta?.page_size) || DEFAULT_LIST_PAGE_SIZE,
+      },
+      renderedItems: examPagination.items.length,
+      providersLoaded: providers.length,
+      categoriesLoaded: categories.length,
+      sample: examPagination.items.slice(0, 3).map((exam) => ({
+        id: exam.id,
+        title: exam.title || exam.name,
+        code: exam.code,
+        provider: exam.provider,
+      })),
+    });
+  }, [
+    backendPagination,
+    categories.length,
+    examPagination,
+    backendPageMeta?.page_size,
+    providers.length,
+  ]);
+
+  useEffect(() => {
+    if (backendPagination) return;
     setListPage(1);
-  }, [searchKeyword, selectedProviders, selectedCategories, minQuestions, selectedTimeframe]);
+  }, [backendPagination, searchKeyword, selectedProviders, selectedCategories, minQuestions, selectedTimeframe]);
 
   useEffect(() => {
+    if (backendPagination) return;
     if (listPage > examPagination.totalPages) {
       setListPage(examPagination.totalPages);
     }
-  }, [examPagination.totalPages, listPage]);
+  }, [backendPagination, examPagination.totalPages, listPage]);
 
   if (loading) {
     return (
@@ -1257,6 +1455,7 @@ export default function ExamsPageContent({
                       <Link
                         key={`${item.href}-${item.label}`}
                         href={item.href}
+                        prefetch={false}
                         className="block w-full rounded-md border border-[#CFE0FF] bg-[#F5F9FF] px-3 py-2 text-sm text-[#1557B0] underline underline-offset-2 hover:bg-[#EAF2FF] hover:border-[#BBD3FF] transition-colors"
                       >
                         {item.label}
@@ -1283,6 +1482,7 @@ export default function ExamsPageContent({
                       <Link
                         key={`${item.href}-${item.label}`}
                         href={item.href}
+                        prefetch={false}
                         className="block w-full rounded-md border border-[#CFE0FF] bg-[#F5F9FF] px-3 py-2 text-sm text-[#1557B0] underline underline-offset-2 hover:bg-[#EAF2FF] hover:border-[#BBD3FF] transition-colors"
                       >
                         {item.label}
@@ -1386,6 +1586,7 @@ export default function ExamsPageContent({
                       <Link
                         key={`${item.href}-${item.label}`}
                         href={item.href}
+                        prefetch={false}
                         className="text-sm text-[#1A73E8] hover:text-[#1557B0] underline-offset-2 hover:underline"
                       >
                         {item.label}
@@ -1407,6 +1608,7 @@ export default function ExamsPageContent({
                       <Link
                         key={`${item.href}-${item.label}`}
                         href={item.href}
+                        prefetch={false}
                         className="text-sm text-[#1A73E8] hover:text-[#1557B0] underline-offset-2 hover:underline"
                       >
                         {item.label}
@@ -1450,7 +1652,7 @@ export default function ExamsPageContent({
           {/* Results Header */}
           <div className="mb-6">
             <p className="text-3xl font-bold text-[#0C1A35] mb-2">
-              Showing {filteredExams.length} results 
+              Showing {examPagination.totalItems} results 
             </p>
             {/* <div className="flex flex-wrap gap-4 text-sm text-[#0C1A35]/70"> */}
               {/* <span>{updatedThisWeek} exams updated this week</span> */}
@@ -1603,7 +1805,15 @@ export default function ExamsPageContent({
             {/* EXAM GRID */}
             <div className="lg:col-span-3">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {examPagination.items.map((exam) => (
+                {pageLoading ? (
+                  Array.from({
+                    length:
+                      Number(backendPageMeta?.page_size) || DEFAULT_LIST_PAGE_SIZE,
+                  }).map((_, index) => (
+                    <ExamCardSkeleton key={`exam-skeleton-${index}`} />
+                  ))
+                ) : (
+                examPagination.items.map((exam) => (
                   <Card
                     key={exam.id}
                     className="group relative overflow-hidden p-6 border border-[#DDE7FF] bg-white hover:shadow-xl hover:shadow-[#1A73E8]/10 hover:-translate-y-1 hover:border-[#1A73E8]/35 transition-all h-full flex flex-col ring-1 ring-transparent hover:ring-[#1A73E8]/10"
@@ -1615,6 +1825,7 @@ export default function ExamsPageContent({
                     <div className="flex flex-wrap gap-2 mb-3 pt-1">
                       <Link
                         href={getProviderPageUrl(exam)}
+                        prefetch={false}
                         className="inline-flex"
                       >
                         <Badge
@@ -1627,6 +1838,7 @@ export default function ExamsPageContent({
                       {exam.category && (
                         <Link
                           href={getCategoryPageUrl(exam)}
+                          prefetch={false}
                           className="inline-flex"
                         >
                           <Badge
@@ -1640,22 +1852,22 @@ export default function ExamsPageContent({
                     </div>
 
                     <h3 className="text-xl font-bold text-[#0C1A35] mb-1">
-                      <Link
+                      <IntentPrefetchLink
                         href={getExamUrl(exam)}
                         className="hover:text-[#1A73E8] transition-colors"
                         aria-label={`Open ${exam.title || exam.name || "exam"} details`}
                       >
                         <CourseTitleText course={exam} />
-                      </Link>
+                      </IntentPrefetchLink>
                     </h3>
                     <p className="text-sm text-[#0C1A35]/60 mb-3">
-                      <Link
+                      <IntentPrefetchLink
                         href={getExamUrl(exam)}
                         className="hover:text-[#1A73E8] transition-colors"
                         aria-label={`Open ${exam.title || exam.name || "exam"} by code`}
                       >
                         {exam.code}
-                      </Link>
+                      </IntentPrefetchLink>
                     </p>
 
                     <div className="flex gap-2 mb-3 flex-wrap">
@@ -1690,26 +1902,29 @@ export default function ExamsPageContent({
                       className="w-full mt-auto bg-gradient-to-r from-[#1A73E8] to-[#1557B0] text-white hover:from-[#1557B0] hover:to-[#0C1A35] h-10 rounded-lg font-medium shadow-md shadow-[#1A73E8]/20"
                       asChild
                     >
-                      <Link href={getExamUrl(exam)}>
+                      <IntentPrefetchLink href={getExamUrl(exam)}>
                         {t("home.featured.start_practicing")}
                         <ArrowRight className="ml-2 w-4 h-4" />
-                      </Link>
+                      </IntentPrefetchLink>
                     </Button>
                   </Card>
-                ))}
+                ))
+                )}
               </div>
 
               <ListPagination
                 currentPage={examPagination.page}
                 totalPages={examPagination.totalPages}
-                onPageChange={setListPage}
+                onPageChange={backendPagination ? fetchBackendPage : setListPage}
                 totalItems={examPagination.totalItems}
-                pageSize={DEFAULT_LIST_PAGE_SIZE}
+                pageSize={
+                  Number(backendPageMeta?.page_size) || DEFAULT_LIST_PAGE_SIZE
+                }
                 itemLabelKey="pagination.exams"
                 scrollTargetId="results-section"
               />
 
-              {filteredExams.length === 0 && (
+              {!pageLoading && filteredExams.length === 0 && (
                 <Card className="p-10 text-center border border-[#DDE7FF] bg-gradient-to-br from-[#F8FBFF] to-white shadow-sm">
                   <h3 className="text-xl font-semibold text-[#0C1A35] mb-2">{t("exams.page.no_exams_found")}</h3>
                   <p className="text-sm text-[#0C1A35]/70 mb-4">

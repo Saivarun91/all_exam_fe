@@ -6,11 +6,15 @@ import SiteBreadcrumbs, {
   toBreadcrumbJsonLdItems,
 } from "@/components/common/SiteBreadcrumbs";
 import { attachExamCounts } from "@/lib/categoryCounts";
-import { publicFetchOptions } from "@/lib/serverRevalidate";
+import {
+  publicFetchOptions,
+  topCertificationCategoriesUrl,
+} from "@/lib/serverRevalidate";
 import { t } from "@/lib/uiStrings";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
+const TOP_CATEGORIES_PAGE_SIZE = 8;
 
 const getCategories = cache(async function getCategories() {
   try {
@@ -45,6 +49,36 @@ const getCategoriesPageSeo = cache(async function getCategoriesPageSeo() {
     return null;
   }
 });
+
+const getTopCertificationCategoriesPage = cache(
+  async function getTopCertificationCategoriesPage(page = 1) {
+    try {
+      const res = await fetch(
+        topCertificationCategoriesUrl(API_BASE_URL, {
+          page,
+          page_size: TOP_CATEGORIES_PAGE_SIZE,
+        }),
+        publicFetchOptions()
+      );
+
+      if (!res.ok) return null;
+
+      const data = await res.json();
+
+      return {
+        results: Array.isArray(data?.results)
+          ? data.results.filter((cat) => cat.is_active !== false)
+          : [],
+        count: Number(data?.count) || 0,
+        page: Number(data?.page) || page,
+        page_size: Number(data?.page_size) || TOP_CATEGORIES_PAGE_SIZE,
+        total_pages: Number(data?.total_pages) || 1,
+      };
+    } catch {
+      return null;
+    }
+  }
+);
 
 function getMainCategoryHeading(category) {
   const rawHeading =
@@ -190,9 +224,10 @@ export async function generateMetadata() {
 
 // Server component
 export default async function CategoriesPage() {
-  const [categories, pageSeo] = await Promise.all([
+  const [categories, pageSeo, initialTopCertificationPage] = await Promise.all([
     getCategories(),
     getCategoriesPageSeo(),
+    getTopCertificationCategoriesPage(1),
   ]);
 
   const categoriesWithCounts = await attachExamCounts(categories);
@@ -200,6 +235,34 @@ export default async function CategoriesPage() {
   const topCertificationCategories = categoriesWithCounts.filter((category) =>
     parseBoolean(category?.is_top_certification)
   );
+  const examCountsByCategorySlug = categoriesWithCounts.reduce((acc, category) => {
+    const slug = String(category?.slug || "").trim().toLowerCase();
+    if (slug) acc[slug] = category.examCount || 0;
+    return acc;
+  }, {});
+  const addExamCounts = (items = []) =>
+    items.map((category) => ({
+      ...category,
+      examCount:
+        examCountsByCategorySlug[
+          String(category?.slug || "").trim().toLowerCase()
+        ] || 0,
+    }));
+  const topCertificationCategoriesPage = initialTopCertificationPage
+    ? {
+        ...initialTopCertificationPage,
+        results: addExamCounts(initialTopCertificationPage.results),
+      }
+    : {
+        results: topCertificationCategories.slice(0, TOP_CATEGORIES_PAGE_SIZE),
+        count: topCertificationCategories.length,
+        page: 1,
+        page_size: TOP_CATEGORIES_PAGE_SIZE,
+        total_pages: Math.max(
+          1,
+          Math.ceil(topCertificationCategories.length / TOP_CATEGORIES_PAGE_SIZE)
+        ),
+      };
 
   // Group categories
   const groupedCategories = categoriesWithCounts.reduce((acc, category) => {
@@ -289,159 +352,161 @@ export default async function CategoriesPage() {
         ])}
       />
       <div className="min-h-screen bg-[#f5f7fa] overflow-hidden">
-      <SiteBreadcrumbBar>
-        <SiteBreadcrumbs
-          items={[
-            { label: "Home", href: "/" },
-            { label: "Categories", href: "/categories" },
-          ]}
-        />
-      </SiteBreadcrumbBar>
-      {/* ================= HERO SECTION ================= */}
-      <section className="relative">
-        {/* Background Layers */}
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_#1e40af_0%,_transparent_35%)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_right,_#06b6d4_0%,_transparent_30%)]" />
-        <div className="absolute inset-0 bg-[linear-gradient(to_bottom,_#071120,_#0B1730)]" />
+        <SiteBreadcrumbBar>
+          <SiteBreadcrumbs
+            items={[
+              { label: "Home", href: "/" },
+              { label: "Categories", href: "/categories" },
+            ]}
+          />
+        </SiteBreadcrumbBar>
+        {/* ================= HERO SECTION ================= */}
+        <section className="relative">
+          {/* Background Layers */}
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_#1e40af_0%,_transparent_35%)]" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_right,_#06b6d4_0%,_transparent_30%)]" />
+          <div className="absolute inset-0 bg-[linear-gradient(to_bottom,_#071120,_#0B1730)]" />
 
-        {/* Grid Overlay */}
-        <div className="absolute inset-0 opacity-[0.04] bg-[linear-gradient(#fff_1px,transparent_1px),linear-gradient(to_right,#fff_1px,transparent_1px)] bg-[size:60px_60px]" />
+          {/* Grid Overlay */}
+          <div className="absolute inset-0 opacity-[0.04] bg-[linear-gradient(#fff_1px,transparent_1px),linear-gradient(to_right,#fff_1px,transparent_1px)] bg-[size:60px_60px]" />
 
-        <div className="relative container mx-auto px-4 pt-20 pb-24">
-          <div className="grid lg:grid-cols-2 gap-16 items-center">
-            {/* LEFT CONTENT */}
-            <div>
-              {/* Badge */}
-              {/* <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-cyan-400/20 bg-cyan-400/10 text-cyan-300 text-sm font-medium backdrop-blur-md">
+          <div className="relative container mx-auto px-4 pt-20 pb-24">
+            <div className="grid lg:grid-cols-2 gap-16 items-center">
+              {/* LEFT CONTENT */}
+              <div>
+                {/* Badge */}
+                {/* <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-cyan-400/20 bg-cyan-400/10 text-cyan-300 text-sm font-medium backdrop-blur-md">
                 <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
                 Trusted Certification Preparation Platform
               </div> */}
 
-              {/* Heading */}
-              <h1 className="mt-8 text-5xl md:text-6xl xl:text-7xl font-black leading-[1.05] text-white">
-                <span
-                  className="block text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-blue-400 to-indigo-400"
-                  data-i18n="cms.categories_page.hero_title"
-                  data-i18n-fallback={heroTitle}
+                {/* Heading */}
+                <h1 className="mt-8 text-5xl md:text-6xl xl:text-7xl font-black leading-[1.05] text-white">
+                  <span
+                    className="block text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-blue-400 to-indigo-400"
+                    data-i18n="cms.categories_page.hero_title"
+                    data-i18n-fallback={heroTitle}
+                  >
+                    {heroTitle}
+                  </span>
+                </h1>
+
+                <p
+                  className="mt-8 text-lg md:text-xl text-slate-300 leading-relaxed max-w-2xl"
+                  data-i18n="cms.categories_page.hero_subtitle"
+                  data-i18n-fallback={heroDescription}
                 >
-                  {heroTitle}
-                </span>
-              </h1>
+                  {heroDescription}
+                </p>
 
-              <p
-                className="mt-8 text-lg md:text-xl text-slate-300 leading-relaxed max-w-2xl"
-                data-i18n="cms.categories_page.hero_subtitle"
-                data-i18n-fallback={heroDescription}
-              >
-                {heroDescription}
-              </p>
-
-              {/* CTA Buttons */}
-              <div className="mt-10 flex flex-wrap gap-4">
-                {/* <button className="px-7 py-4 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-semibold shadow-[0_10px_40px_rgba(14,165,233,0.35)] hover:scale-[1.02] transition-all duration-300">
+                {/* CTA Buttons */}
+                <div className="mt-10 flex flex-wrap gap-4">
+                  {/* <button className="px-7 py-4 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-semibold shadow-[0_10px_40px_rgba(14,165,233,0.35)] hover:scale-[1.02] transition-all duration-300">
                   Browse Categories
                 </button> */}
 
-                {/* <button className="px-7 py-4 rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md text-white hover:bg-white/10 transition-all duration-300">
+                  {/* <button className="px-7 py-4 rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md text-white hover:bg-white/10 transition-all duration-300">
                   Explore Certifications
                 </button> */}
+                </div>
               </div>
-            </div>
 
-            {/* RIGHT SIDE PREMIUM STATS UI */}
-            <div className="relative">
-              {/* Glow */}
-              <div className="absolute -top-10 -right-10 w-72 h-72 bg-blue-500/20 blur-3xl rounded-full"></div>
+              {/* RIGHT SIDE PREMIUM STATS UI */}
+              <div className="relative">
+                {/* Glow */}
+                <div className="absolute -top-10 -right-10 w-72 h-72 bg-blue-500/20 blur-3xl rounded-full"></div>
 
-              <div className="relative grid grid-cols-2 gap-5">
-                {heroStats.map((stat) => (
-                  <div
-                    key={stat.label}
-                    className={`h-full rounded-3xl border backdrop-blur-xl p-8 shadow-2xl transition-all duration-300 hover:-translate-y-1 ${stat.cardClass}`}
-                  >
-                    <div className={`text-5xl font-black ${stat.valueClass}`}>
-                      {stat.value.toLocaleString()}
-                    </div>
+                <div className="relative grid grid-cols-2 gap-5">
+                  {heroStats.map((stat) => (
                     <div
-                      className="mt-3 text-slate-300 font-medium"
-                      data-i18n={stat.labelKey}
-                      data-i18n-fallback={stat.label}
+                      key={stat.label}
+                      className={`h-full rounded-3xl border backdrop-blur-xl p-8 shadow-2xl transition-all duration-300 hover:-translate-y-1 ${stat.cardClass}`}
                     >
-                      {stat.label}
-                    </div>
-                    <div className="mt-6 h-2 rounded-full bg-white/10 overflow-hidden">
+                      <div className={`text-5xl font-black ${stat.valueClass}`}>
+                        {stat.value.toLocaleString()}
+                      </div>
                       <div
-                        className={`h-full bg-gradient-to-r ${stat.barClass} rounded-full transition-all duration-500`}
-                        style={{ width: getHeroStatBarWidth(stat.value) }}
-                      />
+                        className="mt-3 text-slate-300 font-medium"
+                        data-i18n={stat.labelKey}
+                        data-i18n-fallback={stat.label}
+                      >
+                        {stat.label}
+                      </div>
+                      <div className="mt-6 h-2 rounded-full bg-white/10 overflow-hidden">
+                        <div
+                          className={`h-full bg-gradient-to-r ${stat.barClass} rounded-full transition-all duration-500`}
+                          style={{ width: getHeroStatBarWidth(stat.value) }}
+                        />
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* ================= MAIN CONTENT ================= */}
-      <section className="relative -mt-8 z-20">
-        <div className="container mx-auto px-4 pb-20">
+        {/* ================= MAIN CONTENT ================= */}
+        <section className="relative -mt-8 z-20">
+          <div className="container mx-auto px-4 pb-20">
 
-          {/* Simple Section Header Line */}
-          <div className="h-[2px] w-full bg-gradient-to-r from-cyan-400 via-blue-500 to-indigo-500 mb-6"></div>
+            {/* Simple Section Header Line */}
+            <div className="h-[2px] w-full bg-gradient-to-r from-cyan-400 via-blue-500 to-indigo-500 mb-6"></div>
 
-          {/* Content Area (clean, not card style) */}
-          <div className="py-6 md:py-10">
-            <CategoriesListClient
-              groupedCategories={groupedCategories}
-              topCertificationCategories={topCertificationCategories}
-            />
+            {/* Content Area (clean, not card style) */}
+            <div className="py-6 md:py-10">
+              <CategoriesListClient
+                groupedCategories={groupedCategories}
+                topCertificationCategories={topCertificationCategories}
+                initialTopCertificationCategoriesPage={topCertificationCategoriesPage}
+                examCountsByCategorySlug={examCountsByCategorySlug}
+              />
+            </div>
+
           </div>
+        </section>
+        {/* ================= SIMPLE CTA SECTION ================= */}
+        <section className="py-16 bg-gradient-to-r from-[#eaf2ff] via-[#e6f0ff] to-[#f1f5f9]">
+          <div className="container mx-auto px-4 text-center">
 
-        </div>
-      </section>
-      {/* ================= SIMPLE CTA SECTION ================= */}
-      <section className="py-16 bg-gradient-to-r from-[#eaf2ff] via-[#e6f0ff] to-[#f1f5f9]">
-        <div className="container mx-auto px-4 text-center">
-
-          <h2
-            className="text-3xl md:text-4xl font-black text-slate-900"
-            data-i18n="categories.page.cta_title"
-            data-i18n-fallback={ctaTitle}
-          >
-            {ctaTitle}
-          </h2>
-
-          <p
-            className="mt-4 text-slate-600 max-w-2xl mx-auto"
-            data-i18n="categories.page.cta_subtitle"
-            data-i18n-fallback={ctaSubtitle}
-          >
-            {ctaSubtitle}
-          </p>
-
-          <div className="mt-8 flex flex-wrap justify-center gap-4">
-            <a
-              href="/exams"
-              className="px-7 py-3 rounded-xl bg-slate-900 text-white font-semibold hover:bg-slate-800 transition-all"
-              data-i18n="common.explore_exams"
-              data-i18n-fallback={exploreExamsLabel}
+            <h2
+              className="text-3xl md:text-4xl font-black text-slate-900"
+              data-i18n="categories.page.cta_title"
+              data-i18n-fallback={ctaTitle}
             >
-              {exploreExamsLabel}
-            </a>
+              {ctaTitle}
+            </h2>
 
-            <a
-              href="/providers"
-              className="px-7 py-3 rounded-xl border border-slate-300 text-slate-900 font-semibold hover:bg-slate-100 transition-all"
-              data-i18n="common.browse_providers"
-              data-i18n-fallback={browseProvidersLabel}
+            <p
+              className="mt-4 text-slate-600 max-w-2xl mx-auto"
+              data-i18n="categories.page.cta_subtitle"
+              data-i18n-fallback={ctaSubtitle}
             >
-              {browseProvidersLabel}
-            </a>
+              {ctaSubtitle}
+            </p>
+
+            <div className="mt-8 flex flex-wrap justify-center gap-4">
+              <a
+                href="/exams"
+                className="px-7 py-3 rounded-xl bg-slate-900 text-white font-semibold hover:bg-slate-800 transition-all"
+                data-i18n="common.explore_exams"
+                data-i18n-fallback={exploreExamsLabel}
+              >
+                {exploreExamsLabel}
+              </a>
+
+              <a
+                href="/providers"
+                className="px-7 py-3 rounded-xl border border-slate-300 text-slate-900 font-semibold hover:bg-slate-100 transition-all"
+                data-i18n="common.browse_providers"
+                data-i18n-fallback={browseProvidersLabel}
+              >
+                {browseProvidersLabel}
+              </a>
+            </div>
+
           </div>
-
-        </div>
-      </section>
+        </section>
       </div>
     </>
   );

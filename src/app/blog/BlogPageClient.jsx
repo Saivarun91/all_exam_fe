@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,48 +16,99 @@ import { ArrowRight, Calendar, Search } from "lucide-react";
 import { getOptimizedImageUrl } from "@/utils/imageUtils";
 import OptimizedImage from "@/components/common/OptimizedImage";
 
-const POSTS_PER_PAGE = 9;
+const FALLBACK_POSTS_PER_PAGE = 9;
 
-export default function BlogPageClient({ articles }) {
+function buildBlogListUrl(apiBaseUrl, params) {
+  const url = new URL(`${apiBaseUrl}/api/home/blog-posts/all/`);
+  Object.entries(params).forEach(([key, value]) => {
+    const normalized = String(value ?? "").trim();
+    if (normalized) url.searchParams.set(key, normalized);
+  });
+  return url.toString();
+}
+
+export default function BlogPageClient({
+  initialArticles,
+  initialCategories = [],
+  initialPagination,
+  apiBaseUrl,
+  pageSize = FALLBACK_POSTS_PER_PAGE,
+}) {
+  const [articles, setArticles] = useState(initialArticles);
+  const [pagination, setPagination] = useState(initialPagination);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
+  const [isLoadingPage, setIsLoadingPage] = useState(false);
+  const hasMounted = useRef(false);
+  const resultsTopRef = useRef(null);
 
   const categories = useMemo(
-    () => [...new Set(articles.map((a) => a.category).filter(Boolean))].sort(),
-    [articles]
+    () =>
+      initialCategories.length
+        ? initialCategories
+        : [...new Set(articles.map((a) => a.category).filter(Boolean))].sort((a, b) =>
+            a.localeCompare(b)
+          ),
+    [articles, initialCategories]
   );
 
-  const filteredArticles = useMemo(() => {
-    let filtered = articles;
-
-    if (selectedCategory && selectedCategory !== "all") {
-      filtered = filtered.filter((article) => article.category === selectedCategory);
-    }
-
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase().trim();
-      filtered = filtered.filter(
-        (article) =>
-          article.title?.toLowerCase().includes(query) ||
-          article.excerpt?.toLowerCase().includes(query) ||
-          article.category?.toLowerCase().includes(query)
-      );
-    }
-
-    return filtered;
-  }, [articles, searchQuery, selectedCategory]);
-
   useEffect(() => {
-    setCurrentPage(1);
-  }, [searchQuery, selectedCategory]);
+    if (!hasMounted.current) {
+      hasMounted.current = true;
+      return;
+    }
 
-  const totalPages = Math.max(1, Math.ceil(filteredArticles.length / POSTS_PER_PAGE));
-  const startIndex = (currentPage - 1) * POSTS_PER_PAGE;
-  const paginatedArticles = filteredArticles.slice(startIndex, startIndex + POSTS_PER_PAGE);
+    const controller = new AbortController();
+    const timeout = globalThis.setTimeout(async () => {
+      try {
+        setIsLoadingPage(true);
+        const res = await fetch(
+          buildBlogListUrl(apiBaseUrl, {
+            page: currentPage,
+            page_size: pageSize,
+            lite: 1,
+            search: searchQuery,
+            category: selectedCategory === "all" ? "" : selectedCategory,
+          }),
+          { signal: controller.signal, headers: { Accept: "application/json" } }
+        );
+        const data = await res.json();
+        if (data?.success && Array.isArray(data.data)) {
+          setArticles(data.data);
+          setPagination(data.pagination || null);
+        }
+      } catch (err) {
+        if (err.name !== "AbortError") {
+          console.error("Error fetching blog posts:", err);
+        }
+      } finally {
+        if (!controller.signal.aborted) setIsLoadingPage(false);
+      }
+    }, 250);
+
+    return () => {
+      controller.abort();
+      globalThis.clearTimeout(timeout);
+    };
+  }, [apiBaseUrl, currentPage, pageSize, searchQuery, selectedCategory]);
+
+  const totalResults = pagination?.count ?? articles.length;
+  const totalPages = Math.max(1, pagination?.total_pages || 1);
+  const visibleArticles = articles;
+  const goToPage = (page) => {
+    const nextPage = Math.min(totalPages, Math.max(1, page));
+    if (nextPage === currentPage) return;
+
+    setCurrentPage(nextPage);
+    resultsTopRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  };
 
   return (
-    <div className="container mx-auto max-w-7xl">
+    <div ref={resultsTopRef} className="container mx-auto max-w-7xl scroll-mt-24">
       <div className="mb-8 space-y-4">
         <div className="flex flex-col md:flex-row gap-4 items-center">
           <div className="flex-1 w-full md:max-w-md">
@@ -67,14 +118,23 @@ export default function BlogPageClient({ articles }) {
                 type="text"
                 placeholder="Search blogs by title, content, or category..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setCurrentPage(1);
+                }}
                 className="pl-10 h-11 min-h-[44px] bg-white border-[#BFD4F5] text-sm text-[#0C1A35] placeholder:text-[#0C1A35]/70"
               />
             </div>
           </div>
 
           <div className="w-full md:w-[220px]">
-            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+            <Select
+              value={selectedCategory}
+              onValueChange={(value) => {
+                setSelectedCategory(value);
+                setCurrentPage(1);
+              }}
+            >
               <SelectTrigger className="w-full bg-white border-[#BFD4F5] h-11 min-h-[44px] text-sm text-[#0C1A35]">
                 <SelectValue placeholder="All Categories" />
               </SelectTrigger>
@@ -108,14 +168,14 @@ export default function BlogPageClient({ articles }) {
 
         {(searchQuery || (selectedCategory && selectedCategory !== "all")) && (
           <div className="text-sm text-[#0C1A35]/70">
-            Showing {filteredArticles.length} of {articles.length} blog posts
+            Showing {totalResults} blog posts
             {selectedCategory && selectedCategory !== "all" && ` in "${selectedCategory}"`}
             {searchQuery && ` matching "${searchQuery}"`}
           </div>
         )}
       </div>
 
-      {filteredArticles.length === 0 ? (
+      {visibleArticles.length === 0 ? (
         <div className="text-center py-20">
           <p className="text-[#0C1A35]/70 text-lg">No blog posts found matching your search criteria.</p>
           {(searchQuery || (selectedCategory && selectedCategory !== "all")) && (
@@ -134,8 +194,8 @@ export default function BlogPageClient({ articles }) {
         </div>
       ) : (
         <>
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {paginatedArticles.map((article) => {
+          <div className={`grid md:grid-cols-2 lg:grid-cols-3 gap-8 ${isLoadingPage ? "opacity-60" : ""}`}>
+            {visibleArticles.map((article) => {
               const blogUrl = article.slug ? `/blog/${article.slug}` : "#";
               const articleDate = article.created_at
                 ? new Date(article.created_at).toLocaleDateString("en-US", {
@@ -206,8 +266,8 @@ export default function BlogPageClient({ articles }) {
             <div className="flex items-center gap-2">
               <Button
                 variant="outline"
-                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
+                onClick={() => goToPage(currentPage - 1)}
+                disabled={currentPage === 1 || isLoadingPage}
                 className="min-h-[40px]"
               >
                 Previous
@@ -218,7 +278,8 @@ export default function BlogPageClient({ articles }) {
                   <Button
                     key={pageNum}
                     variant={pageNum === currentPage ? "default" : "outline"}
-                    onClick={() => setCurrentPage(pageNum)}
+                    onClick={() => goToPage(pageNum)}
+                    disabled={isLoadingPage}
                     className={`min-w-[40px] min-h-[40px] ${
                       pageNum === currentPage
                         ? "bg-[#1A73E8] hover:bg-[#1557B0] text-white"
@@ -231,8 +292,8 @@ export default function BlogPageClient({ articles }) {
               })}
               <Button
                 variant="outline"
-                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                disabled={currentPage === totalPages}
+                onClick={() => goToPage(currentPage + 1)}
+                disabled={currentPage === totalPages || isLoadingPage}
                 className="min-h-[40px]"
               >
                 Next

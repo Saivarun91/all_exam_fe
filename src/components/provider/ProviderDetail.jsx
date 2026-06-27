@@ -20,6 +20,7 @@ export default function ProviderDetail({
   slug,
   provider,
   exams,
+  examsPagination,
   embedded = false,
   showBreadcrumb = true,
 }) {
@@ -127,6 +128,7 @@ export default function ProviderDetail({
 
         <ProviderExamsList
           exams={safeExams}
+          pagination={examsPagination}
           providerName={provider.name}
           scrollTargetId={embedded ? "exams" : "provider-exams-grid"}
         />

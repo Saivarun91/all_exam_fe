@@ -1,8 +1,13 @@
 import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { createSlug, getExamUrl } from "@/lib/utils";
+import {
+  categoriesListUrl,
+  coursesListUrl,
+  publicFetchOptions,
+} from "@/lib/serverRevalidate";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 60;
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
@@ -10,8 +15,8 @@ const API_BASE_URL =
 async function fetchData() {
   try {
     const [categoriesRes, coursesRes] = await Promise.all([
-      fetch(`${API_BASE_URL}/api/categories/`, { cache: "no-store" }),
-      fetch(`${API_BASE_URL}/api/courses/`, { cache: "no-store" }),
+      fetch(categoriesListUrl(API_BASE_URL), publicFetchOptions()),
+      fetch(coursesListUrl(API_BASE_URL), publicFetchOptions()),
     ]);
 
     const categoriesData = await categoriesRes.json();
@@ -36,7 +41,7 @@ async function fetchData() {
 export async function generateMetadata() {
   try {
     const res = await fetch(`${API_BASE_URL}/api/home/exams-page-seo/`, {
-      cache: "no-store",
+      ...publicFetchOptions(),
     });
 
     if (!res.ok) throw new Error("SEO fetch failed");
@@ -130,6 +135,7 @@ export default async function PopularExamsPage() {
                       <Link
                         key={`${item.href}-${item.label}`}
                         href={item.href}
+                        prefetch={false}
                         className="block w-full rounded-md border border-[#CFE0FF] bg-[#F5F9FF] px-3 py-2 text-sm text-[#1557B0] underline underline-offset-2 hover:bg-[#EAF2FF] hover:border-[#BBD3FF] transition-colors"
                       >
                         {item.label}
@@ -156,6 +162,7 @@ export default async function PopularExamsPage() {
                       <Link
                         key={`${item.href}-${item.label}`}
                         href={item.href}
+                        prefetch={false}
                         className="block w-full rounded-md border border-[#CFE0FF] bg-[#F5F9FF] px-3 py-2 text-sm text-[#1557B0] underline underline-offset-2 hover:bg-[#EAF2FF] hover:border-[#BBD3FF] transition-colors"
                       >
                         {item.label}

@@ -546,8 +546,8 @@ export default async function BlogSection() {
             const blogUrl = article.slug ? `/blog/${article.slug}` : "#";
 
             const imgSrc = article.image_url
-              ? getOptimizedImageUrl(article.image_url, 600, 340)
-              : "https://via.placeholder.com/600x340";
+              ? getOptimizedImageUrl(article.image_url, 360, 203)
+              : "https://via.placeholder.com/360x203";
 
             return (
 
@@ -569,9 +569,9 @@ export default async function BlogSection() {
                     <OptimizedImage
                       src={imgSrc}
                       alt={article.title}
-                      width={600}
-                      height={340}
-                      aspectRatio="600 / 340"
+                      width={360}
+                      height={203}
+                      aspectRatio="16 / 9"
                       className="transition duration-500 hover:scale-105"
                       sizes="360px"
                       containerClassName="w-full"

@@ -377,25 +377,52 @@ export async function generateMetadata() {
   };
 }
 
+const BLOG_PAGE_SIZE = 9;
+
+function blogListUrl(params = {}) {
+  const url = new URL(`${API_BASE_URL}/api/home/blog-posts/all/`);
+  Object.entries(params).forEach(([key, value]) => {
+    const normalized = String(value ?? "").trim();
+    if (normalized) url.searchParams.set(key, normalized);
+  });
+  return url.toString();
+}
+
 const fetchBlogs = cache(async function fetchBlogs() {
   try {
     const res = await fetch(
-      `${API_BASE_URL}/api/home/blog-posts/all/`,
+      blogListUrl({
+        page: 1,
+        page_size: BLOG_PAGE_SIZE,
+        lite: 1,
+        include_categories: 1,
+      }),
       publicFetchOptions()
     );
     const data = await res.json();
     if (data.success && Array.isArray(data.data)) {
-      return data.data;
+      return {
+        articles: data.data,
+        categories: Array.isArray(data.categories) ? data.categories : [],
+        pagination: data.pagination || {
+          count: data.data.length,
+          page: 1,
+          page_size: BLOG_PAGE_SIZE,
+          total_pages: 1,
+          has_next: false,
+          has_previous: false,
+        },
+      };
     }
-    return [];
+    return { articles: [], categories: [], pagination: null };
   } catch (err) {
     logServerFetchError("Error fetching blog posts:", err);
-    return [];
+    return { articles: [], categories: [], pagination: null };
   }
 });
 
 export default async function BlogPage() {
-  const articles = await fetchBlogs();
+  const { articles, categories, pagination } = await fetchBlogs();
 
   return (
     <div className="min-h-screen bg-white">
@@ -424,7 +451,13 @@ export default async function BlogPage() {
             </div>
           </div>
         ) : (
-          <BlogPageClient articles={articles} />
+          <BlogPageClient
+            initialArticles={articles}
+            initialCategories={categories}
+            initialPagination={pagination}
+            apiBaseUrl={API_BASE_URL}
+            pageSize={BLOG_PAGE_SIZE}
+          />
         )}
       </section>
     </div>

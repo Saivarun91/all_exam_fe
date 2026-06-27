@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +16,13 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Edit, Trash2, SearchIcon, ClipboardList } from "lucide-react";
 import { checkAuth, getAuthHeaders } from "@/utils/authCheck";
+import AdminTablePagination, { ADMIN_TABLE_PAGE_SIZE } from "@/components/admin/AdminTablePagination";
+import {
+  buildAdminListUrl,
+  DEFAULT_ADMIN_PAGINATION,
+  normalizeAdminPagination,
+  useDebouncedValue,
+} from "@/lib/adminPagination";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
@@ -34,23 +41,39 @@ export default function PracticeTestsManagerPage() {
   const router = useRouter();
   const [courses, setCourses] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [listPage, setListPage] = useState(1);
+  const [listPagination, setListPagination] = useState(DEFAULT_ADMIN_PAGINATION);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
+  const debouncedSearchQuery = useDebouncedValue(searchQuery);
 
   useEffect(() => {
     if (!checkAuth()) {
       router.push("/admin/auth");
       return;
     }
-    fetchCourses();
   }, [router]);
+
+  useEffect(() => {
+    if (!checkAuth()) return;
+    fetchCourses();
+  }, [listPage, debouncedSearchQuery]);
 
   const fetchCourses = async () => {
     try {
       setLoading(true);
-      const res = await fetch(`${API_BASE_URL}/api/courses/admin/list/`, {
-        headers: getAuthHeaders(),
-      });
+      const res = await fetch(
+        buildAdminListUrl(`${API_BASE_URL}/api/courses/admin/list/`, {
+          page: listPage,
+          page_size: ADMIN_TABLE_PAGE_SIZE,
+          search: debouncedSearchQuery.trim(),
+          manager: "practice_tests",
+        }),
+        {
+          headers: getAuthHeaders(),
+          cache: "no-store",
+        }
+      );
 
       if (res.status === 401) {
         setMessage("Authentication failed. Please log in again.");
@@ -61,6 +84,7 @@ export default function PracticeTestsManagerPage() {
       const data = await res.json();
       if (data.success) {
         setCourses(Array.isArray(data.data) ? data.data : []);
+        setListPagination(normalizeAdminPagination(data.pagination));
       }
     } catch (error) {
       setMessage(`Error loading exams: ${error.message}`);
@@ -69,24 +93,11 @@ export default function PracticeTestsManagerPage() {
     }
   };
 
-  const filteredCourses = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
-    if (!query) return courses;
-    return courses.filter((course) => {
-      const title = String(course.title || "").toLowerCase();
-      const code = String(course.code || "").toLowerCase();
-      const provider = String(course.provider || "").toLowerCase();
-      const category = String(course.category || "").toLowerCase();
-      const slug = String(course.slug || "").toLowerCase();
-      return (
-        title.includes(query) ||
-        code.includes(query) ||
-        provider.includes(query) ||
-        category.includes(query) ||
-        slug.includes(query)
-      );
-    });
-  }, [courses, searchQuery]);
+  useEffect(() => {
+    setListPage(1);
+  }, [searchQuery]);
+
+  const filteredCourses = courses;
 
   const handleDeleteExam = async (course) => {
     if (!course?.id) return;
@@ -247,6 +258,13 @@ export default function PracticeTestsManagerPage() {
               )}
             </TableBody>
           </Table>
+          <AdminTablePagination
+            currentPage={listPagination.page}
+            totalPages={listPagination.total_pages}
+            totalItems={listPagination.count}
+            onPageChange={setListPage}
+            itemLabel="exams"
+          />
         </CardContent>
       </Card>
     </div>

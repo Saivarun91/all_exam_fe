@@ -8,7 +8,6 @@ import { cache } from "react";
 import { logServerFetchError } from "@/lib/serverFetchLog";
 import ProvidersListClient from "@/components/provider/ProvidersListClient";
 import { publicFetchOptions, providersListUrl } from "@/lib/serverRevalidate";
-import { filterPublicExamListings } from "@/lib/examListingFilters";
 
 const PROVIDERS_BREADCRUMB_ITEMS = [
   { label: "Home", href: "/" },
@@ -17,6 +16,41 @@ const PROVIDERS_BREADCRUMB_ITEMS = [
 
 const API_BASE_URL =  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 const SITE_URL = "https://allexamquestions.com";
+const PROVIDERS_PAGE_SIZE = 24;
+
+function firstSearchParamValue(value) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+function normalizePositiveInt(value, fallback) {
+  const parsed = Number.parseInt(firstSearchParamValue(value), 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function normalizeProvidersPayload(data) {
+  if (Array.isArray(data)) {
+    return {
+      providers: data,
+      pagination: {
+        count: data.length,
+        page: 1,
+        page_size: PROVIDERS_PAGE_SIZE,
+        total_pages: Math.max(1, Math.ceil(data.length / PROVIDERS_PAGE_SIZE)),
+      },
+    };
+  }
+
+  const results = Array.isArray(data?.results) ? data.results : [];
+  return {
+    providers: results,
+    pagination: {
+      count: Number(data?.count) || results.length,
+      page: Number(data?.page) || 1,
+      page_size: Number(data?.page_size) || PROVIDERS_PAGE_SIZE,
+      total_pages: Number(data?.total_pages) || 1,
+    },
+  };
+}
 
 const fetchProvidersPageSeo = cache(async function fetchProvidersPageSeo() {
   try {
@@ -87,98 +121,67 @@ export async function generateMetadata() {
   };
 }
 
-export default async function ProvidersPage() {
-  // Fetch all providers
+export default async function ProvidersPage({ searchParams }) {
+  const resolvedSearchParams = await searchParams;
+  const page = normalizePositiveInt(resolvedSearchParams?.page, 1);
+  const search = String(firstSearchParamValue(resolvedSearchParams?.q) || "").trim();
   let providers = [];
-  let courses = [];
+  let providersPagination = {
+    count: 0,
+    page,
+    page_size: PROVIDERS_PAGE_SIZE,
+    total_pages: 1,
+  };
   try {
-    const [providersRes, coursesRes] = await Promise.all([
-      fetch(providersListUrl(API_BASE_URL), publicFetchOptions()),
-      fetch(`${API_BASE_URL}/api/courses/`, publicFetchOptions()),
-    ]);
+    const providersUrl = providersListUrl(API_BASE_URL, {
+        page,
+        page_size: PROVIDERS_PAGE_SIZE,
+        q: search,
+        include_exam_counts: 1,
+        include_exam_preview: 1,
+        exam_preview_limit: 5,
+      });
+    if (process.env.NODE_ENV !== "production") {
+      console.log("[/providers] providers API hit:", providersUrl);
+    }
+    const providersRes = await fetch(
+      providersUrl,
+      publicFetchOptions()
+    );
 
-    if (providersRes.ok) providers = await providersRes.json();
-    if (coursesRes.ok) courses = await coursesRes.json();
+    if (providersRes.ok) {
+      const payload = normalizeProvidersPayload(await providersRes.json());
+      providers = payload.providers;
+      providersPagination = payload.pagination;
+      if (process.env.NODE_ENV !== "production") {
+        console.log("[/providers] providers API data:", {
+          pagination: providersPagination,
+          itemCount: providers.length,
+          sample: providers.slice(0, 3).map((provider) => ({
+            id: provider.id,
+            name: provider.name,
+            slug: provider.slug,
+            examCount: provider.exam_count,
+            previewCount: Array.isArray(provider.exams) ? provider.exams.length : 0,
+          })),
+        });
+      }
+    }
   } catch (err) {
-    logServerFetchError("Failed to fetch providers/courses:", err);
+    logServerFetchError("Failed to fetch providers:", err);
   }
 
   const normalizedProviders = Array.isArray(providers) ? providers : [];
-  const normalizedCourses = filterPublicExamListings(
-    Array.isArray(courses) ? courses : []
-  );
-
-  const courseProviderKeys = (course) => {
-    const keys = [];
-
-    const providerIdKey = String(course?.provider_id || "").trim();
-    if (providerIdKey) keys.push(providerIdKey);
-
-    const providerSlugKey = String(course?.provider_slug || "")
-      .toLowerCase()
-      .trim();
-    if (providerSlugKey) keys.push(providerSlugKey);
-
-    const providerNameKey = String(course?.provider || "")
-      .toLowerCase()
-      .trim();
-    if (providerNameKey) keys.push(providerNameKey);
-
-    return keys;
-  };
-
-  const providerExamsMap = normalizedCourses.reduce((acc, course) => {
-    if (course?.is_active === false) return acc;
-
-    for (const key of courseProviderKeys(course)) {
-      if (!acc[key]) acc[key] = [];
-      acc[key].push(course);
-    }
-    return acc;
-  }, {});
-
-  const providerExamCountMap = normalizedCourses.reduce((acc, course) => {
-    if (course?.is_active === false) return acc;
-
-    for (const key of courseProviderKeys(course)) {
-      acc[key] = (acc[key] || 0) + 1;
-    }
-    return acc;
-  }, {});
 
   const providerItems = normalizedProviders.map((provider) => {
-    const providerIdKey = String(provider?.id || "").trim();
-    const providerSlugKey = String(provider?.slug || "").toLowerCase().trim();
-    const providerNameKey = String(provider?.name || "").toLowerCase().trim();
-    const examCount =
-      providerExamCountMap[providerIdKey] ??
-      providerExamCountMap[providerSlugKey] ??
-      providerExamCountMap[providerNameKey] ??
-      0;
-
-    const examsForProvider = (
-      providerExamsMap[providerIdKey] ??
-      providerExamsMap[providerSlugKey] ??
-      providerExamsMap[providerNameKey] ??
-      []
-    )
-      .slice()
-      .sort((a, b) =>
-        String(a?.title || a?.name || "").localeCompare(
-          String(b?.title || b?.name || ""),
-          undefined,
-          { sensitivity: "base" }
-        )
-      );
-
     return {
       id: provider.id,
       slug: provider.slug,
       name: provider.name,
       description: provider.description || "",
       logo: provider?.logo_url || provider?.logoUrl || provider?.logo || "",
-      examCount,
-      exams: examsForProvider,
+      examCount: Number(provider.exam_count) || 0,
+      exams: Array.isArray(provider.exams) ? provider.exams : [],
     };
   });
 
@@ -193,7 +196,11 @@ export default async function ProvidersPage() {
           All Providers
         </h1>
 
-        <ProvidersListClient providers={providerItems} />
+        <ProvidersListClient
+          providers={providerItems}
+          initialSearchTerm={search}
+          pagination={providersPagination}
+        />
       </div>
     </>
   );

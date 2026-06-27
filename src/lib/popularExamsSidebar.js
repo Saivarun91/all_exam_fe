@@ -44,14 +44,15 @@ export function buildPopularExamsSidebarItems(
     .filter((c) => c.href && c._key !== currentExamKey);
 }
 
-export async function fetchPopularExamsCourses() {
+export async function fetchPopularExamsCourses({ limit = 8 } = {}) {
   const API_BASE = (
     process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000"
   ).replace(/\/\/localhost(?=[:/])/i, "//127.0.0.1");
+  const params = new URLSearchParams({ lite: "1", limit: String(limit) });
 
   try {
-    const res = await fetch(`${API_BASE}${FEATURED_COURSES_API_PATH}`, {
-      cache: "no-store",
+    const res = await fetch(`${API_BASE}${FEATURED_COURSES_API_PATH}?${params.toString()}`, {
+      next: { revalidate: 300 },
     });
     if (!res.ok) return [];
     const data = await res.json();

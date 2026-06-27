@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
@@ -12,7 +12,12 @@ import TipTapEditor from "@/components/editor/TipTapEditor";
 import { resolveCategoryImageUrl } from "@/lib/categoryImage";
 import { convertImageFileToWebp } from "@/utils/convertImageToWebp";
 import AdminTablePagination, { ADMIN_TABLE_PAGE_SIZE } from "@/components/admin/AdminTablePagination";
-import { getListPaginationSlice } from "@/components/common/ListPagination";
+import {
+  buildAdminListUrl,
+  DEFAULT_ADMIN_PAGINATION,
+  normalizeAdminPagination,
+  useDebouncedValue,
+} from "@/lib/adminPagination";
 import {
   clampToWordLimit,
   countWords,
@@ -103,6 +108,7 @@ export default function AdminCategoriesPage() {
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [listPage, setListPage] = useState(1);
+  const [listPagination, setListPagination] = useState(DEFAULT_ADMIN_PAGINATION);
   const [showModal, setShowModal] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [selectedSlugs, setSelectedSlugs] = useState([]);
@@ -130,6 +136,7 @@ export default function AdminCategoriesPage() {
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
   const BASE_URL = `${API_BASE_URL}/api/categories`;
   const HOME_BASE_URL = `${API_BASE_URL}/api/home`;
+  const debouncedSearchTerm = useDebouncedValue(searchTerm);
   const handleSaveHeroSection = async () => {
     try {
       const res = await fetch(`${HOME_BASE_URL}/admin/categories-page-seo/`, {
@@ -179,56 +186,49 @@ export default function AdminCategoriesPage() {
     slug: "",
   });
 
-  // Fetch categories and course counts
+  // Fetch categories with server-side search, pagination, and course counts.
   useEffect(() => {
     let mounted = true;
     const fetchCategories = async () => {
       try {
-        const res = await fetch(`${BASE_URL}/`);
+        setLoading(true);
+        const res = await fetch(
+          buildAdminListUrl(`${BASE_URL}/`, {
+            page: listPage,
+            page_size: ADMIN_TABLE_PAGE_SIZE,
+            search: debouncedSearchTerm.trim(),
+          }),
+          { cache: "no-store" }
+        );
         if (!res.ok) throw new Error(`Failed to fetch categories: ${res.status}`);
         const data = await res.json();
-        if (!Array.isArray(data)) throw new Error("Unexpected response format");
-        
-        // Fetch course counts for each category
-        const categoriesWithCounts = await Promise.all(
-          data.map(async (c) => {
-            const slug = c.slug || (c.id || c._id ? String(c.id || c._id) : "");
-            let courseCount = 0;
-            
-            try {
-              const coursesRes = await fetch(`${API_BASE_URL}/api/courses/category/${slug}/`);
-              if (coursesRes.ok) {
-                const courses = await coursesRes.json();
-                courseCount = Array.isArray(courses) ? courses.length : 0;
-              }
-            } catch (err) {
-              console.error(`Error fetching courses for ${slug}:`, err);
-            }
-            
-            return {
-              title: c.title || c.name || "",
-              slug: slug,
-              main_category: c.main_category || "",
-              description: c.description || "",
-              content: normalizeContentForEditor(c.content || ""),
-              faqs: Array.isArray(c.faqs) ? c.faqs : [],
-              icon: c.icon || ICON_OPTIONS[0],
-              image_url: c.image_url || "",
-              meta_title: c.meta_title || "",
-              meta_keywords: c.meta_keywords || "",
-              meta_description: c.meta_description || "",
-              is_top_certification: parseBoolean(c.is_top_certification),
-              page_title: c.page_title || "",
-              hero_title: c.hero_title || "",
-              hero_subtitle: c.hero_subtitle || "",
-              courseCount: courseCount,
-            };
-          })
-        );
+        const rows = Array.isArray(data?.data) ? data.data : [];
+        const categoriesWithCounts = rows.map((c) => {
+          const slug = c.slug || (c.id || c._id ? String(c.id || c._id) : "");
+          return {
+            title: c.title || c.name || "",
+            slug: slug,
+            main_category: c.main_category || "",
+            description: c.description || "",
+            content: normalizeContentForEditor(c.content || ""),
+            faqs: Array.isArray(c.faqs) ? c.faqs : [],
+            icon: c.icon || ICON_OPTIONS[0],
+            image_url: c.image_url || "",
+            meta_title: c.meta_title || "",
+            meta_keywords: c.meta_keywords || "",
+            meta_description: c.meta_description || "",
+            is_top_certification: parseBoolean(c.is_top_certification),
+            page_title: c.page_title || "",
+            hero_title: c.hero_title || "",
+            hero_subtitle: c.hero_subtitle || "",
+            courseCount: Number(c.course_count) || 0,
+          };
+        });
         
         if (mounted) {
           setCategories(categoriesWithCounts);
           setFilteredCategories(categoriesWithCounts);
+          setListPagination(normalizeAdminPagination(data.pagination));
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to fetch categories");
@@ -238,7 +238,7 @@ export default function AdminCategoriesPage() {
     };
     fetchCategories();
     return () => { mounted = false; };
-  }, [BASE_URL, API_BASE_URL]);
+  }, [BASE_URL, listPage, debouncedSearchTerm]);
 
   // Fetch /categories page SEO
   useEffect(() => {
@@ -299,27 +299,16 @@ export default function AdminCategoriesPage() {
     }
   };
 
-  // Search - searches in title, description, and slug
   useEffect(() => {
-    if (!searchTerm.trim()) {
-      setFilteredCategories(categories);
-      return;
-    }
-    const query = searchTerm.toLowerCase();
-    const filtered = categories.filter((cat) => {
-      const title = (cat.title || "").toLowerCase();
-      const description = (cat.description || "").toLowerCase();
-      const slug = (cat.slug || "").toLowerCase();
-      return title.includes(query) || description.includes(query) || slug.includes(query);
-    });
-    setFilteredCategories(filtered);
     setListPage(1);
-  }, [searchTerm, categories]);
+  }, [searchTerm]);
 
-  const paginatedCategories = useMemo(
-    () => getListPaginationSlice(filteredCategories, listPage, ADMIN_TABLE_PAGE_SIZE),
-    [filteredCategories, listPage]
-  );
+  const paginatedCategories = {
+    items: filteredCategories,
+    page: listPagination.page,
+    totalPages: listPagination.total_pages,
+    totalItems: listPagination.count,
+  };
 
   const buildCategoryRequestBody = () => ({
     title: categoryData.title,

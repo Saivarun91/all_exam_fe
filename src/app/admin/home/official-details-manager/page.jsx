@@ -49,8 +49,13 @@ import TipTapEditor from "@/components/editor/TipTapEditor";
 
 import { hasOfficialDetailsData } from "@/components/exam/OfficialExamDetailsView";
 import AdminTablePagination, { ADMIN_TABLE_PAGE_SIZE } from "@/components/admin/AdminTablePagination";
-import { getListPaginationSlice } from "@/components/common/ListPagination";
 import { isOfficialDetailsOnlyCourse } from "@/lib/examListingFilters";
+import {
+  buildAdminListUrl,
+  DEFAULT_ADMIN_PAGINATION,
+  normalizeAdminPagination,
+  useDebouncedValue,
+} from "@/lib/adminPagination";
 import {
   getPublicPageUrlFromSlug,
   resolveCourseCodeForSave,
@@ -190,6 +195,7 @@ export default function OfficialDetailsManager() {
   const [searchQuery, setSearchQuery] = useState("");
   const [listSearchQuery, setListSearchQuery] = useState("");
   const [listPage, setListPage] = useState(1);
+  const [listPagination, setListPagination] = useState(DEFAULT_ADMIN_PAGINATION);
   const [showSearchDropdown, setShowSearchDropdown] =
     useState(false);
   const [provider, setProvider] = useState("");
@@ -216,6 +222,7 @@ export default function OfficialDetailsManager() {
 
   const [officialDetailsUrlSlug, setOfficialDetailsUrlSlug] =
     useState("");
+  const debouncedListSearchQuery = useDebouncedValue(listSearchQuery);
 
   const [
     officialDetailsStatExamCode,
@@ -277,38 +284,19 @@ export default function OfficialDetailsManager() {
   }, [courses, searchQuery]);
 
   const filteredCourses = useMemo(() => {
-    const q = listSearchQuery.trim().toLowerCase();
-    if (!q) return courses;
-
-    return courses.filter((course) => {
-      const examNameLabel = String(
-        course.exam_name || course.title || ""
-      ).toLowerCase();
-      const code = String(course.code || "").toLowerCase();
-      const provider = String(course.provider || "").toLowerCase();
-      const slug = String(course.slug || "").toLowerCase();
-      const urlSlug = String(
-        course.official_details_url_slug || "official-details"
-      ).toLowerCase();
-
-      return (
-        examNameLabel.includes(q) ||
-        code.includes(q) ||
-        provider.includes(q) ||
-        slug.includes(q) ||
-        urlSlug.includes(q)
-      );
-    });
-  }, [courses, listSearchQuery]);
+    return courses;
+  }, [courses]);
 
   useEffect(() => {
     setListPage(1);
   }, [listSearchQuery]);
 
-  const paginatedCourses = useMemo(
-    () => getListPaginationSlice(filteredCourses, listPage, ADMIN_TABLE_PAGE_SIZE),
-    [filteredCourses, listPage]
-  );
+  const paginatedCourses = {
+    items: filteredCourses,
+    page: listPagination.page,
+    totalPages: listPagination.total_pages,
+    totalItems: listPagination.count,
+  };
 
   const handleCloseModal = () => {
     setShowOfficialModal(false);
@@ -588,9 +576,15 @@ export default function OfficialDetailsManager() {
     setCoursesLoading(true);
     try {
       const res = await fetch(
-        `${API_BASE_URL}/api/courses/admin/list/`,
+        buildAdminListUrl(`${API_BASE_URL}/api/courses/admin/list/`, {
+          page: listPage,
+          page_size: ADMIN_TABLE_PAGE_SIZE,
+          search: debouncedListSearchQuery.trim(),
+          manager: "official_details",
+        }),
         {
           headers: getAuthHeaders(),
+          cache: "no-store",
         }
       );
 
@@ -607,11 +601,8 @@ export default function OfficialDetailsManager() {
       const data = await res.json();
 
       if (data.success) {
-        const officialDetailsCourses = (data.data || []).filter(
-          isOfficialCourse
-        );
-      
-        setCourses(officialDetailsCourses);
+        setCourses(data.data || []);
+        setListPagination(normalizeAdminPagination(data.pagination));
       }
     } catch (error) {
       console.error("Error fetching courses:", error);
@@ -648,11 +639,16 @@ export default function OfficialDetailsManager() {
         return;
       }
   
-      await Promise.all([fetchCourses(), fetchProviders()]);
+      await fetchProviders();
     };
   
     init();
   }, []);
+
+  useEffect(() => {
+    if (!checkAuth()) return;
+    fetchCourses();
+  }, [listPage, debouncedListSearchQuery]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {

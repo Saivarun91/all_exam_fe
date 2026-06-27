@@ -1,6 +1,5 @@
 import { cache } from "react";
 import {
-  buildOfficialDetailsPublicUrl,
   getOfficialDetailsPath,
 } from "@/app/exams/[provider]/[examCode]/examInfoUtils";
 import { hasOfficialDetailsData } from "@/components/exam/OfficialExamDetailsView";
@@ -247,12 +246,10 @@ export function buildExamDetailPayload(exam, { provider = "", examCode = "" } = 
         code: pick("code", "exam_code") || resolvedExamCode,
       }) || (slug ? `/${slug}/practice` : `/${resolvedExamCode}/practice`),
     hasOfficialDetails: hasOfficialDetailsData(exam),
-    officialDetailsUrl:
-      buildOfficialDetailsPublicUrl(exam) ||
-      getOfficialDetailsPath(
-        slug || resolvedExamCode,
-        pick("official_details_url_slug") || "official-details"
-      ),
+    officialDetailsUrl: getOfficialDetailsPath(
+      slug || resolvedExamCode,
+      pick("official_details_url_slug") || "official-details"
+    ),
     code: pick("code", "exam_code") || resolvedExamCode,
     title: pick("title", "name") || "",
     page_heading: pick("page_heading") || null,

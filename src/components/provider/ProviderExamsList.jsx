@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { getExamUrl } from "@/lib/utils";
 import ListPagination, {
   PROVIDER_LIST_PAGE_SIZE,
@@ -48,9 +49,10 @@ function ProviderExamCard({ exam, providerName }) {
       </div>
       <Link
         href={getExamUrl(exam)}
+        prefetch={false}
         className="inline-flex items-center justify-center rounded-lg bg-[#1A73E8] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1557B0]"
       >
-        {t("common.start_practicing")}
+        Start Practicing
       </Link>
     </div>
   );
@@ -58,18 +60,71 @@ function ProviderExamCard({ exam, providerName }) {
 
 export default function ProviderExamsList({
   exams,
+  pagination: backendPagination = null,
   providerName,
   scrollTargetId = "provider-exams-grid",
 }) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [listPage, setListPage] = useState(1);
-  const safeExams = Array.isArray(exams) ? exams : [];
+  const safeExams = useMemo(() => (Array.isArray(exams) ? exams : []), [exams]);
 
-  const pagination = useMemo(
-    () => getListPaginationSlice(safeExams, listPage, PROVIDER_LIST_PAGE_SIZE),
-    [safeExams, listPage]
-  );
+  const pagination = useMemo(() => {
+    if (backendPagination) {
+      const totalItems = Number(backendPagination?.count) || safeExams.length;
+      const pageSize =
+        Number(backendPagination?.page_size) || PROVIDER_LIST_PAGE_SIZE;
+      const totalPages =
+        Number(backendPagination?.total_pages) ||
+        Math.max(1, Math.ceil(totalItems / pageSize) || 1);
+      const page = Math.min(
+        Math.max(1, Number(backendPagination?.page) || 1),
+        totalPages
+      );
+      return {
+        page,
+        totalPages,
+        totalItems,
+        startIndex: (page - 1) * pageSize,
+        items: safeExams,
+      };
+    }
+    return getListPaginationSlice(safeExams, listPage, PROVIDER_LIST_PAGE_SIZE);
+  }, [backendPagination, safeExams, listPage]);
 
-  if (safeExams.length === 0) {
+  useEffect(() => {
+    if (process.env.NODE_ENV === "production") return;
+    console.log("[ProviderExamsList] frontend data received:", {
+      providerName,
+      backendPagination: Boolean(backendPagination),
+      pagination: {
+        page: pagination.page,
+        totalPages: pagination.totalPages,
+        totalItems: pagination.totalItems,
+        pageSize: Number(backendPagination?.page_size) || PROVIDER_LIST_PAGE_SIZE,
+      },
+      renderedItems: pagination.items.length,
+      sample: pagination.items.slice(0, 3).map((exam) => ({
+        id: exam.id,
+        title: exam.title || exam.name,
+        code: exam.code,
+      })),
+    });
+  }, [backendPagination, pagination, providerName]);
+
+  const handlePageChange = (page) => {
+    if (!backendPagination) {
+      setListPage(page);
+      return;
+    }
+    const params = new URLSearchParams(searchParams?.toString() || "");
+    params.set("page", String(page));
+    const query = params.toString();
+    router.push(`${pathname || ""}${query ? `?${query}` : ""}`, { scroll: false });
+  };
+
+  if (pagination.totalItems === 0) {
     return <p className="text-[#0C1A35]/60">{t("common.no_exams")}</p>;
   }
 
@@ -92,10 +147,10 @@ export default function ProviderExamsList({
         currentPage={pagination.page}
         totalPages={pagination.totalPages}
         totalItems={pagination.totalItems}
-        pageSize={PROVIDER_LIST_PAGE_SIZE}
+        pageSize={Number(backendPagination?.page_size) || PROVIDER_LIST_PAGE_SIZE}
         itemLabelKey="pagination.exams"
         scrollTargetId={scrollTargetId}
-        onPageChange={setListPage}
+        onPageChange={handlePageChange}
       />
     </>
   );

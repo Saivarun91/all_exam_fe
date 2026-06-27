@@ -8,11 +8,32 @@ import CategoryCard from "@/components/category/CategoryCard";
 import ListPagination, {
   getListPaginationSlice,
 } from "@/components/common/ListPagination";
-import { t, tf } from "@/lib/uiStrings";
+import { topCertificationCategoriesUrl } from "@/lib/serverRevalidate";
+import { t } from "@/lib/uiStrings";
 import { resolveCategoryImageUrl } from "@/lib/categoryImage";
 import OptimizedImage from "@/components/common/OptimizedImage";
 
 const TOP_CATEGORIES_PAGE_SIZE = 8;
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
+
+function normalizeTopCategoriesPage(data, examCountsByCategorySlug = {}) {
+  const results = Array.isArray(data?.results) ? data.results : [];
+
+  return {
+    results: results.map((category) => ({
+      ...category,
+      examCount:
+        examCountsByCategorySlug[
+          String(category?.slug || "").trim().toLowerCase()
+        ] || category?.examCount || 0,
+    })),
+    count: Number(data?.count) || results.length,
+    page: Number(data?.page) || 1,
+    page_size: Number(data?.page_size) || TOP_CATEGORIES_PAGE_SIZE,
+    total_pages: Number(data?.total_pages) || 1,
+  };
+}
 
 function CategoryListItem({ category }) {
   const title = category?.title || category?.name || "";
@@ -58,9 +79,29 @@ function CategoryListItem({ category }) {
 export default function CategoriesListClient({
   groupedCategories = {},
   topCertificationCategories = [],
+  initialTopCertificationCategoriesPage = null,
+  examCountsByCategorySlug = {},
 }) {
   const [searchTerm, setSearchTerm] = useState("");
-  const [topCategoriesPage, setTopCategoriesPage] = useState(1);
+  const [topCategoriesPage, setTopCategoriesPage] = useState(
+    initialTopCertificationCategoriesPage?.page || 1
+  );
+  const [topCategoriesPageData, setTopCategoriesPageData] = useState(() =>
+    normalizeTopCategoriesPage(
+      initialTopCertificationCategoriesPage || {
+        results: topCertificationCategories.slice(0, TOP_CATEGORIES_PAGE_SIZE),
+        count: topCertificationCategories.length,
+        page: 1,
+        page_size: TOP_CATEGORIES_PAGE_SIZE,
+        total_pages: Math.max(
+          1,
+          Math.ceil(topCertificationCategories.length / TOP_CATEGORIES_PAGE_SIZE)
+        ),
+      },
+      examCountsByCategorySlug
+    )
+  );
+  const [isLoadingTopCategories, setIsLoadingTopCategories] = useState(false);
   const formatSectionHeading = (heading) => {
     const text = String(heading || "").trim();
     if (!text) return t("common.categories");
@@ -73,7 +114,7 @@ export default function CategoriesListClient({
     const query = searchTerm.trim().toLowerCase();
     if (!query) {
       return {
-        filteredTopCategories: topCertificationCategories,
+        filteredTopCategories: topCategoriesPageData.results,
         filteredGroups: groupedCategories,
       };
     }
@@ -101,20 +142,80 @@ export default function CategoriesListClient({
       filteredTopCategories: nextTopCategories,
       filteredGroups: nextGroups,
     };
-  }, [groupedCategories, searchTerm, topCertificationCategories]);
+  }, [
+    groupedCategories,
+    searchTerm,
+    topCategoriesPageData.results,
+    topCertificationCategories,
+  ]);
 
   useEffect(() => {
     setTopCategoriesPage(1);
   }, [searchTerm]);
 
+  useEffect(() => {
+    const query = searchTerm.trim();
+    if (query || topCategoriesPage === topCategoriesPageData.page) return;
+
+    let isMounted = true;
+
+    async function loadTopCategoriesPage() {
+      setIsLoadingTopCategories(true);
+
+      try {
+        const res = await fetch(
+          topCertificationCategoriesUrl(API_BASE_URL, {
+            page: topCategoriesPage,
+            page_size: TOP_CATEGORIES_PAGE_SIZE,
+          })
+        );
+
+        if (!res.ok) return;
+
+        const data = await res.json();
+        if (!isMounted) return;
+
+        setTopCategoriesPageData(
+          normalizeTopCategoriesPage(data, examCountsByCategorySlug)
+        );
+      } catch {
+        // Keep the current page visible if the paginated request fails.
+      } finally {
+        if (isMounted) setIsLoadingTopCategories(false);
+      }
+    }
+
+    loadTopCategoriesPage();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [
+    examCountsByCategorySlug,
+    searchTerm,
+    topCategoriesPage,
+    topCategoriesPageData.page,
+  ]);
+
+  const isSearching = searchTerm.trim().length > 0;
   const topCategoriesPagination = useMemo(
-    () =>
-      getListPaginationSlice(
-        filteredTopCategories,
-        topCategoriesPage,
-        TOP_CATEGORIES_PAGE_SIZE
-      ),
-    [filteredTopCategories, topCategoriesPage]
+    () => {
+      if (isSearching) {
+        return getListPaginationSlice(
+          filteredTopCategories,
+          topCategoriesPage,
+          TOP_CATEGORIES_PAGE_SIZE
+        );
+      }
+
+      return {
+        page: topCategoriesPageData.page,
+        totalPages: topCategoriesPageData.total_pages,
+        totalItems: topCategoriesPageData.count,
+        items: filteredTopCategories,
+      };
+    },
+    [filteredTopCategories, isSearching, topCategoriesPage, topCategoriesPageData]
   );
 
   const hasResults =
@@ -163,6 +264,11 @@ export default function CategoriesListClient({
                   scrollTargetId="top-certification-categories"
                   onPageChange={setTopCategoriesPage}
                 />
+                {isLoadingTopCategories ? (
+                  <p className="mt-3 text-sm text-[#0C1A35]/60">
+                    Loading categories...
+                  </p>
+                ) : null}
               </>
             ) : (
               <div className="rounded-lg border border-[#DDE7FF] bg-[#F8FBFF] px-4 py-3 text-sm text-[#0C1A35]/70">

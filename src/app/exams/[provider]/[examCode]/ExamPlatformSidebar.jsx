@@ -395,7 +395,6 @@ function useAnimatedPercent(duration = 1400) {
 
   useEffect(() => {
     const goal = 95;
-    setValue(0);
 
     let frameId = 0;
     const startTime = performance.now();
@@ -507,8 +506,9 @@ export default function ExamPlatformSidebar({
   officialDetailsUrl,
   hasOfficialDetails,
   matchPercent,
+  initialPopularExams = [],
 }) {
-  const [popularExams, setPopularExams] = useState([]);
+  const [popularExams, setPopularExams] = useState(initialPopularExams);
 
   const currentExamKey = useMemo(() => {
     const codeRow = platformRows?.find(
@@ -521,13 +521,16 @@ export default function ExamPlatformSidebar({
   }, [platformRows]);
 
   useEffect(() => {
+    if (initialPopularExams.length > 0) return;
+
     let alive = true;
 
     async function loadPopular() {
       try {
-        const res = await fetch(`${API_BASE_URL}${FEATURED_COURSES_API_PATH}`, {
-          cache: "no-store",
-        });
+        const params = new URLSearchParams({ lite: "1", limit: "8" });
+        const res = await fetch(
+          `${API_BASE_URL}${FEATURED_COURSES_API_PATH}?${params.toString()}`
+        );
         if (!res.ok) return;
 
         const data = await res.json();
@@ -567,7 +570,7 @@ export default function ExamPlatformSidebar({
     return () => {
       alive = false;
     };
-  }, [currentExamKey]);
+  }, [currentExamKey, initialPopularExams.length]);
 
   return (
     <div className="relative sticky top-24">

@@ -527,8 +527,12 @@ import PracticePageBreadcrumbs, {
   PRACTICE_PAGE_CONTAINER,
 } from "./PracticePageBreadcrumbs";
 import { parseExamTopics } from "@/lib/parseExamTopics";
+import {
+  fetchExamByIdentifier,
+  fetchExamByLegacyRoute,
+} from "@/lib/loadExamDetailPage";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 300;
 
 /** ASCII path segments (fixes Unicode hyphen U+2011 etc. showing as %E2%80%91 in URLs) */
 function normalizePathSegment(segment) {
@@ -561,26 +565,16 @@ function formatExamName(title, code) {
 export async function generateMetadata({ params }) {
   const { provider, examCode } = await params;
 
-  const API_BASE =
-    process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
-
   const normalizedProvider = normalizePathSegment(provider);
   const normalizedExamCode = normalizePathSegment(examCode);
-  const slug = `${normalizedProvider}-${normalizedExamCode}`;
 
   try {
-    const res = await fetch(
-      `${API_BASE}/api/courses/exams/${slug}/`,
-      { cache: "no-store" }
-    );
-
-    if (!res.ok) {
+    const exam = await fetchExamByLegacyRoute(normalizedProvider, normalizedExamCode);
+    if (!exam) {
       return {
         title: "Practice Tests | AllExamQuestions",
       };
     }
-
-    const exam = await res.json();
 
     // return {
     //   // title:
@@ -651,19 +645,12 @@ export default async function PracticePage(props) {
 
   if (!provider || !examCode) return notFound();
 
-  const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
-
   let examData = null;
 
   try {
-    const { fetchExamByIdentifier } = await import("@/lib/loadExamDetailPage");
-    examData = await fetchExamByIdentifier(examCode);
-    if (!examData) {
-      const res = await fetch(`${API_BASE}/api/courses/exams/${examCode}/`, {
-        cache: "no-store",
-      });
-      if (res.ok) examData = await res.json();
-    }
+    examData =
+      (await fetchExamByLegacyRoute(provider, examCode)) ||
+      (await fetchExamByIdentifier(examCode));
     if (!examData) throw new Error("Exam not found");
   } catch (err) {
     console.error(err);

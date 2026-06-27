@@ -1,6 +1,10 @@
 import ExamsPageContent from "@/components/exams/ExamsPageContent";
 import { fetchExamsPageData } from "@/lib/fetchExamsPageData";
 
+function firstSearchParamValue(value) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
 export async function generateMetadata({ params }) {
   const { provider, keyword } = await params;
 
@@ -20,14 +24,19 @@ export async function generateMetadata({ params }) {
   };
 }
 
-export default async function ProviderKeywordExamsPage({ params }) {
+export default async function ProviderKeywordExamsPage({ params, searchParams }) {
   const { provider, keyword } = await params;
+  const resolvedSearchParams = await searchParams;
 
   const decodedKeyword = keyword
     ? decodeURIComponent(keyword).replace(/-/g, " ")
     : "";
 
-  const data = await fetchExamsPageData();
+  const data = await fetchExamsPageData({
+    page: firstSearchParamValue(resolvedSearchParams?.page) || 1,
+    provider,
+    q: decodedKeyword,
+  });
 
   const providerName =
     data.providers.find(
@@ -45,10 +54,12 @@ export default async function ProviderKeywordExamsPage({ params }) {
       initialProvidersData={data.providers}
       initialCategoriesData={data.categories}
       initialExamsData={data.exams}
+      initialExamsPagination={data.examsPagination}
       initialTrustBarData={data.trustBarItems}
       initialAboutData={data.aboutSection}
       initialPageHeading={`${keywordTitle} - ${providerName}`}
       usePathBasedRouting={true}
+      backendPagination={true}
     />
   );
 }

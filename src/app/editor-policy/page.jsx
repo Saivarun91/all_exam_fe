@@ -158,16 +158,17 @@ import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import TipTapContent from "@/components/editor/TipTapContent";
+import { publicFetchOptions } from "@/lib/serverRevalidate";
 
-// ✅ Force static HTML output
-export const dynamic = "force-dynamic";
+export const revalidate = 60;
 
 export async function generateMetadata() {
   try {
     const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
-    const res = await fetch(`${API_BASE_URL}/api/settings/editor-policy/`, {
-      cache: "no-store", 
-    });
+    const res = await fetch(
+      `${API_BASE_URL}/api/settings/editor-policy/`,
+      publicFetchOptions()
+    );
     const result = await res.json();
     return {
       // title: result.meta_title + " | All Exam Questions" || "",
@@ -194,9 +195,10 @@ export async function generateMetadata() {
 }
 async function fetchEditorPolicy() {
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
-  const res = await fetch(`${API_BASE_URL}/api/settings/editor-policy/`, {
-    cache: "no-store",
-  });
+  const res = await fetch(
+    `${API_BASE_URL}/api/settings/editor-policy/`,
+    publicFetchOptions()
+  );
   return res.json();
 }
 export default async function EditorPolicy() {

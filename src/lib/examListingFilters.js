@@ -19,6 +19,10 @@ export function isOfficialDetailsCourse(course) {
 }
 
 export function courseHasExamDetails(course) {
+  if (course?.has_exam_details === true || course?.hasExamDetails === true) {
+    return true;
+  }
+
   return !!(
     stripHtmlText(course?.about) ||
     stripHtmlText(course?.page_heading) ||

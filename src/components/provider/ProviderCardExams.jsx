@@ -21,6 +21,7 @@ export default function ProviderCardExams({ exams = [] }) {
           <li key={exam.id || exam.slug || `${exam.provider_slug}-${exam.code}`}>
             <Link
               href={getExamUrl(exam)}
+              prefetch={false}
               className="block text-sm text-[#1A73E8] hover:underline leading-snug break-words cursor-pointer"
               title={exam.title || exam.name || exam.code || ""}
             >

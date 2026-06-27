@@ -796,6 +796,13 @@ import {
   ensureCloudinaryWebpUrl,
 } from "@/utils/convertImageToWebp";
 import TipTapEditor from "@/components/editor/TipTapEditor";
+import AdminTablePagination, { ADMIN_TABLE_PAGE_SIZE } from "@/components/admin/AdminTablePagination";
+import {
+  buildAdminListUrl,
+  DEFAULT_ADMIN_PAGINATION,
+  normalizeAdminPagination,
+  useDebouncedValue,
+} from "@/lib/adminPagination";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
@@ -808,6 +815,10 @@ export default function BlogPostsAdmin() {
   const [message, setMessage] = useState("");
   const [sliderCategories, setSliderCategories] = useState([]);
   const [sliderProviders, setSliderProviders] = useState([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [listPage, setListPage] = useState(1);
+  const [listPagination, setListPagination] = useState(DEFAULT_ADMIN_PAGINATION);
+  const debouncedSearchQuery = useDebouncedValue(searchQuery);
   
   const [formData, setFormData] = useState({
     title: "",
@@ -840,10 +851,13 @@ export default function BlogPostsAdmin() {
   });
   
   useEffect(() => {
-    fetchPosts();
     fetchSectionSettings();
     fetchSliderOptions();
   }, []);
+
+  useEffect(() => {
+    fetchPosts();
+  }, [listPage, debouncedSearchQuery]);
 
   const fetchSliderOptions = async () => {
     try {
@@ -968,21 +982,34 @@ export default function BlogPostsAdmin() {
 
   const fetchPosts = async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/home/admin/blog-posts/`, {
-        headers: {
-          "Authorization": `Bearer ${localStorage.getItem("token")}`
+      const res = await fetch(
+        buildAdminListUrl(`${API_BASE_URL}/api/home/admin/blog-posts/`, {
+          page: listPage,
+          page_size: ADMIN_TABLE_PAGE_SIZE,
+          search: debouncedSearchQuery.trim(),
+        }),
+        {
+          headers: {
+            "Authorization": `Bearer ${localStorage.getItem("token")}`
+          },
+          cache: "no-store",
         }
-      });
+      );
       
       const data = await res.json();
       
       if (data.success) {
         setPosts(data.data);
+        setListPagination(normalizeAdminPagination(data.pagination));
       }
     } catch (error) {
       console.error("Error fetching blog posts:", error);
     }
   };
+
+  useEffect(() => {
+    setListPage(1);
+  }, [searchQuery]);
   
   const resetForm = () => {
     setFormData({
@@ -1692,9 +1719,17 @@ export default function BlogPostsAdmin() {
       {/* Blog Posts Table */}
       <Card className="border-[#D3E3FF]">
         <CardHeader className="bg-gradient-to-r from-[#1A73E8]/5 to-purple-500/5">
-          <CardTitle>All Blog Posts ({posts.length})</CardTitle>
+          <CardTitle>All Blog Posts ({listPagination.count})</CardTitle>
         </CardHeader>
         <CardContent>
+          <div className="mb-4">
+            <Input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search blog posts by title, slug, category, or excerpt..."
+              className="max-w-md"
+            />
+          </div>
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
@@ -1717,7 +1752,7 @@ export default function BlogPostsAdmin() {
                           <FileText className="w-8 h-8 text-gray-400" />
                         </div>
                         <p className="font-medium text-gray-700">No blog posts found</p>
-                        <p className="text-sm text-gray-500">Click "Add Blog Post" to create your first article</p>
+                        <p className="text-sm text-gray-500">Click &quot;Add Blog Post&quot; to create your first article</p>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -1789,6 +1824,13 @@ export default function BlogPostsAdmin() {
               </TableBody>
             </Table>
           </div>
+          <AdminTablePagination
+            currentPage={listPagination.page}
+            totalPages={listPagination.total_pages}
+            totalItems={listPagination.count}
+            onPageChange={setListPage}
+            itemLabel="blog posts"
+          />
         </CardContent>
       </Card>
       

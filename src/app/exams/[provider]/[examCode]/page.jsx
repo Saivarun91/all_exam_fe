@@ -1445,7 +1445,7 @@
 
 import { notFound, permanentRedirect } from "next/navigation";
 import ExamDetailClient from "./ExamDetailClient";
-import { buildOfficialDetailsPublicUrl, getOfficialDetailsPath } from "./examInfoUtils";
+import { getOfficialDetailsPath } from "./examInfoUtils";
 import { hasOfficialDetailsData } from "@/components/exam/OfficialExamDetailsView";
 import {
   getExamLandingPath,
@@ -1454,6 +1454,10 @@ import {
   trimPublicPathSegment,
 } from "@/utils/practiceTestRouting";
 import { fetchExamByLegacyRoute } from "@/lib/loadExamDetailPage";
+import {
+  buildPopularExamsSidebarItems,
+  fetchPopularExamsCourses,
+} from "@/lib/popularExamsSidebar";
 export const revalidate = 300;
 
 export async function generateMetadata({ params }) {
@@ -1518,9 +1522,13 @@ export default async function ExamDetailPage({ params }) {
   const { provider, examCode } = await params;
 
   let exam;
+  let popularExamsCourses = [];
 
   try {
-    exam = await fetchExamByLegacyRoute(provider, examCode);
+    [exam, popularExamsCourses] = await Promise.all([
+      fetchExamByLegacyRoute(provider, examCode),
+      fetchPopularExamsCourses({ limit: 8 }),
+    ]);
 
     if (!exam) {
       notFound();
@@ -1734,12 +1742,10 @@ export default async function ExamDetailPage({ params }) {
       }) || (slug ? `/${slug}/practice` : `/${examCode}/practice`),
 
     hasOfficialDetails: hasOfficialDetailsData(exam),
-    officialDetailsUrl:
-      buildOfficialDetailsPublicUrl(exam) ||
-      getOfficialDetailsPath(
-        slug || examCode,
-        pick("official_details_url_slug") || "official-details"
-      ),
+    officialDetailsUrl: getOfficialDetailsPath(
+      slug || examCode,
+      pick("official_details_url_slug") || "official-details"
+    ),
 
     code: pick("code", "exam_code") || examCode,
     title: pick("title", "name") || "",
@@ -1788,11 +1794,17 @@ export default async function ExamDetailPage({ params }) {
     faqs: pickArray("faqs"),
   };
 
+  const popularExams = buildPopularExamsSidebarItems(popularExamsCourses, {
+    excludeProvider: examData.provider,
+    excludeCode: examData.code,
+  });
+
   return (
     <ExamDetailClient
       examData={examData}
       provider={provider}
       examCode={examCode}
+      popularExams={popularExams}
     />
   );
 }

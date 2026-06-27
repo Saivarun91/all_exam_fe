@@ -34,6 +34,18 @@ export default function OptimizedImage({
     (/\bobject-contain\b/.test(className) ? "contain" : undefined) ||
     (/\bobject-cover\b/.test(className) ? "cover" : undefined) ||
     "cover";
+  const imageErrorProps = onError ? { onError } : {};
+  const fallbackErrorProps =
+    fallbackSrc || onError
+      ? {
+          onError: (event) => {
+            if (fallbackSrc && event.currentTarget.src !== fallbackSrc) {
+              event.currentTarget.src = fallbackSrc;
+            }
+            onError?.(event);
+          },
+        }
+      : {};
 
   if (fill || aspectRatio) {
     const ratio =
@@ -58,7 +70,7 @@ export default function OptimizedImage({
             sizes={sizes || "100vw"}
             priority={priority}
             style={{ objectFit: fit, ...style }}
-            onError={onError}
+            {...imageErrorProps}
           />
         ) : (
           <img
@@ -69,12 +81,7 @@ export default function OptimizedImage({
             fetchPriority={priority ? "high" : undefined}
             decoding="async"
             style={{ objectFit: fit, ...style }}
-            onError={(event) => {
-              if (fallbackSrc && event.currentTarget.src !== fallbackSrc) {
-                event.currentTarget.src = fallbackSrc;
-              }
-              onError?.(event);
-            }}
+            {...fallbackErrorProps}
           />
         )}
       </div>
@@ -92,7 +99,7 @@ export default function OptimizedImage({
         sizes={sizes}
         priority={priority}
         style={{ objectFit: fit, ...style }}
-        onError={onError}
+        {...imageErrorProps}
       />
     );
   }
@@ -109,12 +116,7 @@ export default function OptimizedImage({
       decoding="async"
       sizes={sizes}
       style={{ objectFit: fit, ...style }}
-      onError={(event) => {
-        if (fallbackSrc && event.currentTarget.src !== fallbackSrc) {
-          event.currentTarget.src = fallbackSrc;
-        }
-        onError?.(event);
-      }}
+    {...fallbackErrorProps}
     />
   );
 }

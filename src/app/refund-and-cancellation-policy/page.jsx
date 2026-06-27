@@ -270,17 +270,17 @@
 // app/refund-and-cancellation-policy/page.jsx
 import BackButton from "./BackButton";
 import TipTapContent from "@/components/editor/TipTapContent";
+import { publicFetchOptions } from "@/lib/serverRevalidate";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
 
-// -------------------- DYNAMIC PAGE --------------------
-export const dynamic = "force-dynamic";
+export const revalidate = 60;
 
 // -------------------- METADATA --------------------
 export async function generateMetadata() {
   try {
     const res = await fetch(`${API_BASE_URL}/api/settings/refund-cancellation-policy/`, {
-      cache: "force-cache", // ensure SSR fetch for view-source
+      ...publicFetchOptions(),
     });
     const result = await res.json();
 
@@ -317,7 +317,7 @@ export async function generateMetadata() {
 async function fetchPolicy() {
   try {
     const res = await fetch(`${API_BASE_URL}/api/settings/refund-cancellation-policy/`, {
-      next: { revalidate: 60 },
+      ...publicFetchOptions(),
     });
     if (!res.ok) throw new Error("Failed to fetch refund & cancellation policy");
 

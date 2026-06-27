@@ -7,7 +7,7 @@ import BreadcrumbJsonLd from "@/components/BreadcrumbJsonLd";
 import SiteBreadcrumbs, {
   toBreadcrumbJsonLdItems,
 } from "@/components/common/SiteBreadcrumbs";
-import { publicFetchOptions } from "@/lib/serverRevalidate";
+import { coursesListUrl, publicFetchOptions } from "@/lib/serverRevalidate";
 import { filterPublicExamListings } from "@/lib/examListingFilters";
 import OptimizedImage from "@/components/common/OptimizedImage";
 
@@ -15,6 +15,43 @@ const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 const SITE_URL = "https://allexamquestions.com";
 const PAGE_CONTAINER = "container mx-auto px-4";
+const PROVIDER_EXAMS_PAGE_SIZE = 8;
+
+function firstSearchParamValue(value) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+function normalizePositiveInt(value, fallback) {
+  const parsed = Number.parseInt(firstSearchParamValue(value), 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function normalizeCoursesPayload(data) {
+  if (Array.isArray(data)) {
+    return {
+      exams: data,
+      pagination: {
+        count: data.length,
+        page: 1,
+        page_size: PROVIDER_EXAMS_PAGE_SIZE,
+        total_pages: Math.max(1, Math.ceil(data.length / PROVIDER_EXAMS_PAGE_SIZE)),
+      },
+      stats: null,
+    };
+  }
+
+  const results = Array.isArray(data?.results) ? data.results : [];
+  return {
+    exams: results,
+    pagination: {
+      count: Number(data?.count) || results.length,
+      page: Number(data?.page) || 1,
+      page_size: Number(data?.page_size) || PROVIDER_EXAMS_PAGE_SIZE,
+      total_pages: Number(data?.total_pages) || 1,
+    },
+    stats: data?.stats || null,
+  };
+}
 
 function normalizeName(value) {
   return String(value || "")
@@ -58,7 +95,7 @@ function getProviderExamStats(exams) {
   };
 }
 
-const fetchProviderAndExams = cache(async function fetchProviderAndExams(slug) {
+const fetchProviderAndExams = cache(async function fetchProviderAndExams(slug, page = 1) {
   // 1) Fetch provider info
   let provider = null;
   try {
@@ -73,18 +110,45 @@ const fetchProviderAndExams = cache(async function fetchProviderAndExams(slug) {
 
   // 2) Fetch exams/courses for this provider
   let exams = [];
+  let examsPagination = {
+    count: 0,
+    page,
+    page_size: PROVIDER_EXAMS_PAGE_SIZE,
+    total_pages: 1,
+  };
+  let examsStats = null;
   try {
+    const providerExamsUrl = coursesListUrl(API_BASE_URL, {
+      provider: slug,
+      page,
+      page_size: PROVIDER_EXAMS_PAGE_SIZE,
+    });
+    if (process.env.NODE_ENV !== "production") {
+      console.log("[/providers/[slug]] exams API hit:", providerExamsUrl);
+    }
     const examsRes = await fetch(
-      `${API_BASE_URL}/api/courses/?provider=${slug}`,
+      providerExamsUrl,
       publicFetchOptions()
     );
     if (examsRes.ok) {
-      const data = await examsRes.json();
-      exams = Array.isArray(data)
-        ? data
-        : Array.isArray(data.results)
-          ? data.results
-          : [];
+      const data = normalizeCoursesPayload(await examsRes.json());
+      exams = data.exams;
+      examsPagination = data.pagination;
+      examsStats = data.stats;
+      if (process.env.NODE_ENV !== "production") {
+        console.log("[/providers/[slug]] exams API data:", {
+          slug,
+          pagination: examsPagination,
+          stats: examsStats,
+          itemCount: exams.length,
+          sample: exams.slice(0, 3).map((exam) => ({
+            id: exam.id,
+            title: exam.title || exam.name,
+            code: exam.code,
+            provider: exam.provider,
+          })),
+        });
+      }
     }
   } catch (err) {
     console.error("Failed to fetch exams:", err);
@@ -104,7 +168,7 @@ const fetchProviderAndExams = cache(async function fetchProviderAndExams(slug) {
     const examNameKey = normalizeName(exam?.provider || "");
     return providerNameKey && examNameKey === providerNameKey;
   });
-  return { provider, exams };
+  return { provider, exams, examsPagination, examsStats };
 });
 
 export async function generateMetadata({ params }) {
@@ -131,7 +195,7 @@ export async function generateMetadata({ params }) {
     };
   }
 
-  const { provider } = await fetchProviderAndExams(slug);
+  const { provider } = await fetchProviderAndExams(slug, 1);
 
   if (!provider) {
     return {
@@ -200,12 +264,22 @@ export async function generateMetadata({ params }) {
   };
 }
 
-export default async function ProviderPage({ params }) {
+export default async function ProviderPage({ params, searchParams }) {
   const { slug } = await params;
-  const { provider, exams } = await fetchProviderAndExams(slug);
+  const resolvedSearchParams = await searchParams;
+  const page = normalizePositiveInt(resolvedSearchParams?.page, 1);
+  const { provider, exams, examsPagination, examsStats } =
+    await fetchProviderAndExams(slug, page);
 
   const providerName = provider?.name || "Provider";
-  const stats = getProviderExamStats(exams);
+  const stats = examsStats
+    ? {
+        totalExams: Number(examsStats.total_exams) || 0,
+        practiceTests: Number(examsStats.practice_tests) || 0,
+        questions: Number(examsStats.questions) || 0,
+        categories: Number(examsStats.categories) || 0,
+      }
+    : getProviderExamStats(exams);
   const { totalExams, practiceTests, questions, categories } = stats;
 
   const heroTitle = provider?.page_title?.trim() || providerName;
@@ -363,6 +437,7 @@ export default async function ProviderPage({ params }) {
           slug={slug}
           provider={provider}
           exams={exams}
+          examsPagination={examsPagination}
           embedded={true}
           showBreadcrumb={false}
         />

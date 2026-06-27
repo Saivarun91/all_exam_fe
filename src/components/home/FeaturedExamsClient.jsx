@@ -397,6 +397,7 @@ export default function FeaturedExamsClient({
                       <p className="text-sm text-[#0C1A35]/60 font-medium">
                         <Link
                           href={getProviderPageUrl(exam)}
+                          prefetch={false}
                           className="hover:text-[#1A73E8] transition-colors"
                           aria-label={`View ${exam.provider || "provider"} page`}
                         >
@@ -407,6 +408,7 @@ export default function FeaturedExamsClient({
                       <h3 className="text-xl font-bold text-[#0C1A35] leading-tight">
                         <Link
                           href={getExamUrl(exam)}
+                          prefetch={false}
                           className="hover:text-[#1A73E8] transition-colors"
                           aria-label={`Open ${exam.title || "exam"} page`}
                         >
@@ -461,7 +463,7 @@ export default function FeaturedExamsClient({
                         className="w-full bg-[#1A73E8] text-white hover:bg-[#1557B0]"
                         asChild
                       >
-                        <Link href={getExamUrl(exam)}>
+                        <Link href={getExamUrl(exam)} prefetch={false}>
                           <span
                             data-i18n="home.featured.start_practicing"
                             data-i18n-fallback="Start Practicing"

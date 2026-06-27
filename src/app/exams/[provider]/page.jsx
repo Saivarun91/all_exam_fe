@@ -78,48 +78,32 @@
 
 
 import ExamsPageContent from "@/components/exams/ExamsPageContent";
-import { filterPublicExamListings } from "@/lib/examListingFilters";
+import { fetchExamsPageData } from "@/lib/fetchExamsPageData";
+import { publicFetchOptions } from "@/lib/serverRevalidate";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 60;
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
-async function fetchData() {
+function firstSearchParamValue(value) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+async function fetchData(provider, searchParams = {}) {
   try {
-    const [
-      providersRes,
-      categoriesRes,
-      coursesRes,
-      trustBarRes,
-      aboutRes,
-      examsSeoRes,
-    ] = await Promise.all([
-      fetch(`${API_BASE_URL}/api/providers/?lite=1`, { cache: "no-store" }),
-      fetch(`${API_BASE_URL}/api/categories/`, { cache: "no-store" }),
-      fetch(`${API_BASE_URL}/api/courses/`, { cache: "no-store" }),
-      fetch(`${API_BASE_URL}/api/home/exams-trust-bar/`, { cache: "no-store" }),
-      fetch(`${API_BASE_URL}/api/home/exams-about/`, { cache: "no-store" }),
-      fetch(`${API_BASE_URL}/api/home/exams-page-seo/`, { cache: "no-store" }),
+    const [examsData, examsSeoRes] = await Promise.all([
+      fetchExamsPageData({
+        page: firstSearchParamValue(searchParams.page) || 1,
+        provider,
+      }),
+      fetch(`${API_BASE_URL}/api/home/exams-page-seo/`, publicFetchOptions()),
     ]);
 
-    const providersData = await providersRes.json();
-    const categoriesData = await categoriesRes.json();
-    const coursesData = await coursesRes.json();
-    const trustBarData = await trustBarRes.json();
-    const aboutData = await aboutRes.json();
     const examsSeoData = await examsSeoRes.json();
 
     return {
-      providers: Array.isArray(providersData)
-        ? providersData.filter((p) => p.is_active)
-        : [],
-      categories: Array.isArray(categoriesData)
-        ? categoriesData.filter((c) => c.is_active !== false)
-        : [],
-      exams: filterPublicExamListings(coursesData),
-      trustBarItems: trustBarData?.success ? trustBarData.data : [],
-      aboutSection: aboutData?.success ? aboutData.data : {},
+      ...examsData,
       examsPageHeading:
         (examsSeoData?.page_h1 && String(examsSeoData.page_h1).trim()) ||
         "All Popular Exams",
@@ -130,6 +114,12 @@ async function fetchData() {
       providers: [],
       categories: [],
       exams: [],
+      examsPagination: {
+        count: 0,
+        page: 1,
+        page_size: 12,
+        total_pages: 1,
+      },
       trustBarItems: [],
       aboutSection: {},
       examsPageHeading: "All Popular Exams",
@@ -137,9 +127,10 @@ async function fetchData() {
   }
 }
 
-export default async function ProviderExamsPage({ params }) {
+export default async function ProviderExamsPage({ params, searchParams }) {
   const { provider } = await params;
-  const data = await fetchData();
+  const resolvedSearchParams = await searchParams;
+  const data = await fetchData(provider, resolvedSearchParams || {});
 
   const initialProvider = provider ? [provider] : [];
   const initialKeyword = "";
@@ -149,12 +140,14 @@ export default async function ProviderExamsPage({ params }) {
       initialProvidersData={data.providers}
       initialCategoriesData={data.categories}
       initialExamsData={data.exams}
+      initialExamsPagination={data.examsPagination}
       initialTrustBarData={data.trustBarItems}
       initialAboutData={data.aboutSection}
       initialPageHeading={data.examsPageHeading}
       initialProvider={initialProvider}
       initialKeyword={initialKeyword}
       usePathBasedRouting={true}
+      backendPagination={true}
     />
   );
 }

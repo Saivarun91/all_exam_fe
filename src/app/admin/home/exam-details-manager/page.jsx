@@ -49,13 +49,18 @@ import {
 } from "@/components/admin/providerIdForAdminForm";
 import { hasOfficialDetailsData } from "@/components/exam/OfficialExamDetailsView";
 import AdminTablePagination, { ADMIN_TABLE_PAGE_SIZE } from "@/components/admin/AdminTablePagination";
-import { getListPaginationSlice } from "@/components/common/ListPagination";
 import {
   belongsInExamDetailsManager,
   courseHasExamDetails,
   isOfficialDetailsCourse,
 } from "@/lib/examListingFilters";
 import { escapeHtmlText } from "@/lib/htmlTextUtils";
+import {
+  buildAdminListUrl,
+  DEFAULT_ADMIN_PAGINATION,
+  normalizeAdminPagination,
+  useDebouncedValue,
+} from "@/lib/adminPagination";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
@@ -128,6 +133,7 @@ export default function ExamDetailsManager() {
   const [selectedCourse, setSelectedCourse] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [listPage, setListPage] = useState(1);
+  const [listPagination, setListPagination] = useState(DEFAULT_ADMIN_PAGINATION);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showAddExamModal, setShowAddExamModal] = useState(false);
   const [activeEditTab, setActiveEditTab] = useState("basic");
@@ -140,6 +146,7 @@ export default function ExamDetailsManager() {
   const [loading, setLoading] = useState(false);
   const [coursesLoading, setCoursesLoading] = useState(true);
   const [message, setMessage] = useState("");
+  const debouncedSearchQuery = useDebouncedValue(searchQuery);
   
   // SEO states
   const [seoLoading, setSeoLoading] = useState(false);
@@ -443,10 +450,14 @@ export default function ExamDetailsManager() {
       return;
     }
     
-    fetchCourses();
     fetchSeoData();
     fetchCategoriesAndProviders();
   }, []);
+
+  useEffect(() => {
+    if (!checkAuth()) return;
+    fetchCourses();
+  }, [listPage, debouncedSearchQuery]);
 
   useEffect(() => {
     if (!selectedCourse || providers.length === 0) return;
@@ -553,9 +564,18 @@ export default function ExamDetailsManager() {
   const fetchCourses = async () => {
     setCoursesLoading(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/courses/admin/list/`, {
-        headers: getAuthHeaders()
-      });
+      const res = await fetch(
+        buildAdminListUrl(`${API_BASE_URL}/api/courses/admin/list/`, {
+          page: listPage,
+          page_size: ADMIN_TABLE_PAGE_SIZE,
+          search: debouncedSearchQuery.trim(),
+          manager: "exam_details",
+        }),
+        {
+          headers: getAuthHeaders(),
+          cache: "no-store",
+        }
+      );
 
       if (res.status === 401) {
         setMessage("âŒ Authentication failed. Please log in again.");
@@ -566,9 +586,8 @@ export default function ExamDetailsManager() {
       const data = await res.json();
 
       if (data.success) {
-        setCourses(
-          (data.data || []).filter(belongsInExamDetailsManager)
-        );
+        setCourses(data.data || []);
+        setListPagination(normalizeAdminPagination(data.pagination));
       }
     } catch (error) {
       console.error("Error fetching courses:", error);
@@ -1102,32 +1121,19 @@ export default function ExamDetailsManager() {
   };
 
   const filteredCourses = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
-    if (!query) return courses;
-    return courses.filter((course) => {
-      const title = String(course.title || "").toLowerCase();
-      const code = String(course.code || "").toLowerCase();
-      const provider = String(course.provider || "").toLowerCase();
-      const category = String(course.category || "").toLowerCase();
-      const slug = String(course.slug || "").toLowerCase();
-      return (
-        title.includes(query) ||
-        code.includes(query) ||
-        provider.includes(query) ||
-        category.includes(query) ||
-        slug.includes(query)
-      );
-    });
-  }, [courses, searchQuery]);
+    return courses;
+  }, [courses]);
 
   useEffect(() => {
     setListPage(1);
   }, [searchQuery]);
 
-  const paginatedCourses = useMemo(
-    () => getListPaginationSlice(filteredCourses, listPage, ADMIN_TABLE_PAGE_SIZE),
-    [filteredCourses, listPage]
-  );
+  const paginatedCourses = {
+    items: filteredCourses,
+    page: listPagination.page,
+    totalPages: listPagination.total_pages,
+    totalItems: listPagination.count,
+  };
 
   const handleAddExam = async (e) => {
     e.preventDefault();

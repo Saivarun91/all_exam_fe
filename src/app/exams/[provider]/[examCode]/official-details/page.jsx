@@ -1,7 +1,8 @@
 import { notFound, redirect } from "next/navigation";
 import { getOfficialExamInfoPathFromExam } from "../examInfoUtils";
+import { examFetchOptions } from "@/lib/serverRevalidate";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 300;
 
 async function fetchExam(provider, examCode) {
   const API_BASE =
@@ -9,7 +10,7 @@ async function fetchExam(provider, examCode) {
 
   const res = await fetch(
     `${API_BASE}/api/courses/exams/${provider}-${examCode}/`,
-    { cache: "no-store" }
+    examFetchOptions()
   );
 
   if (!res.ok) return null;

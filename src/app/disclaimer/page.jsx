@@ -167,18 +167,19 @@ import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import BackButton from "./BackButton";
 import TipTapContent from "@/components/editor/TipTapContent";
+import { publicFetchOptions } from "@/lib/serverRevalidate";
 
-// ✅ Force static rendering
-export const dynamic = "force-dynamic";
+export const revalidate = 60;
 
 export async function generateMetadata() {
   const API_BASE_URL =
     process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
 
   try {
-    const res = await fetch(`${API_BASE_URL}/api/settings/disclaimer/`, {
-      cache: "no-store", // ✅ Make it dynamic
-    });
+    const res = await fetch(
+      `${API_BASE_URL}/api/settings/disclaimer/`,
+      publicFetchOptions()
+    );
 
     if (!res.ok) {
       throw new Error("Failed to fetch disclaimer");
@@ -219,9 +220,10 @@ export default async function Disclaimer() {
   let error = false;
 
   try {
-    const res = await fetch(`${API_BASE_URL}/api/settings/disclaimer/`, {
-      cache: "no-store", // ✅ IMPORTANT CHANGE
-    });
+    const res = await fetch(
+      `${API_BASE_URL}/api/settings/disclaimer/`,
+      publicFetchOptions()
+    );
 
     if (!res.ok) {
       throw new Error("Failed to fetch disclaimer");

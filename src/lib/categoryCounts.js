@@ -1,5 +1,5 @@
 import { createSlug } from "@/lib/utils";
-import { publicFetchOptions } from "@/lib/serverRevalidate";
+import { coursesListUrl, publicFetchOptions } from "@/lib/serverRevalidate";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
@@ -14,7 +14,7 @@ function courseCategorySlug(course) {
 
 export async function fetchAllActiveCourses() {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/courses/`, publicFetchOptions());
+    const res = await fetch(coursesListUrl(API_BASE_URL), publicFetchOptions());
     if (!res.ok) return [];
 
     const data = await res.json();

@@ -12,13 +12,11 @@ import PracticePageBreadcrumbs, {
 import { parseExamTopics } from "@/lib/parseExamTopics";
 import {
   getExamPracticePath,
-  probeExamLookupCandidates,
   resolveExamPublicPathBase,
 } from "@/utils/practiceTestRouting";
+import { fetchExamByIdentifier } from "@/lib/loadExamDetailPage";
 
 export const dynamic = "force-dynamic";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
 
 /** ASCII URL slugs: maps Unicode hyphens/dashes and spaces to a single "-" */
 function toSlug(value = "") {
@@ -38,30 +36,10 @@ function toSlug(value = "") {
     .replace(/^-+|-+$/g, "");
 }
 
-async function getExamByCode(examCode) {
-  try {
-    const res = await fetch(`${API_BASE}/api/courses/exams/${examCode}/`, {
-      cache: "no-store",
-    });
-    if (!res.ok) return null;
-    return await res.json();
-  } catch (error) {
-    return null;
-  }
-}
-
-async function resolveExamFromPathSegment(pathSegment) {
-  for (const candidate of probeExamLookupCandidates(pathSegment)) {
-    const exam = await getExamByCode(candidate);
-    if (exam) return exam;
-  }
-  return null;
-}
-
 export async function generateMetadata({ params }) {
   const { examCode } = await params;
   const normalizedExamCode = toSlug(examCode);
-  const exam = await resolveExamFromPathSegment(normalizedExamCode);
+  const exam = await fetchExamByIdentifier(normalizedExamCode);
 
   if (!exam) {
     return { title: "Practice Tests | AllExamQuestions" };
@@ -99,7 +77,7 @@ export async function generateMetadata({ params }) {
 export default async function CleanPracticePage({ params }) {
   const { examCode } = await params;
   const normalizedExamCode = toSlug(examCode);
-  const examData = await resolveExamFromPathSegment(normalizedExamCode);
+  const examData = await fetchExamByIdentifier(normalizedExamCode);
 
   if (!examData) return notFound();
 

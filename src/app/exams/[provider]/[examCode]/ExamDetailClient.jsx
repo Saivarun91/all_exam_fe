@@ -941,8 +941,8 @@ import TipTapContent from "@/components/editor/TipTapContent";
 import ExamPlatformSidebar from "./ExamPlatformSidebar";
 import SuccessStoriesCarousel from "./SuccessStoriesCarousel";
 import {
-  buildOfficialDetailsPublicUrl,
   formatLastUpdatedLabel,
+  getOfficialDetailsPath,
   getOfficialExamInfoPathFromExam,
 } from "./examInfoUtils";
 import { hasOfficialDetailsData } from "@/components/exam/OfficialExamDetailsView";
@@ -953,7 +953,12 @@ import {
 } from "@/utils/practiceTestRouting";
 import { htmlToPlainText } from "@/lib/htmlTextUtils";
 
-export default function ExamDetailClient({ examData, provider, examCode }) {
+export default function ExamDetailClient({
+  examData,
+  provider,
+  examCode,
+  popularExams = [],
+}) {
   const router = useRouter();
 
   const getHeadingText = (headingHtml, fallback) => {
@@ -1036,7 +1041,10 @@ export default function ExamDetailClient({ examData, provider, examCode }) {
 
   const officialDetailsUrl =
     examData.officialDetailsUrl ||
-    buildOfficialDetailsPublicUrl(examData) ||
+    getOfficialDetailsPath(
+      examData.slug || examCode,
+      examData.official_details_url_slug || "official-details"
+    ) ||
     getOfficialExamInfoPathFromExam({
       slug: examData.slug,
       title: examData.title || examData.code || examCode,
@@ -1300,6 +1308,7 @@ export default function ExamDetailClient({ examData, provider, examCode }) {
               officialDetailsUrl={officialDetailsUrl}
               hasOfficialDetails={showOfficialDetailsLink}
               matchPercent={matchPercent}
+              initialPopularExams={popularExams}
             />
           </div>
 

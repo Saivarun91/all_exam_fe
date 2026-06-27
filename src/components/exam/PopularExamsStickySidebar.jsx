@@ -69,6 +69,7 @@ export default function PopularExamsStickySidebar({
               <Link
                 key={exam.id}
                 href={exam.href}
+                prefetch={false}
                 className={`group relative flex overflow-hidden rounded-xl border bg-gradient-to-br p-3 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${accent.card}`}
               >
                 <span

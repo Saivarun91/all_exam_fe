@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,7 +18,12 @@ import {
 } from "@/utils/convertImageToWebp";
 import TipTapEditor from "@/components/editor/TipTapEditor";
 import AdminTablePagination, { ADMIN_TABLE_PAGE_SIZE } from "@/components/admin/AdminTablePagination";
-import { getListPaginationSlice } from "@/components/common/ListPagination";
+import {
+  buildAdminListUrl,
+  DEFAULT_ADMIN_PAGINATION,
+  normalizeAdminPagination,
+  useDebouncedValue,
+} from "@/lib/adminPagination";
 import {
   clampToWordLimit,
   countWords,
@@ -65,6 +70,7 @@ export default function AdminProvidersPage() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [listPage, setListPage] = useState(1);
+  const [listPagination, setListPagination] = useState(DEFAULT_ADMIN_PAGINATION);
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
   const [message, setMessage] = useState("");
@@ -92,24 +98,38 @@ export default function AdminProvidersPage() {
     show_in_popular_providers: false,
   });
   const [logoFile, setLogoFile] = useState(null);
+  const debouncedSearchQuery = useDebouncedValue(searchQuery);
 
   useEffect(() => {
     if (!checkAuth()) {
       router.push("/admin/auth");
       return;
     }
-    fetchProviders();
     fetchProvidersPageSeo();
   }, []);
 
+  useEffect(() => {
+    if (!checkAuth()) return;
+    fetchProviders();
+  }, [listPage, debouncedSearchQuery]);
+
   const fetchProviders = async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/providers/admin/list/`, {
-        headers: getAuthHeaders(),
-        cache: "no-store",
-      });
+      setLoading(true);
+      const res = await fetch(
+        buildAdminListUrl(`${API_BASE_URL}/api/providers/admin/list/`, {
+          page: listPage,
+          page_size: ADMIN_TABLE_PAGE_SIZE,
+          search: debouncedSearchQuery.trim(),
+        }),
+        {
+          headers: getAuthHeaders(),
+          cache: "no-store",
+        }
+      );
       const data = await res.json();
       setProviders(Array.isArray(data?.data) ? data.data : []);
+      setListPagination(normalizeAdminPagination(data?.pagination));
       setLoading(false);
     } catch (error) {
       console.error("Error fetching providers:", error);
@@ -367,19 +387,18 @@ export default function AdminProvidersPage() {
     }
   };
 
-  const filteredProviders = providers.filter(provider =>
-    provider.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    provider.slug?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredProviders = providers;
 
   useEffect(() => {
     setListPage(1);
   }, [searchQuery]);
 
-  const paginatedProviders = useMemo(
-    () => getListPaginationSlice(filteredProviders, listPage, ADMIN_TABLE_PAGE_SIZE),
-    [filteredProviders, listPage]
-  );
+  const paginatedProviders = {
+    items: filteredProviders,
+    page: listPagination.page,
+    totalPages: listPagination.total_pages,
+    totalItems: listPagination.count,
+  };
 
   if (loading) {
     return (

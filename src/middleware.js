@@ -117,8 +117,17 @@ export async function middleware(request) {
   const pathname = url.pathname || "/";
   const API_BASE_URL =
     process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
+  const isPrefetch =
+    request.headers.get("next-router-prefetch") === "1" ||
+    request.headers.get("purpose") === "prefetch" ||
+    request.headers.get("sec-purpose") === "prefetch";
 
   if (isSitemapPathname(pathname)) {
+    return NextResponse.next();
+  }
+
+  // Prefetches are speculative; avoid turning them into backend slug-probe storms.
+  if (isPrefetch) {
     return NextResponse.next();
   }
 
@@ -423,14 +432,16 @@ export async function middleware(request) {
           }
         }
 
-        // Resolve slug as category, then exam, then provider (sequential to avoid
-        // spurious 404s when the slug only matches one entity, e.g. an exam slug).
+        // Resolve slug as category, then exam, then provider. Category keeps
+        // priority for slug collisions, but the exam probe runs in parallel so
+        // canonical exam URLs do not wait on a category 404 first.
         const categoryUrl = `${API_BASE_URL}/api/categories/${slug}/`;
         const providerUrl = `${API_BASE_URL}/api/providers/${slug}/`;
 
-        const categoryRes = await fetch(categoryUrl, middlewareFetchOptions()).catch(
-          () => null
-        );
+        const [categoryRes, exam] = await Promise.all([
+          fetch(categoryUrl, middlewareFetchOptions()).catch(() => null),
+          fetchExamByPathProbe(API_BASE_URL, slug).catch(() => null),
+        ]);
 
         // Category before exam: a slug that is both must open the category page, not an exam.
         if (categoryRes?.ok) {
@@ -438,8 +449,6 @@ export async function middleware(request) {
             new URL(`/categories/${slug}`, request.url)
           );
         }
-
-        const exam = await fetchExamByPathProbe(API_BASE_URL, slug);
 
         if (exam) {
           const officialPublicSlug = trimOfficialDetailsPathSegment(

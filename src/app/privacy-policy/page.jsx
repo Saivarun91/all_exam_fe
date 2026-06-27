@@ -204,15 +204,17 @@
 // privacy-policy/page.jsx
 import BackButton from "./BackButton";
 import TipTapContent from "@/components/editor/TipTapContent";
+import { publicFetchOptions } from "@/lib/serverRevalidate";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
 
 // Fetch privacy policy
 async function fetchPrivacyPolicy() {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/settings/privacy-policy/`, {
-      cache: "no-store", // always fetch fresh
-    });
+    const res = await fetch(
+      `${API_BASE_URL}/api/settings/privacy-policy/`,
+      publicFetchOptions()
+    );
 
     if (!res.ok) throw new Error("Failed to fetch privacy policy");
 
@@ -240,8 +242,7 @@ async function fetchPrivacyPolicy() {
   }
 }
 
-// Dynamic metadata for App Router
-export const dynamic = "force-dynamic"; // ensures dynamic SSR
+export const revalidate = 60;
 export async function generateMetadata() {
   const { metaTitle, metaDescription, metaKeywords } = await fetchPrivacyPolicy();
 

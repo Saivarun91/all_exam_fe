@@ -26,6 +26,7 @@ function FooterProviderLink({ provider, href }) {
   return (
     <Link
       href={href}
+      prefetch={false}
       className="text-[#F0F4FF] hover:text-[#1A73E8] transition-colors text-xs md:text-sm inline-flex items-center py-0.5"
     >
       {provider?.name || ""}
@@ -203,6 +204,7 @@ const Footer = ({ initialProviders = [], initialLogoUrl = "" }) => {
                       ) : (
                         <Link
                           href={resource.href}
+                          prefetch={false}
                           className="text-[#F0F4FF] hover:text-[#1A73E8] transition-colors text-xs md:text-sm inline-flex items-center py-0.5"
                         >
                           {t(resource.nameKey)}
@@ -223,6 +225,7 @@ const Footer = ({ initialProviders = [], initialLogoUrl = "" }) => {
                   <li key={index}>
                     <Link
                       href={page.href}
+                      prefetch={false}
                       className="text-[#F0F4FF] hover:text-[#1A73E8] transition-colors text-xs md:text-sm inline-flex items-center py-0.5"
                     >
                       {page.name}
@@ -242,6 +245,7 @@ const Footer = ({ initialProviders = [], initialLogoUrl = "" }) => {
                   <li key={index}>
                     <Link
                       href={page.href}
+                      prefetch={false}
                       className="text-[#F0F4FF] hover:text-[#1A73E8] transition-colors text-xs md:text-sm inline-flex items-center py-0.5"
                     >
                       {t(page.nameKey)}

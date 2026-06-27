@@ -401,9 +401,18 @@ const API_BASE_URL = (
 ).replace(/\/\/localhost(?=[:/])/i, "//127.0.0.1");
 
 async function fetchRelatedBlogs(category, currentSlug) {
+  if (!category) return [];
+
   try {
+    const url = new URL(`${API_BASE_URL}/api/home/blog-posts/`);
+    url.searchParams.set("category", category);
+    url.searchParams.set("exclude_slug", currentSlug);
+    url.searchParams.set("page", "1");
+    url.searchParams.set("page_size", "5");
+    url.searchParams.set("lite", "1");
+
     const res = await fetch(
-      `${API_BASE_URL}/api/home/blog-posts/?category=${encodeURIComponent(category)}`,
+      url.toString(),
       publicFetchOptions()
     );
 

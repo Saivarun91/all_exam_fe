@@ -107,6 +107,24 @@
  * @param {number|null} height
  * @param {'limit'|'pad'|'fill'|'fit'} [crop='limit'] - pad/fill return a fixed canvas (good for uniform logos)
  */
+function toPositiveDimension(value) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.round(parsed) : null;
+}
+
+function buildCloudinaryTransformation(width, height, cropMode) {
+  const safeWidth = toPositiveDimension(width);
+  const safeHeight = toPositiveDimension(height);
+  const transformations = [];
+
+  if (safeWidth) transformations.push(`w_${safeWidth}`);
+  if (safeHeight) transformations.push(`h_${safeHeight}`);
+  if (safeWidth || safeHeight) transformations.push(`c_${cropMode}`);
+
+  transformations.push("q_auto:eco", "f_auto", "fl_strip_profile");
+  return transformations.join(",");
+}
+
 export function getOptimizedImageUrl(url, width, height = null, crop = 'limit') {
   if (!url || typeof url !== 'string') {
     return url;
@@ -166,10 +184,11 @@ export function getOptimizedImageUrl(url, width, height = null, crop = 'limit') 
             )
             .join(',');
 
-          let newTransformation = `w_${width}`;
-          if (height) newTransformation += `,h_${height}`;
-
-          newTransformation += `,c_${cropMode},q_auto:eco,f_auto,fl_strip_profile`;
+          let newTransformation = buildCloudinaryTransformation(
+            width,
+            height,
+            cropMode
+          );
 
           if (transformations) {
             newTransformation = `${newTransformation},${transformations}`;
@@ -180,10 +199,11 @@ export function getOptimizedImageUrl(url, width, height = null, crop = 'limit') 
         }
       }
 
-      let transformation = `w_${width}`;
-      if (height) transformation += `,h_${height}`;
-
-      transformation += `,c_${cropMode},q_auto:eco,f_auto,fl_strip_profile`;
+      const transformation = buildCloudinaryTransformation(
+        width,
+        height,
+        cropMode
+      );
 
       return `${beforeUpload}${transformation}/${afterUpload}`;
 
