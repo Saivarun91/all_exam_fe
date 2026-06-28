@@ -6,8 +6,8 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import {
+  buildOfficialDetailsPublicUrl,
   getOfficialDetailsPath,
-  getOfficialExamInfoPathFromExam,
   trimOfficialDetailsPathSegment,
 } from "@/app/exams/[provider]/[examCode]/examInfoUtils";
 import StartTestButton from "@/app/exams/[provider]/[examCode]/StartTestButton";
@@ -102,6 +102,14 @@ export function buildOfficialExamPageModel(exam, normalizedExamCode) {
   const officialUrlSlug = trimOfficialDetailsPathSegment(
     pick(exam, "official_details_url_slug") || "official-details"
   );
+  const title = pick(exam, "title", "name") || "";
+  const code = pick(exam, "code", "exam_code") || normalizedExamCode;
+  const practiceBaseSlug =
+    slug &&
+    slug !== officialUrlSlug &&
+    !String(slug).toLowerCase().endsWith("-exam-info")
+      ? slug
+      : "";
   const officialContent = pick(exam, "official_details_content") || "";
   const pageTitle =
     pick(exam, "official_details_page_title") ||
@@ -110,8 +118,8 @@ export function buildOfficialExamPageModel(exam, normalizedExamCode) {
 
   const examData = {
     provider: pick(exam, "provider") || "",
-    code: pick(exam, "code", "exam_code") || normalizedExamCode,
-    title: pick(exam, "title", "name") || "",
+    code,
+    title,
     exam_details: pick(exam, "exam_details", "details") || "",
     details: pick(exam, "details", "exam_details") || "",
     testDescription: pick(exam, "test_description", "testDescription") || "",
@@ -120,20 +128,21 @@ export function buildOfficialExamPageModel(exam, normalizedExamCode) {
 
   const practiceUrl =
     getExamPracticePath({
-      slug,
-      title: pick(exam, "title") || "",
-      code: pick(exam, "code") || normalizedExamCode,
-    }) || `/${slug}/practice`;
+      slug: practiceBaseSlug,
+      title,
+      code,
+    }) || `/${practiceBaseSlug || slug}/practice`;
   const examDetailUrl =
     getExamLandingPath({
       slug,
-      title: pick(exam, "title") || "",
-      code: pick(exam, "code") || normalizedExamCode,
+      title,
+      code,
     }) || `/${slug}`;
-  const officialDetailsUrl = getOfficialExamInfoPathFromExam({
+  const officialDetailsUrl = buildOfficialDetailsPublicUrl({
     slug,
-    title: pick(exam, "title") || "",
-    code: pick(exam, "code") || normalizedExamCode,
+    title,
+    code,
+    official_details_url_slug: pick(exam, "official_details_url_slug") || "",
   });
   const internalOfficialDetailsUrl = getOfficialDetailsPath(
     slug,

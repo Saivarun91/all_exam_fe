@@ -11,6 +11,7 @@ import PracticePageBreadcrumbs, {
 } from "@/app/exams/[provider]/[examCode]/practice/PracticePageBreadcrumbs";
 import { parseExamTopics } from "@/lib/parseExamTopics";
 import {
+  getExamLandingPath,
   getExamPracticePath,
   resolveExamPublicPathBase,
 } from "@/utils/practiceTestRouting";
@@ -134,7 +135,7 @@ export default async function CleanPracticePage({ params }) {
   const breadcrumbItems = [
     { name: "Home", url: "/" },
     { name: "Exams", url: "/exams" },
-    { name: exam.title || exam.code, url: `/exams/${provider}/${normalizedExamCode}` },
+    { name: exam.title || exam.code, url: getExamLandingPath(examData) || `/${publicPathBase}` },
     { name: "Practice Tests", url: canonicalPracticePath || `/${publicPathBase}/practice` },
   ];
 

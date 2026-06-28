@@ -236,8 +236,22 @@ export function getOfficialExamInfoPath(examTitle, examCode) {
 }
 
 export function getOfficialExamInfoPathFromExam(exam = {}) {
+  const officialPublicSlug = trimPublicPathSegment(
+    exam.official_details_url_slug || ""
+  );
+  if (officialPublicSlug) {
+    return `/${officialPublicSlug}`;
+  }
+
   const stored = getStoredExamSlug(exam);
-  return stored ? `/${stored}` : "";
+  if (stored && stored.toLowerCase().endsWith(EXAM_INFO_SUFFIX)) {
+    return `/${stored}`;
+  }
+
+  return getOfficialExamInfoPath(
+    exam.title || exam.name || exam.examName || "",
+    exam.code || exam.exam_code || exam.examCode || ""
+  );
 }
 
 export function buildOfficialExamStats(examData, examCode) {

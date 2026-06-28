@@ -941,8 +941,8 @@ import TipTapContent from "@/components/editor/TipTapContent";
 import ExamPlatformSidebar from "./ExamPlatformSidebar";
 import SuccessStoriesCarousel from "./SuccessStoriesCarousel";
 import {
+  buildOfficialDetailsPublicUrl,
   formatLastUpdatedLabel,
-  getOfficialDetailsPath,
   getOfficialExamInfoPathFromExam,
 } from "./examInfoUtils";
 import { hasOfficialDetailsData } from "@/components/exam/OfficialExamDetailsView";
@@ -1041,14 +1041,17 @@ export default function ExamDetailClient({
 
   const officialDetailsUrl =
     examData.officialDetailsUrl ||
-    getOfficialDetailsPath(
-      examData.slug || examCode,
-      examData.official_details_url_slug || "official-details"
-    ) ||
+    buildOfficialDetailsPublicUrl({
+      slug: examData.slug || examCode,
+      title: examData.title || examData.code || examCode,
+      code: examData.code || examCode,
+      official_details_url_slug: examData.official_details_url_slug || "",
+    }) ||
     getOfficialExamInfoPathFromExam({
       slug: examData.slug,
       title: examData.title || examData.code || examCode,
       code: examData.code || examCode,
+      official_details_url_slug: examData.official_details_url_slug || "",
     });
 
   const showOfficialDetailsLink =

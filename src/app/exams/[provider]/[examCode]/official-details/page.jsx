@@ -32,6 +32,7 @@ export default async function OfficialExamDetailsLegacyPage({ params }) {
       slug,
       title: exam.title || exam.name || "",
       code: exam.code || examCode,
+      official_details_url_slug: exam.official_details_url_slug || "",
     })
   );
 }

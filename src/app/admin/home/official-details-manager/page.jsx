@@ -1345,11 +1345,17 @@ export default function OfficialDetailsManager() {
                               code:
                                 officialDetailsStatExamCode.trim() ||
                                 slugifyPagePath(pageUrlSlug),
+                              official_details_url_slug:
+                                officialDetailsUrlSlug,
                             }
                           : {
                               title: selectedCourse?.title || "",
                               code: selectedCourse?.code || "",
                               slug: selectedCourse?.slug || "",
+                              official_details_url_slug:
+                                officialDetailsUrlSlug ||
+                                selectedCourse?.official_details_url_slug ||
+                                "",
                             }
                       )}
                     </code>

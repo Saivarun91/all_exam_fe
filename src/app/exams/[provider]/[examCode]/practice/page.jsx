@@ -531,6 +531,10 @@ import {
   fetchExamByIdentifier,
   fetchExamByLegacyRoute,
 } from "@/lib/loadExamDetailPage";
+import {
+  getExamLandingPath,
+  getExamPracticePath,
+} from "@/utils/practiceTestRouting";
 
 export const revalidate = 300;
 
@@ -657,7 +661,6 @@ export default async function PracticePage(props) {
     return notFound();
   }
 
-  const { getExamPracticePath } = await import("@/utils/practiceTestRouting");
   const practicePath = getExamPracticePath({
     slug: examData.slug || examCode,
     title: examData.title,
@@ -712,8 +715,8 @@ export default async function PracticePage(props) {
     { name: "Home", url: "/" },
     { name: "Exams", url: "/exams" },
     { name: exam.provider, url: `/providers/${provider}` },
-    { name: exam.title, url: `/exams/${provider}/${examCode}` },
-    { name: "Practice Tests", url: `/exams/${provider}/${examCode}/practice` },
+    { name: exam.title, url: getExamLandingPath(examData) || `/${examData.slug || examCode}` },
+    { name: "Practice Tests", url: practicePath || `/${examData.slug || examCode}/practice` },
   ];
 
   return (
