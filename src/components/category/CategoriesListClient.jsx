@@ -110,6 +110,12 @@ export default function CategoriesListClient({
       : `${text} ${t("common.categories_suffix")}`;
   };
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!window.location.search) return;
+    window.history.replaceState(window.history.state, "", window.location.pathname);
+  }, []);
+
   const { filteredTopCategories, filteredGroups } = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
     if (!query) {

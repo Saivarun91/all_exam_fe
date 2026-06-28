@@ -865,6 +865,15 @@ export default function ExamsPageContent({
 
   // Helper function to update URL with current filters
   const updateURL = (newProviders, newCategories, newKeyword) => {
+    if (backendPagination) {
+      fetchBackendPage(1, {
+        providers: newProviders,
+        categories: newCategories,
+        q: newKeyword,
+      });
+      return;
+    }
+
     // Keep users on /exams page while filtering; do not route to provider/exam pages.
     if (usePathBasedRouting) {
       return;
@@ -873,14 +882,18 @@ export default function ExamsPageContent({
     router.replace(newUrl, { scroll: false });
   };
 
-  const fetchBackendPage = async (page) => {
+  const fetchBackendPage = async (page, filters = {}) => {
+    const filterProviders = filters.providers ?? selectedProviders;
+    const filterCategories = filters.categories ?? selectedCategories;
+    const filterKeyword = filters.q ?? searchKeyword;
+    const filterMinQuestions = filters.minQuestions ?? minQuestions;
     const params = {
       page,
       page_size: Number(backendPageMeta?.page_size) || DEFAULT_LIST_PAGE_SIZE,
-      q: searchKeyword,
-      provider: selectedProviders[0] || "",
-      category: selectedCategories[0] || "",
-      min_questions: minQuestions > 0 ? minQuestions : "",
+      q: filterKeyword,
+      provider: filterProviders[0] || "",
+      category: filterCategories[0] || "",
+      min_questions: filterMinQuestions > 0 ? filterMinQuestions : "",
     };
     const url = coursesListUrl(API_BASE_URL, params);
     if (process.env.NODE_ENV !== "production") {
@@ -969,12 +982,8 @@ export default function ExamsPageContent({
 
   useEffect(() => {
     if (!backendPagination || typeof window === "undefined") return;
-    const params = new URLSearchParams(window.location.search);
-    if (!params.has("page")) return;
-    params.delete("page");
-    const query = params.toString();
-    const cleanUrl = `${window.location.pathname}${query ? `?${query}` : ""}`;
-    window.history.replaceState(window.history.state, "", cleanUrl);
+    if (!window.location.search) return;
+    window.history.replaceState(window.history.state, "", window.location.pathname);
   }, [backendPagination]);
 
   // Load filter metadata when a page passes exams but not sidebar data (e.g. search routes).
