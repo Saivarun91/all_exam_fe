@@ -19,7 +19,7 @@ import {
   PlusCircle,
   Eye,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/lib/navigation/client";
 
 // Icon map
 const Icons = {

@@ -5,7 +5,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/lib/navigation/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -41,6 +41,8 @@ import { trimOfficialDetailsPathSegment } from "@/app/exams/[provider]/[examCode
 import ExamBasicFormFields from "@/components/admin/ExamBasicFormFields";
 import {
   getPublicPageUrlFromSlug,
+  getAdminExamCodeForForm,
+  getDisplayExamCode,
   resolveCourseCodeForSave,
 } from "@/utils/practiceTestRouting";
 import {
@@ -806,7 +808,7 @@ export default function ExamDetailsManager() {
     setBasicExamForm({
       name: course.title || course.name || "",
       slug: course.slug != null ? String(course.slug) : "",
-      code: course.code || "",
+      code: getAdminExamCodeForForm(course),
       provider: providerIdForAdminForm(course, providers),
       category: course.category_slug || course.category || "",
       badge: course.badge || "",
@@ -1669,7 +1671,7 @@ export default function ExamDetailsManager() {
                   return (
                     <TableRow key={course.id}>
                       <TableCell className="font-medium text-[#0C1A35]">{course.title}</TableCell>
-                      <TableCell>{course.code || "-"}</TableCell>
+                      <TableCell>{getDisplayExamCode(course) || "-"}</TableCell>
                       <TableCell>{course.provider || "-"}</TableCell>
                       <TableCell>{course.category || "-"}</TableCell>
                       <TableCell>
@@ -2105,7 +2107,7 @@ export default function ExamDetailsManager() {
 // "use client";
 
 // import { useState, useEffect, useMemo } from "react";
-// import { useRouter } from "next/navigation";
+// import { useRouter } from "@/lib/navigation/client";
 // import { Button } from "@/components/ui/button";
 // import { Input } from "@/components/ui/input";
 // import { Label } from "@/components/ui/label";

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "@/lib/navigation/client";
 import { getExamUrl } from "@/lib/utils";
 import ListPagination, {
   PROVIDER_LIST_PAGE_SIZE,

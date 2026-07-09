@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname } from "@/lib/navigation/client";
 
 export default function BodyWrapper({ children }) {
   const pathname = usePathname();

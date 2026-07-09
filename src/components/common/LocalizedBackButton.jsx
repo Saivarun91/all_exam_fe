@@ -2,7 +2,7 @@
 
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/lib/navigation/client";
 import { t } from "@/lib/uiStrings";
 
 export default function LocalizedBackButton() {

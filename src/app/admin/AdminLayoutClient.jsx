@@ -1,6 +1,6 @@
 "use client";
 
-import { usePathname } from "next/navigation";
+import { usePathname } from "@/lib/navigation/client";
 import { Toaster } from "react-hot-toast";
 import AdminNavbar from "@/components/admin/adminnavbar";
 import AdminSidebar from "@/components/admin/AdminSidebar";

@@ -1,7 +1,7 @@
 // "use client";
 
 // import { useState, useEffect } from "react";
-// import { useRouter } from "next/navigation";
+// import { useRouter } from "@/lib/navigation/client";
 // import { Button } from "@/components/ui/button";
 // import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 // import { Badge } from "@/components/ui/badge";
@@ -442,7 +442,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/lib/navigation/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -461,7 +461,13 @@ import {
 const iconMap = { BookOpen, CheckCircle2, Clock, RefreshCw, Target, BarChart3, TrendingUp, Bell, Star };
 const DISPLAY_CURRENCY = "USD";
 
-export default function PricingPageClient({ provider, examCode, pricingData, error }) {
+export default function PricingPageClient({
+  provider,
+  examCode,
+  pricingData,
+  error,
+  practicePath = "",
+}) {
   const router = useRouter();
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
 
@@ -498,6 +504,10 @@ export default function PricingPageClient({ provider, examCode, pricingData, err
     };
     checkEnrollment();
   }, [pricingData?.course_id, pricingData?.pricing_access_type]);
+
+  const practiceTestsUrl =
+    practicePath ||
+    (provider && examCode ? `/exams/${provider}/${examCode}/practice` : "");
 
   const handleUpgrade = (plan) => {
     const planSlug = plan.name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
@@ -581,7 +591,7 @@ export default function PricingPageClient({ provider, examCode, pricingData, err
                   )}
                 </p>
                 <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                  <Button onClick={() => router.push(`/exams/${provider}/${examCode}/practice`)} className="bg-[#1A73E8] hover:bg-[#1557B0] text-white font-semibold px-8 py-6 text-lg">
+                  <Button onClick={() => practiceTestsUrl && router.push(practiceTestsUrl)} className="bg-[#1A73E8] hover:bg-[#1557B0] text-white font-semibold px-8 py-6 text-lg">
                     <BookOpen className="w-5 h-5 mr-2" /> Go to Practice Tests
                   </Button>
                   <Button onClick={() => router.push(`/dashboard`)} variant="outline" className="border-[#1A73E8] text-[#1A73E8] hover:bg-[#1A73E8]/10 font-semibold px-8 py-6 text-lg">

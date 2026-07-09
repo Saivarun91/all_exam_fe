@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "@/lib/navigation/client";
 import Link from "next/link";
 import Script from "next/script";
 import { ArrowLeft, CheckCircle2, Lock, Loader2, CreditCard, Ticket, Tag } from "lucide-react";

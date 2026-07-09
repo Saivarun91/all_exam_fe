@@ -55,6 +55,58 @@ export function resolveCourseCodeForSave(code = "", slug = "", existingCode = ""
   return trimPublicPathSegment(slug) || "exam";
 }
 
+/** User-facing exam code — empty when admin left the field blank (slug stored internally). */
+export function getDisplayExamCode(exam = {}) {
+  const code = trimPublicPathSegment(
+    exam?.code || exam?.exam_code || exam?.examCode || ""
+  );
+  const slug = trimPublicPathSegment(exam?.slug || "");
+  if (!code) return "";
+  if (slug && code.toLowerCase() === slug.toLowerCase()) return "";
+  return code;
+}
+
+/** Admin form field for exam code — same rules as public display. */
+export function getAdminExamCodeForForm(course = {}) {
+  return getDisplayExamCode(course);
+}
+
+/** Admin list label — exam name only, not page title. */
+export function getExamAdminDisplayName(course = {}) {
+  const examName = String(course?.exam_name ?? "").trim();
+  const title = String(course?.title || course?.name || "").trim();
+  return examName || title || "-";
+}
+
+/** Resolve practice-test and question counts for exam listing cards. */
+export function getExamPracticeStats(exam = {}) {
+  const tests = Array.isArray(exam?.practice_tests_list)
+    ? exam.practice_tests_list
+    : Array.isArray(exam?.practice_tests)
+      ? exam.practice_tests
+      : [];
+
+  if (tests.length > 0) {
+    const practiceExams = tests.length;
+    const questions = tests.reduce(
+      (sum, test) => sum + (parseInt(test?.questions, 10) || 0),
+      0
+    );
+    const storedPracticeExams = parseInt(exam?.practice_exams, 10) || 0;
+    const storedQuestions = parseInt(exam?.questions, 10) || 0;
+
+    return {
+      practiceExams: Math.max(practiceExams, storedPracticeExams),
+      questions: questions > 0 ? questions : storedQuestions,
+    };
+  }
+
+  return {
+    practiceExams: parseInt(exam?.practice_exams, 10) || 0,
+    questions: parseInt(exam?.questions, 10) || 0,
+  };
+}
+
 export function pathsMatchPublicUrl(pathA = "", pathB = "") {
   const normalize = (p) => {
     try {

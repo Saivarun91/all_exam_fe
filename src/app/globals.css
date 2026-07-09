@@ -681,6 +681,36 @@
   @apply bg-yellow-200;
 }
 
+/* Structured markdown explanations (review answers, etc.) */
+.explanation-content h3 {
+  @apply text-base font-semibold mt-5 mb-2;
+}
+
+.explanation-content h3:first-child {
+  @apply mt-0;
+}
+
+.explanation-content p {
+  @apply mb-3;
+}
+
+.explanation-content p:last-child {
+  @apply mb-0;
+}
+
+.explanation-content ul,
+.explanation-content ol {
+  @apply mb-3 pl-5;
+}
+
+.explanation-content li {
+  @apply mb-1.5;
+}
+
+.explanation-content strong {
+  @apply font-semibold;
+}
+
 
 .tiptap-editor-content,
 .tiptap-content {

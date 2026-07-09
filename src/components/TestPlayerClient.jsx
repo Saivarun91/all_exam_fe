@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, useMemo } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/lib/navigation/client";
 import Link from "next/link";
 import { Clock, Star, Compass, ChevronLeft, ChevronRight, FileText, Lock, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -204,6 +204,22 @@ export default function TestPlayerClient({ exam, questions, test, provider, exam
     hasFullAccess
       ? questions.length
       : Math.min(freeQuestionsLimit, questions.length);
+
+  // Precompute option text -> index lookups once per question set so submit stays fast.
+  const optionIndexLookups = useMemo(
+    () =>
+      questions.map((question) => {
+        const map = new Map();
+        const opts = Array.isArray(question?.options) ? question.options : [];
+        for (let i = 0; i < opts.length; i++) {
+          const raw = opts[i]?.text ?? opts[i];
+          const key = raw == null ? "" : String(raw);
+          if (!map.has(key)) map.set(key, i);
+        }
+        return map;
+      }),
+    [questions]
+  );
 
   // Get authentication token
   const getAuthToken = () => {
@@ -468,7 +484,7 @@ export default function TestPlayerClient({ exam, questions, test, provider, exam
   };
 
   const handleSubmit = async (autoSubmit = false) => {
-    const answeredCount = getAnsweredCount();
+    if (isSubmitting) return;
     const totalAccessible = getAccessibleCount();
 
     if (!attemptId) {
@@ -511,15 +527,16 @@ export default function TestPlayerClient({ exam, questions, test, provider, exam
         let selectedAnswers = [];
 
         if (userAnswer && question.options) {
+          const options = Array.isArray(question.options) ? question.options : [];
+          const textToIndexMap = optionIndexLookups[i] || new Map();
           const resolveIndex = (ans) => {
-            const opts = question.options;
             if (ans == null) return -1;
             const s = String(ans);
             if (/^\d+$/.test(s)) {
-              const i = parseInt(s, 10);
-              if (i >= 0 && i < opts.length) return i;
+              const optionIndex = parseInt(s, 10);
+              if (optionIndex >= 0 && optionIndex < options.length) return optionIndex;
             }
-            return opts.findIndex((opt) => (opt.text || opt) === ans);
+            return textToIndexMap.get(s) ?? -1;
           };
           if (Array.isArray(userAnswer)) {
             selectedAnswers = userAnswer
@@ -1269,6 +1286,7 @@ const timeTaken = `${minutes}:${seconds.toString().padStart(2, '0')}`;
 
             <div className="flex items-center gap-3">
               <Button
+                type="button"
               onClick={() => setShowSubmitConfirm(true)}
                 disabled={isSubmitting}
                 className="bg-green-600 text-white hover:bg-green-700 min-w-32"
@@ -1332,6 +1350,7 @@ const timeTaken = `${minutes}:${seconds.toString().padStart(2, '0')}`;
             <div className={`flex gap-3 pt-2 ${atFreeQuestionLimit ? "justify-center" : ""}`}>
               {!atFreeQuestionLimit && (
                 <Button
+                  type="button"
                   variant="outline"
                   className="flex-1"
                   onClick={() => setShowSubmitConfirm(false)}
@@ -1341,6 +1360,7 @@ const timeTaken = `${minutes}:${seconds.toString().padStart(2, '0')}`;
                 </Button>
               )}
               <Button
+                type="button"
                 className={`${atFreeQuestionLimit ? "w-full" : "flex-1"} bg-green-600 text-white hover:bg-green-700`}
                 onClick={async () => {
                   setShowSubmitConfirm(false);

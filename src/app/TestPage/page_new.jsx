@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { getOptimizedImageUrl } from "@/utils/imageUtils";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "@/lib/navigation/client";
 import Link from "next/link";
 import { ArrowLeft, Flag, Clock, X, Menu, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";

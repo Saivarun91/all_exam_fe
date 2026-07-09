@@ -1,6 +1,6 @@
 // "use client";
 
-// import { useParams } from "next/navigation";
+// import { useParams } from "@/lib/navigation/client";
 // import { useEffect } from "react";
 // import ExamsPageContent from "@/components/exams/ExamsPageContent";
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/lib/navigation/client";
 import { FileText } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -82,7 +82,11 @@ export default function PracticePageClient({
         slug: examSlug,
         title: examTitle,
         code: examCode,
-      }) || `/exams/${provider}/${examCode}/practice/pricing`;
+      }) ||
+      (examSlug ? `/${examSlug}/practice/pricing` : "") ||
+      (provider && examCode
+        ? `/exams/${provider}/${examCode}/practice/pricing`
+        : "");
 
     if (!checkLogin()) {
       setPendingTestUrl(url);

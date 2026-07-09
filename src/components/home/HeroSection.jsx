@@ -1,7 +1,7 @@
 // "use client";
 
 // import { useState, useEffect } from "react";
-// import { useRouter } from "next/navigation";
+// import { useRouter } from "@/lib/navigation/client";
 // import { Button } from "@/components/ui/button";
 // import { Search } from "lucide-react";
 // import {

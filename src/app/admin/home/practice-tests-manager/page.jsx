@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "@/lib/navigation/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,12 +17,11 @@ import { Badge } from "@/components/ui/badge";
 import { Edit, Trash2, SearchIcon, ClipboardList } from "lucide-react";
 import { checkAuth, getAuthHeaders } from "@/utils/authCheck";
 import AdminTablePagination, { ADMIN_TABLE_PAGE_SIZE } from "@/components/admin/AdminTablePagination";
+import { buildAdminListUrl } from "@/lib/adminPagination";
 import {
-  buildAdminListUrl,
-  DEFAULT_ADMIN_PAGINATION,
-  normalizeAdminPagination,
-  useDebouncedValue,
-} from "@/lib/adminPagination";
+  getDisplayExamCode,
+  getExamAdminDisplayName,
+} from "@/utils/practiceTestRouting";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
@@ -37,15 +36,62 @@ function getPracticeTestCount(course) {
   return parseInt(course?.practice_exams, 10) || 0;
 }
 
+function cacheCourseForTestsPage(course) {
+  if (!course?.id) return;
+  try {
+    sessionStorage.setItem(
+      `admin_course_tests_${course.id}`,
+      JSON.stringify(course)
+    );
+  } catch {
+    // Ignore storage errors
+  }
+}
+
+async function resolvePracticeTestsCourseTarget(course) {
+  const slug = String(course?.slug || "").trim();
+  let targetId = course?.id;
+  let targetSlug = slug;
+
+  if (slug.toLowerCase().endsWith("-exam-info")) {
+    const practiceSlug = slug.replace(/-exam-info$/i, "-practice-exam");
+    try {
+      const res = await fetch(
+        `${API_BASE_URL}/api/courses/exams/${encodeURIComponent(practiceSlug)}/`,
+        { headers: getAuthHeaders(), cache: "no-store" }
+      );
+      if (res.ok) {
+        const data = await res.json();
+        const practiceCourse =
+          data?.success && data?.data ? data.data : data;
+        if (practiceCourse?.id) {
+          targetId = practiceCourse.id;
+          targetSlug = practiceSlug;
+          cacheCourseForTestsPage({
+            ...course,
+            ...practiceCourse,
+            id: targetId,
+            slug: targetSlug,
+          });
+          return { targetId, targetSlug };
+        }
+      }
+    } catch {
+      // Fall back to the original course record
+    }
+  }
+
+  cacheCourseForTestsPage(course);
+  return { targetId, targetSlug };
+}
+
 export default function PracticeTestsManagerPage() {
   const router = useRouter();
   const [courses, setCourses] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [listPage, setListPage] = useState(1);
-  const [listPagination, setListPagination] = useState(DEFAULT_ADMIN_PAGINATION);
-  const [loading, setLoading] = useState(true);
+  const [coursesLoading, setCoursesLoading] = useState(true);
   const [message, setMessage] = useState("");
-  const debouncedSearchQuery = useDebouncedValue(searchQuery);
 
   useEffect(() => {
     if (!checkAuth()) {
@@ -57,39 +103,47 @@ export default function PracticeTestsManagerPage() {
   useEffect(() => {
     if (!checkAuth()) return;
     fetchCourses();
-  }, [listPage, debouncedSearchQuery]);
+  }, []);
 
   const fetchCourses = async () => {
+    setCoursesLoading(true);
     try {
-      setLoading(true);
-      const res = await fetch(
-        buildAdminListUrl(`${API_BASE_URL}/api/courses/admin/list/`, {
-          page: listPage,
-          page_size: ADMIN_TABLE_PAGE_SIZE,
-          search: debouncedSearchQuery.trim(),
-          manager: "practice_tests",
-        }),
-        {
-          headers: getAuthHeaders(),
-          cache: "no-store",
+      let page = 1;
+      let totalPages = 1;
+      const allCourses = [];
+
+      do {
+        const res = await fetch(
+          buildAdminListUrl(`${API_BASE_URL}/api/courses/admin/list/`, {
+            page,
+            page_size: 100,
+            manager: "practice_tests",
+          }),
+          {
+            headers: getAuthHeaders(),
+            cache: "no-store",
+          }
+        );
+
+        if (res.status === 401) {
+          setMessage("Authentication failed. Please log in again.");
+          setTimeout(() => router.push("/admin/auth"), 2000);
+          return;
         }
-      );
 
-      if (res.status === 401) {
-        setMessage("Authentication failed. Please log in again.");
-        setTimeout(() => router.push("/admin/auth"), 2000);
-        return;
-      }
+        const data = await res.json();
+        if (!data.success) break;
 
-      const data = await res.json();
-      if (data.success) {
-        setCourses(Array.isArray(data.data) ? data.data : []);
-        setListPagination(normalizeAdminPagination(data.pagination));
-      }
+        allCourses.push(...(Array.isArray(data.data) ? data.data : []));
+        totalPages = Number(data.pagination?.total_pages) || 1;
+        page += 1;
+      } while (page <= totalPages);
+
+      setCourses(allCourses);
     } catch (error) {
       setMessage(`Error loading exams: ${error.message}`);
     } finally {
-      setLoading(false);
+      setCoursesLoading(false);
     }
   };
 
@@ -97,7 +151,53 @@ export default function PracticeTestsManagerPage() {
     setListPage(1);
   }, [searchQuery]);
 
-  const filteredCourses = courses;
+  const filteredCourses = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return courses;
+
+    return courses.filter((course) => {
+      const name = getExamAdminDisplayName(course).toLowerCase();
+      const code = String(getDisplayExamCode(course) || "").toLowerCase();
+      const provider = String(course?.provider || "").toLowerCase();
+      const category = String(course?.category || "").toLowerCase();
+      const slug = String(course?.slug || "").toLowerCase();
+
+      return (
+        name.includes(query) ||
+        code.includes(query) ||
+        provider.includes(query) ||
+        category.includes(query) ||
+        slug.includes(query)
+      );
+    });
+  }, [courses, searchQuery]);
+
+  const paginatedCourses = useMemo(() => {
+    const totalItems = filteredCourses.length;
+    const totalPages = Math.max(
+      1,
+      Math.ceil(totalItems / ADMIN_TABLE_PAGE_SIZE)
+    );
+    const page = Math.min(listPage, totalPages);
+    const start = (page - 1) * ADMIN_TABLE_PAGE_SIZE;
+
+    return {
+      items: filteredCourses.slice(start, start + ADMIN_TABLE_PAGE_SIZE),
+      page,
+      totalPages,
+      totalItems,
+    };
+  }, [filteredCourses, listPage]);
+
+  const handleManageTests = async (course) => {
+    if (!course?.id) return;
+
+    const { targetId, targetSlug } = await resolvePracticeTestsCourseTarget(course);
+    const slugQuery = targetSlug
+      ? `?slug=${encodeURIComponent(targetSlug)}`
+      : "";
+    router.push(`/admin/courses/${targetId}/tests${slugQuery}`);
+  };
 
   const handleDeleteExam = async (course) => {
     if (!course?.id) return;
@@ -134,14 +234,6 @@ export default function PracticeTestsManagerPage() {
       setMessage(`Error: ${error.message}`);
     }
   };
-
-  if (loading) {
-    return (
-      <div className="p-6 max-w-7xl mx-auto">
-        <p className="text-center py-20 text-[#0C1A35]/70">Loading exams...</p>
-      </div>
-    );
-  }
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
@@ -192,7 +284,7 @@ export default function PracticeTestsManagerPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Exam Title</TableHead>
+                <TableHead>Exam Name</TableHead>
                 <TableHead>Code</TableHead>
                 <TableHead>Provider</TableHead>
                 <TableHead>Category</TableHead>
@@ -201,7 +293,16 @@ export default function PracticeTestsManagerPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredCourses.length === 0 ? (
+              {coursesLoading ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={6}
+                    className="text-center text-[#0C1A35]/60 py-8"
+                  >
+                    Loading exams...
+                  </TableCell>
+                </TableRow>
+              ) : filteredCourses.length === 0 ? (
                 <TableRow>
                   <TableCell
                     colSpan={6}
@@ -211,14 +312,14 @@ export default function PracticeTestsManagerPage() {
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredCourses.map((course) => {
+                paginatedCourses.items.map((course) => {
                   const testCount = getPracticeTestCount(course);
                   return (
                     <TableRow key={course.id}>
                       <TableCell className="font-medium text-[#0C1A35]">
-                        {course.title}
+                        {getExamAdminDisplayName(course)}
                       </TableCell>
-                      <TableCell>{course.code || "-"}</TableCell>
+                      <TableCell>{getDisplayExamCode(course) || "-"}</TableCell>
                       <TableCell>{course.provider || "-"}</TableCell>
                       <TableCell>{course.category || "-"}</TableCell>
                       <TableCell>
@@ -235,9 +336,7 @@ export default function PracticeTestsManagerPage() {
                           <Button
                             size="icon"
                             variant="outline"
-                            onClick={() =>
-                              router.push(`/admin/courses/${course.id}/tests`)
-                            }
+                            onClick={() => handleManageTests(course)}
                             title="Manage practice tests"
                           >
                             <Edit className="w-4 h-4" />
@@ -259,9 +358,9 @@ export default function PracticeTestsManagerPage() {
             </TableBody>
           </Table>
           <AdminTablePagination
-            currentPage={listPagination.page}
-            totalPages={listPagination.total_pages}
-            totalItems={listPagination.count}
+            currentPage={paginatedCourses.page}
+            totalPages={paginatedCourses.totalPages}
+            totalItems={paginatedCourses.totalItems}
             onPageChange={setListPage}
             itemLabel="exams"
           />

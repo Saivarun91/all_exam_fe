@@ -1,6 +1,6 @@
 // "use client";
 
-// import { useRouter } from "next/navigation";
+// import { useRouter } from "@/lib/navigation/client";
 // import { Button } from "@/components/ui/button";
 
 // export default function PracticePageClientButton({ url }) {

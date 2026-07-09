@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter } from "@/lib/navigation/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -147,48 +147,98 @@ export default function TestQuestionsManager() {
   const [optionImagePreviews, setOptionImagePreviews] = useState({});
   const [uploadingImage, setUploadingImage] = useState(false);
 
-  useEffect(() => {
-    if (!checkAuth()) {
-      router.push("/admin/auth");
-      return;
-    }
+  const isLikelyMongoObjectId = (s) =>
+    typeof s === "string" && /^[a-fA-F0-9]{24}$/.test(s.trim());
 
-    fetchCourse();
-    fetchQuestions();
-  }, [courseId, testId]);
+  const resolvePracticeTestId = (courseData = course) => {
+    const tests = courseData?.practice_tests_list || [];
+    const fromQuestion = questions.find((q) => q?.category_id)?.category_id;
+    if (fromQuestion && isLikelyMongoObjectId(String(fromQuestion))) {
+      return String(fromQuestion).trim();
+    }
+    if (currentTest?.id != null && isLikelyMongoObjectId(String(currentTest.id))) {
+      return String(currentTest.id).trim();
+    }
+    const candidate = (segment(params?.testId) || readTestIdFromUrl() || "").trim();
+    if (candidate && isLikelyMongoObjectId(candidate)) return candidate;
+    if (candidate && tests.length) {
+      const bySlug = tests.find(
+        (t) => t?.slug != null && String(t.slug) === candidate
+      );
+      if (bySlug?.id && isLikelyMongoObjectId(String(bySlug.id))) {
+        return String(bySlug.id).trim();
+      }
+      const byId = tests.find((t) => String(t.id) === candidate);
+      if (byId?.id && isLikelyMongoObjectId(String(byId.id))) {
+        return String(byId.id).trim();
+      }
+      const asIndex = Number.parseInt(candidate, 10);
+      if (!Number.isNaN(asIndex) && asIndex > 0 && tests[asIndex - 1]?.id) {
+        const indexedId = String(tests[asIndex - 1].id);
+        if (isLikelyMongoObjectId(indexedId)) return indexedId;
+      }
+    }
+    if (currentTest?.id != null && isLikelyMongoObjectId(String(currentTest.id))) {
+      return String(currentTest.id).trim();
+    }
+    if (fromQuestion != null && isLikelyMongoObjectId(String(fromQuestion))) {
+      return String(fromQuestion).trim();
+    }
+    return candidate || undefined;
+  };
 
   const fetchCourse = async () => {
+    if (!courseId) return null;
     try {
-      const res = await fetch(`${API_BASE_URL}/api/courses/admin/list/`, {
-        headers: getAuthHeaders()
-      });
+      const candidateUrls = [
+        `${API_BASE_URL}/api/courses/admin/${courseId}/`,
+        `${API_BASE_URL}/api/courses/admin/${courseId}/detail/`,
+      ];
 
-      const data = await res.json();
-      if (data.success) {
-        const foundCourse = data.data.find(
-          (c) => String(c.id) === String(courseId)
+      for (const url of candidateUrls) {
+        const res = await fetch(url, { headers: getAuthHeaders() });
+        if (!res.ok) continue;
+        const data = await res.json();
+        const foundCourse =
+          data?.success && data?.data ? data.data : data?.id ? data : null;
+        if (!foundCourse) continue;
+
+        setCourse(foundCourse);
+        const candidate = (segment(params?.testId) || readTestIdFromUrl() || "").trim();
+        const test = (foundCourse.practice_tests_list || []).find(
+          (t) =>
+            String(t.id) === candidate ||
+            String(t.slug) === candidate ||
+            (Number.parseInt(candidate, 10) > 0 &&
+              foundCourse.practice_tests_list[
+                Number.parseInt(candidate, 10) - 1
+              ]?.id === t.id)
         );
-        if (foundCourse) {
-          setCourse(foundCourse);
-          // Find current test
-          const test = foundCourse.practice_tests_list?.find(
-            (t) => String(t.id) === String(testId)
-          );
-          setCurrentTest(test);
-        }
+        if (test) setCurrentTest(test);
+        return foundCourse;
       }
     } catch (error) {
       console.error("Error fetching course:", error);
     }
+    return null;
   };
 
-  const fetchQuestions = async () => {
-    if (!testId) return;
+  const fetchQuestions = async (resolvedTestId) => {
+    const practiceTestId = resolvedTestId || resolvePracticeTestId();
+    if (!practiceTestId) return;
     try {
       setLoading(true);
-      const res = await fetch(`${API_BASE_URL}/api/exams/questions/?test_id=${testId}`, {
-        headers: getAuthHeaders()
+      const query = new URLSearchParams({
+        test_id: practiceTestId,
       });
+      if (courseId) query.set("course_id", courseId);
+
+      const res = await fetch(
+        `${API_BASE_URL}/api/exams/questions/?${query.toString()}`,
+        {
+          headers: getAuthHeaders(),
+        }
+      );
 
       if (!res.ok) {
         throw new Error(`HTTP error! status: ${res.status}`);
@@ -196,13 +246,11 @@ export default function TestQuestionsManager() {
 
       const data = await res.json();
       if (data.success) {
-        // Backend returns questions in 'questions' field, not 'data'
         const questionsList = (data.questions || data.data || []).map((q) => ({
           ...q,
           question_type: toUiQuestionType(q.question_type),
         }));
         setQuestions(questionsList);
-        console.log(`✅ Fetched ${questionsList.length} questions for test ${testId}`);
       } else {
         console.error("Error fetching questions:", data.message || data.error);
         setQuestions([]);
@@ -214,6 +262,23 @@ export default function TestQuestionsManager() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (!checkAuth()) {
+      router.push("/admin/auth");
+      return;
+    }
+
+    const loadPageData = async () => {
+      const courseData = await fetchCourse();
+      const resolvedTestId = resolvePracticeTestId(courseData);
+      if (resolvedTestId) {
+        await fetchQuestions(resolvedTestId);
+      }
+    };
+
+    loadPageData();
+  }, [courseId, testId]);
 
   const resetForm = () => {
     setFormData({
@@ -368,42 +433,6 @@ export default function TestQuestionsManager() {
     } finally {
       setUploadingImage(false);
     }
-  };
-
-  const isLikelyMongoObjectId = (s) =>
-    typeof s === "string" && /^[a-fA-F0-9]{24}$/.test(s.trim());
-
-  const resolvePracticeTestId = () => {
-    const tests = course?.practice_tests_list || [];
-    const fromQuestion = questions.find((q) => q?.category_id)?.category_id;
-    if (fromQuestion && isLikelyMongoObjectId(String(fromQuestion))) {
-      return String(fromQuestion).trim();
-    }
-    if (currentTest?.id != null && isLikelyMongoObjectId(String(currentTest.id))) {
-      return String(currentTest.id).trim();
-    }
-    const candidate = (segment(params?.testId) || readTestIdFromUrl() || "").trim();
-    if (candidate && isLikelyMongoObjectId(candidate)) return candidate;
-    if (candidate && tests.length) {
-      const bySlug = tests.find(
-        (t) => t?.slug != null && String(t.slug) === candidate
-      );
-      if (bySlug?.id && isLikelyMongoObjectId(String(bySlug.id))) {
-        return String(bySlug.id).trim();
-      }
-      const byId = tests.find((t) => String(t.id) === candidate);
-      if (byId?.id && isLikelyMongoObjectId(String(byId.id))) {
-        return String(byId.id).trim();
-      }
-    }
-    if (candidate) return candidate;
-    if (currentTest?.id != null && String(currentTest.id).trim() !== "") {
-      return String(currentTest.id).trim();
-    }
-    if (fromQuestion != null && String(fromQuestion).trim() !== "") {
-      return String(fromQuestion).trim();
-    }
-    return undefined;
   };
 
   const handleSubmit = async (e) => {
@@ -631,26 +660,36 @@ export default function TestQuestionsManager() {
       return;
     }
 
-    if (!testId) {
-      setMessage("❌ Test ID is missing");
+    const practiceTestId = resolvePracticeTestId();
+    if (!practiceTestId) {
+      setMessage(
+        "❌ Practice test id is missing. Go back and open View Questions from the practice test list."
+      );
       return;
     }
 
     setLoading(true);
     try {
       const formDataUpload = new FormData();
-      formDataUpload.append('file', csvFile);
-      formDataUpload.append('test_id', testId);
+      formDataUpload.append("file", csvFile);
+      formDataUpload.append("test_id", practiceTestId);
+      if (courseId || course?.id) {
+        formDataUpload.append("course_id", courseId || course.id);
+      }
 
       const res = await fetch(`${API_BASE_URL}/api/exams/questions/upload-csv/`, {
         method: "POST",
         headers: getAuthHeadersForUpload(),
-        body: formDataUpload
+        body: formDataUpload,
       });
 
       if (!res.ok) {
-        const errorData = await res.json().catch(() => ({ message: `HTTP error! status: ${res.status}` }));
-        throw new Error(errorData.message || errorData.error || `HTTP error! status: ${res.status}`);
+        const errorData = await res.json().catch(() => ({
+          message: `HTTP error! status: ${res.status}`,
+        }));
+        throw new Error(
+          errorData.message || errorData.error || `HTTP error! status: ${res.status}`
+        );
       }
 
       const data = await res.json();
@@ -668,23 +707,20 @@ export default function TestQuestionsManager() {
         setMessage(message);
         setCsvFile(null);
         setCsvDialogOpen(false);
-        // Refresh questions list after successful upload
-        // Use a longer delay to ensure backend has processed and saved all questions
-        setTimeout(() => {
-          fetchQuestions();
-        }, 1000);
+        const refreshTestId = data.test_id || practiceTestId;
+        await fetchQuestions(refreshTestId);
         setTimeout(() => setMessage(""), 10000);
       } else {
         let errorMsg = data.error || data.message || "Failed to upload";
         if (data.errors && data.errors.length > 0) {
-          errorMsg += `\n\nErrors found:\n${data.errors.slice(0, 5).join('\n')}`;
+          errorMsg += `\n\nErrors found:\n${data.errors.slice(0, 5).join("\n")}`;
           if (data.errors.length > 5) {
             errorMsg += `\n... and ${data.errors.length - 5} more errors. Check console for full list.`;
           }
           console.error("All upload errors:", data.errors);
         }
         setMessage("❌ " + errorMsg);
-        fetchQuestions(); // Still refresh in case some were created
+        await fetchQuestions(data.test_id || practiceTestId);
       }
     } catch (error) {
       setMessage("❌ Error: " + error.message);

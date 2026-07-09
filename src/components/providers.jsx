@@ -5,6 +5,7 @@ import { TestProvider } from "@/contexts/TestContext";
 import FontSettingsProvider from "@/components/layout/FontSettingsProvider";
 import GoogleAnalyticsDeferred from "@/components/analytics/GoogleAnalyticsDeferred";
 import NavigationProgress from "@/components/layout/NavigationProgress";
+import NewTabNavigation from "@/components/layout/NewTabNavigation";
 import { Toaster } from "react-hot-toast";
 
 export default function Providers({ children }) {
@@ -12,6 +13,7 @@ export default function Providers({ children }) {
     <AuthProvider>
       <TestProvider>
         <FontSettingsProvider>
+          <NewTabNavigation />
           <NavigationProgress />
           <GoogleAnalyticsDeferred />
           <Toaster position="top-right" />

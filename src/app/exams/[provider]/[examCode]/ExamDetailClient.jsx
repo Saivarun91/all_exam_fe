@@ -1,7 +1,7 @@
 "use client";
 
 // import { useEffect, useState } from "react";
-// import { useRouter } from "next/navigation";
+// import { useRouter } from "@/lib/navigation/client";
 // import Link from "next/link";
 // import { Star, Clock, TrendingUp, CheckCircle2, BookOpen, Target, Award, ArrowRight } from "lucide-react";
 
@@ -462,7 +462,7 @@
 
 // import Link from "next/link";
 // import { useMemo, useState } from "react";
-// import { useRouter } from "next/navigation";
+// import { useRouter } from "@/lib/navigation/client";
 
 // import { Star, Clock, CheckCircle2, FileText } from "lucide-react";
 
@@ -922,7 +922,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/lib/navigation/client";
 
 import { Star, Clock, CheckCircle2, FileText } from "lucide-react";
 

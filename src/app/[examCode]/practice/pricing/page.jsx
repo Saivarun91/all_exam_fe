@@ -3,7 +3,9 @@ import { notFound, redirect } from "next/navigation";
 import PricingPageClient from "@/app/exams/[provider]/[examCode]/practice/pricing/PricingPageClient";
 import { fetchExamByIdentifier, toExamSlug } from "@/lib/loadExamDetailPage";
 import {
+  getExamPracticePath,
   getExamPricingPath,
+  getStoredExamSlug,
   pathsMatchPublicUrl,
 } from "@/utils/practiceTestRouting";
 import { ROBOTS_INDEX, ROBOTS_NOINDEX } from "@/lib/seoRobots";
@@ -22,8 +24,12 @@ function decodePathSegment(value = "") {
 }
 
 function resolveProviderAndExamCode(exam) {
-  const provider = toExamSlug(exam?.provider_slug || exam?.provider || "");
-  const examCode = toExamSlug(exam?.code || "");
+  const provider = toExamSlug(
+    exam?.provider_slug || exam?.provider || exam?.category_slug || ""
+  );
+  const examCode = toExamSlug(
+    exam?.code || getStoredExamSlug(exam) || ""
+  );
   return { provider, examCode };
 }
 
@@ -42,13 +48,15 @@ async function loadPricingData(provider, examCode, exam) {
   }
   const courseData = await courseRes.json();
 
-  const pricingRes = await fetch(
-    `${API_BASE_URL}/api/courses/pricing/${encodeURIComponent(provider)}/${encodeURIComponent(examCode)}/`,
-    { cache: "no-store" }
-  );
+  if (provider && examCode) {
+    const pricingRes = await fetch(
+      `${API_BASE_URL}/api/courses/pricing/${encodeURIComponent(provider)}/${encodeURIComponent(examCode)}/`,
+      { cache: "no-store" }
+    );
 
-  if (pricingRes.ok) {
-    return pricingRes.json();
+    if (pricingRes.ok) {
+      return pricingRes.json();
+    }
   }
 
   return {
@@ -58,6 +66,7 @@ async function loadPricingData(provider, examCode, exam) {
     course_code: courseData.code || "",
     provider: courseData.provider || provider,
     currency: courseData.currency || "INR",
+    pricing_access_type: courseData.pricing_access_type || "paid",
     hero_title: courseData.hero_title || "Choose Your Access Plan",
     hero_subtitle:
       courseData.hero_subtitle ||
@@ -114,9 +123,13 @@ export default async function SlugPricingPage({ params }) {
   }
 
   const { provider, examCode: resolvedExamCode } = resolveProviderAndExamCode(exam);
-  if (!provider || !resolvedExamCode) {
+  if (!resolvedExamCode) {
     notFound();
   }
+
+  const practicePath =
+    getExamPracticePath(exam) ||
+    `/${exam?.slug || rawExamCode}/practice`;
 
   let pricingData = null;
   let error = "";
@@ -134,6 +147,7 @@ export default async function SlugPricingPage({ params }) {
       examCode={resolvedExamCode}
       pricingData={pricingData}
       error={error}
+      practicePath={practicePath}
     />
   );
 }

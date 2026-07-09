@@ -3,7 +3,7 @@
 import { GraduationCap, Facebook, Twitter, Linkedin, Youtube, Instagram, Shield, Mail, Phone, MapPin, Globe } from "lucide-react";
 import Link from "next/link";
 import { useState, useEffect } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter } from "@/lib/navigation/client";
 import { useSiteName } from "@/hooks/useSiteName";
 import { useContactDetails } from "@/hooks/useContactDetails";
 import { useLogoUrl } from "@/hooks/useLogoUrl";

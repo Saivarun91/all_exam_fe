@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname } from "@/lib/navigation/client";
 
 const GA_MEASUREMENT_ID = "G-4KCPVHB725";
 

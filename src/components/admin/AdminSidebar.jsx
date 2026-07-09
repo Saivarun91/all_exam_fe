@@ -1,6 +1,6 @@
 "use client";
 
-import { usePathname } from "next/navigation";
+import { usePathname } from "@/lib/navigation/client";
 import Link from "next/link";
 import { useSiteName } from "@/hooks/useSiteName";
 import { useLogoUrl } from "@/hooks/useLogoUrl";
@@ -27,7 +27,7 @@ import {
   ScrollText,
   ClipboardList,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/lib/navigation/client";
 
 export default function AdminSidebar() {
   const siteName = useSiteName();

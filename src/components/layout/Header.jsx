@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { GraduationCap, User, LogOut, ChevronDown, Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter } from "@/lib/navigation/client";
 import { useSiteName } from "@/hooks/useSiteName";
 import { useLogoUrl, getLogoUrl } from "@/hooks/useLogoUrl";
 import { t } from "@/lib/uiStrings";
@@ -136,6 +136,7 @@ const Header = ({ initialLogoUrl = "", initialSiteName = "" }) => {
         {/* Logo */}
         <Link
           href="/"
+          data-same-tab="true"
           className="flex items-center gap-2 hover:opacity-80 transition-opacity"
           aria-label={siteName?.trim() ? `AllExamQuestions home — ${siteName}` : "AllExamQuestions home"}
         >

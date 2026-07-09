@@ -1,6 +1,6 @@
 // "use client";
 
-// import { usePathname, useRouter } from "next/navigation";
+// import { usePathname, useRouter } from "@/lib/navigation/client";
 // import { useEffect } from "react";
 
 // export default function NotFound() {
@@ -30,7 +30,7 @@
 
 "use client";
 
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter } from "@/lib/navigation/client";
 import { useEffect, useState } from "react";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";

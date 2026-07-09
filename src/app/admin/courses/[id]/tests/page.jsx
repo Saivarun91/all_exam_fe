@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "@/lib/navigation/client";
+import { buildAdminListUrl } from "@/lib/adminPagination";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,8 +34,137 @@ const segment = (value) => {
   return v === undefined || v === null || v === "" ? undefined : String(v);
 };
 
+const courseCacheKey = (id) => `admin_course_tests_${id}`;
+
+function readCachedCourse(id) {
+  try {
+    const raw = sessionStorage.getItem(courseCacheKey(id));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function parseCoursePayload(data) {
+  if (data?.success && data?.data && typeof data.data === "object") {
+    return data.data;
+  }
+  if (data && typeof data === "object" && (data.id || data.code || data.title)) {
+    return data;
+  }
+  return null;
+}
+
+async function fetchAdminCourseById(id) {
+  const candidateUrls = [
+    `${API_BASE_URL}/api/courses/admin/${id}/`,
+    `${API_BASE_URL}/api/courses/admin/${id}/detail/`,
+  ];
+
+  for (const url of candidateUrls) {
+    try {
+      const res = await fetch(url, { headers: getAuthHeaders() });
+      if (res.status === 401) {
+        return { authError: true, course: null };
+      }
+      if (!res.ok) continue;
+      const course = parseCoursePayload(await res.json());
+      if (course) return { authError: false, course };
+    } catch {
+      // Try next endpoint
+    }
+  }
+
+  return { authError: false, course: null };
+}
+
+async function fetchCourseBySlug(slug) {
+  const trimmed = String(slug || "").trim();
+  if (!trimmed) return null;
+
+  try {
+    const res = await fetch(
+      `${API_BASE_URL}/api/courses/exams/${encodeURIComponent(trimmed)}/`,
+      { headers: getAuthHeaders() }
+    );
+    if (!res.ok) return null;
+    return parseCoursePayload(await res.json());
+  } catch {
+    return null;
+  }
+}
+
+async function findCourseInAdminList({ courseId, slug }) {
+  const searchTerms = [slug, courseId].filter(Boolean);
+  const seen = new Set();
+
+  for (const search of searchTerms) {
+    if (seen.has(search)) continue;
+    seen.add(search);
+
+    let page = 1;
+    let totalPages = 1;
+
+    do {
+      try {
+        const res = await fetch(
+          buildAdminListUrl(`${API_BASE_URL}/api/courses/admin/list/`, {
+            page,
+            page_size: 100,
+            search,
+            manager: "practice_tests",
+          }),
+          { headers: getAuthHeaders(), cache: "no-store" }
+        );
+        if (!res.ok) break;
+
+        const data = await res.json();
+        if (!data?.success) break;
+
+        const rows = Array.isArray(data.data) ? data.data : [];
+        const byId = rows.find((row) => String(row.id) === String(courseId));
+        if (byId) return byId;
+
+        if (slug) {
+          const bySlug = rows.find(
+            (row) => String(row.slug || "").toLowerCase() === String(slug).toLowerCase()
+          );
+          if (bySlug) return bySlug;
+        }
+
+        totalPages = Number(data.pagination?.total_pages) || 1;
+        page += 1;
+      } catch {
+        break;
+      }
+    } while (page <= totalPages);
+  }
+
+  return null;
+}
+
+async function resolvePracticeCourse(course) {
+  if (!course) return null;
+
+  const slug = String(course.slug || "").trim();
+  if (!slug.toLowerCase().endsWith("-exam-info")) {
+    return course;
+  }
+
+  const practiceSlug = slug.replace(/-exam-info$/i, "-practice-exam");
+  const practiceCourse = await fetchCourseBySlug(practiceSlug);
+  if (!practiceCourse?.id) return course;
+
+  const { course: adminPractice } = await fetchAdminCourseById(practiceCourse.id);
+  return adminPractice || practiceCourse;
+}
+
 export default function CourseTestsPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const courseId = segment(params?.id);
   const router = useRouter();
 
@@ -65,24 +195,59 @@ export default function CourseTestsPage() {
 
     const fetchCourse = async () => {
       try {
-        const res = await fetch(`${API_BASE_URL}/api/courses/admin/list/`, {
-          headers: getAuthHeaders()
-        });
+        setLoading(true);
+        setError(null);
 
-      const data = await res.json();
-        if (data.success) {
-          const foundCourse = data.data.find(
-            (c) => String(c.id) === String(courseId)
-          );
-          if (foundCourse) {
-            setCourse(foundCourse);
-            // Fetch question counts for each test
-            fetchTestQuestionCounts(foundCourse.practice_tests_list || []);
-    }
+        const slugParam = searchParams?.get("slug") || "";
+        const cachedCourse = readCachedCourse(courseId);
+        let foundCourse = cachedCourse;
+
+        const { authError, course: adminCourse } = await fetchAdminCourseById(courseId);
+        if (authError) {
+          setError("Authentication failed. Please log in again.");
+          setTimeout(() => router.push("/admin/auth"), 2000);
+          return;
         }
-        setLoading(false);
+        if (adminCourse) {
+          foundCourse = adminCourse;
+        }
+
+        if (!foundCourse && slugParam) {
+          const slugCourse = await fetchCourseBySlug(slugParam);
+          if (slugCourse?.id) {
+            const { course: adminBySlug } = await fetchAdminCourseById(slugCourse.id);
+            foundCourse = adminBySlug || slugCourse;
+          }
+        }
+
+        if (!foundCourse) {
+          foundCourse = await findCourseInAdminList({
+            courseId,
+            slug: slugParam || cachedCourse?.slug || "",
+          });
+        }
+
+        if (!foundCourse && cachedCourse) {
+          foundCourse = cachedCourse;
+        }
+
+        foundCourse = await resolvePracticeCourse(foundCourse);
+
+        if (foundCourse) {
+          setCourse(foundCourse);
+          fetchTestQuestionCounts(foundCourse.practice_tests_list || []);
+          if (String(foundCourse.id) !== String(courseId)) {
+            const slugQuery = foundCourse.slug
+              ? `?slug=${encodeURIComponent(foundCourse.slug)}`
+              : "";
+            router.replace(`/admin/courses/${foundCourse.id}/tests${slugQuery}`);
+          }
+        } else {
+          setError("Course not found");
+        }
       } catch (err) {
         setError(err.message);
+      } finally {
         setLoading(false);
       }
     };
@@ -90,7 +255,7 @@ export default function CourseTestsPage() {
     if (courseId) {
       fetchCourse();
     }
-  }, [courseId]);
+  }, [courseId, searchParams, router]);
 
   // Refresh question counts when page becomes visible (e.g., when returning from questions page)
   useEffect(() => {
@@ -175,7 +340,7 @@ export default function CourseTestsPage() {
   const handleAddTest = async () => {
     try {
       const updatedTests = [...practiceTests, { ...testForm }];
-      const res = await fetch(`${API_BASE_URL}/api/courses/admin/${courseId}/update/`, {
+      const res = await fetch(`${API_BASE_URL}/api/courses/admin/${course.id}/update/`, {
         method: "PUT",
         headers: {
           ...getAuthHeaders(),
@@ -216,7 +381,7 @@ export default function CourseTestsPage() {
       const updatedTests = practiceTests.map((t) =>
         t.id === editingTest.id ? { ...testForm, id: editingTest.id } : t
       );
-      const res = await fetch(`${API_BASE_URL}/api/courses/admin/${courseId}/update/`, {
+      const res = await fetch(`${API_BASE_URL}/api/courses/admin/${course.id}/update/`, {
         method: "PUT",
         headers: {
           ...getAuthHeaders(),
@@ -249,7 +414,7 @@ export default function CourseTestsPage() {
 
     try {
       const updatedTests = practiceTests.filter((t) => t.id !== testId);
-      const res = await fetch(`${API_BASE_URL}/api/courses/admin/${courseId}/update/`, {
+      const res = await fetch(`${API_BASE_URL}/api/courses/admin/${course.id}/update/`, {
         method: "PUT",
         headers: {
           ...getAuthHeaders(),

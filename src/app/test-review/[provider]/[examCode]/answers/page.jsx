@@ -1,13 +1,16 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter } from "@/lib/navigation/client";
 import Link from "next/link";
 import { ArrowLeft, CheckCircle, XCircle, Clock, Shield, ChevronLeft, ChevronRight, Compass } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import TipTapContent from "@/components/editor/TipTapContent";
+import ExplanationContent, {
+  hasFormattedExplanation,
+} from "@/components/exam/ExplanationContent";
 import {
   contentToDisplayString,
   optionTextFromApi,
@@ -556,16 +559,18 @@ export default function ReviewAnswersPage() {
                 </div>
                 
                 {/* Overall Explanation */}
-                {contentToDisplayString(currentQuestion.explanation).trim() !== "" && (
-                  <div className="mt-6 p-4 bg-blue-50 border-l-4 border-blue-500 rounded-r-lg">
-                    <p className="font-semibold text-blue-900 mb-2 flex items-center gap-2">
-                      <Shield className="w-4 h-4" />
-                      Explanation:
-                    </p>
-                    <RichContent
-                      content={currentQuestion.explanation}
-                      className="text-blue-800 leading-relaxed"
-                    />
+                {hasFormattedExplanation(currentQuestion.explanation) && (
+                  <div className="mt-6 rounded-lg border border-blue-200 bg-blue-50/80 overflow-hidden">
+                    <div className="flex items-center gap-2 border-b border-blue-200 bg-blue-100/80 px-5 py-3">
+                      <Shield className="w-4 h-4 text-blue-700 shrink-0" />
+                      <p className="font-semibold text-blue-900">Overall Explanation</p>
+                    </div>
+                    <div className="px-5 py-4">
+                      <ExplanationContent
+                        content={currentQuestion.explanation}
+                        className="text-blue-900/90 leading-relaxed [&_h3]:text-base [&_h3]:font-semibold [&_h3]:text-blue-900 [&_h3]:mt-5 [&_h3]:mb-2 [&_h3:first-child]:mt-0 [&_p]:mb-3 [&_p:last-child]:mb-0 [&_ul]:mb-3 [&_ol]:mb-3 [&_li]:mb-1.5 [&_strong]:text-blue-900"
+                      />
+                    </div>
                   </div>
                 )}
 

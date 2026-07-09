@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter } from "@/lib/navigation/client";
 import Link from "next/link";
 import { CheckCircle, ArrowRight, BookOpen, Trophy, Sparkles, Gift, Download, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";

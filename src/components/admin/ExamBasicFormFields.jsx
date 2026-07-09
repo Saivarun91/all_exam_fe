@@ -84,7 +84,7 @@ export default function ExamBasicFormFields({
               id={`${p}code`}
               value={form.code}
               onChange={(e) => setForm({ ...form, code: e.target.value })}
-              placeholder="e.g., SAA-C03, AZ-104 (uses URL slug if empty)"
+              placeholder="e.g., SAA-C03, AZ-104"
               className="mt-1"
             />
           </div>

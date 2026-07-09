@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname } from "@/lib/navigation/client";
+import { isNavigableHref, shouldKeepSameTab } from "@/lib/appNavigation";
 
 export default function NavigationProgress() {
   const pathname = usePathname();
@@ -17,22 +18,18 @@ export default function NavigationProgress() {
       }
 
       const href = anchor.getAttribute("href");
-      if (
-        !href ||
-        href.startsWith("#") ||
-        href.startsWith("mailto:") ||
-        href.startsWith("tel:") ||
-        href.startsWith("http")
-      ) {
+      if (!href || !isNavigableHref(href)) {
         return;
       }
 
-      const nextPath = href.split("?")[0].split("#")[0] || "/";
-      const currentPath = window.location.pathname;
-      if (nextPath === currentPath) return;
+      if (shouldKeepSameTab({ href, element: anchor })) {
+        const nextPath = href.split("?")[0].split("#")[0] || "/";
+        const currentPath = window.location.pathname;
+        if (nextPath === currentPath) return;
 
-      setActive(true);
-      setProgress(18);
+        setActive(true);
+        setProgress(18);
+      }
     };
 
     document.addEventListener("click", onClick, true);

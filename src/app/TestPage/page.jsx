@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "@/lib/navigation/client";
 
 // Redirect old route to new SEO-friendly route
 function TestPageRedirectContent() {

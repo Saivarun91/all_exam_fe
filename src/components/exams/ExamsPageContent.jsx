@@ -1,7 +1,7 @@
 // "use client";
 
 // import { useState, useMemo, useEffect, useRef } from "react";
-// import { useRouter, useSearchParams } from "next/navigation";
+// import { useRouter, useSearchParams } from "@/lib/navigation/client";
 // import Link from "next/link";
 // import { Button } from "@/components/ui/button";
 // import { Card, CardContent } from "@/components/ui/card";
@@ -619,7 +619,7 @@
 "use client";
 
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "@/lib/navigation/client";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -658,6 +658,7 @@ import EntityText, {
 } from "@/components/common/EntityText";
 import TipTapContent from "@/components/editor/TipTapContent";
 import { filterPublicExamListings } from "@/lib/examListingFilters";
+import { getDisplayExamCode, getExamPracticeStats } from "@/utils/practiceTestRouting";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
@@ -1335,7 +1336,8 @@ export default function ExamsPageContent({
       }
   
       // ✅ Min questions
-      if ((exam.questions || 0) < minQuestions) {
+      const { questions: examQuestionCount } = getExamPracticeStats(exam);
+      if (examQuestionCount < minQuestions) {
         return false;
       }
   
@@ -1352,7 +1354,7 @@ export default function ExamsPageContent({
   const filteredExams = backendPagination ? allExams : clientFilteredExams;
   // ✅ ADD THESE BACK
   const totalQuestions = filteredExams.reduce(
-    (sum, exam) => sum + (exam.questions || 0),
+    (sum, exam) => sum + getExamPracticeStats(exam).questions,
     0
   );
 
@@ -1869,15 +1871,17 @@ export default function ExamsPageContent({
                         <CourseTitleText course={exam} />
                       </IntentPrefetchLink>
                     </h3>
-                    <p className="text-sm text-[#0C1A35]/60 mb-3">
-                      <IntentPrefetchLink
-                        href={getExamUrl(exam)}
-                        className="hover:text-[#1A73E8] transition-colors"
-                        aria-label={`Open ${exam.title || exam.name || "exam"} by code`}
-                      >
-                        {exam.code}
-                      </IntentPrefetchLink>
-                    </p>
+                    {getDisplayExamCode(exam) ? (
+                      <p className="text-sm text-[#0C1A35]/60 mb-3">
+                        <IntentPrefetchLink
+                          href={getExamUrl(exam)}
+                          className="hover:text-[#1A73E8] transition-colors"
+                          aria-label={`Open ${exam.title || exam.name || "exam"} by code`}
+                        >
+                          {getDisplayExamCode(exam)}
+                        </IntentPrefetchLink>
+                      </p>
+                    ) : null}
 
                     <div className="flex gap-2 mb-3 flex-wrap">
                       {exam.badge && (
@@ -1889,22 +1893,9 @@ export default function ExamsPageContent({
 
                     <p className="text-sm text-[#0C1A35]/70 mb-4 rounded-lg bg-[#F5F8FC] border border-[#DDE7FF]/60 px-3 py-2">
                       {(() => {
-                        // Use actual count from practice_tests_list if available
-                        if (exam.practice_tests_list && Array.isArray(exam.practice_tests_list) && exam.practice_tests_list.length > 0) {
-                          return exam.practice_tests_list.length;
-                        }
-                        return exam.practice_exams || 0;
-                      })()} Practice Exams · {(() => {
-                        // Calculate total questions from practice tests list if available
-                        if (exam.practice_tests_list && Array.isArray(exam.practice_tests_list) && exam.practice_tests_list.length > 0) {
-                          const totalQuestions = exam.practice_tests_list.reduce((sum, test) => {
-                            const testQuestions = parseInt(test.questions) || 0;
-                            return sum + testQuestions;
-                          }, 0);
-                          return totalQuestions > 0 ? totalQuestions : (exam.questions || 0);
-                        }
-                        return exam.questions || 0;
-                      })()} Questions
+                        const { practiceExams, questions } = getExamPracticeStats(exam);
+                        return `${practiceExams} Practice Exams · ${questions} Questions`;
+                      })()}
                     </p>
 
                     <Button

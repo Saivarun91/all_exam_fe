@@ -1,7 +1,7 @@
 // "use client";
 
 // import { Suspense, useEffect, useRef } from "react";
-// import { useRouter, useSearchParams } from "next/navigation";
+// import { useRouter, useSearchParams } from "@/lib/navigation/client";
 // import ExamsPageContent from "@/components/exams/ExamsPageContent";
 // import { createSlug } from "@/lib/utils";
 

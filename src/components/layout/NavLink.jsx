@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { forwardRef } from "react";
 import { cn } from "@/lib/utils";
+import { NEW_TAB_LINK_PROPS } from "@/lib/appNavigation";
+import { usePathname } from "@/lib/navigation/client";
 
 const NavLink = forwardRef(
   ({ className, activeClassName, pendingClassName, to, ...props }, ref) => {
@@ -21,6 +22,7 @@ const NavLink = forwardRef(
           isActive && activeClassName,
           isPending && pendingClassName
         )}
+        {...NEW_TAB_LINK_PROPS}
         {...props}
       />
     );

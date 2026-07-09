@@ -69,6 +69,21 @@ function formatOfficialStatValidity(raw) {
   return value;
 }
 
+/**
+ * Official-details entries often use an `-exam-info` slug while the practice
+ * hub lives on a sibling `-practice-exam` slug with topics and tests.
+ */
+function resolveOfficialDetailsPracticeSlug(exam, normalizedExamCode) {
+  const storedSlug = pick(exam, "slug") || normalizedExamCode || "";
+  if (!storedSlug) return "";
+
+  if (String(storedSlug).toLowerCase().endsWith("-exam-info")) {
+    return storedSlug.replace(/-exam-info$/i, "-practice-exam");
+  }
+
+  return storedSlug;
+}
+
 export function hasOfficialDetailsData(exam) {
   const rawContent =
     typeof exam?.official_details_content === "string"
@@ -104,12 +119,7 @@ export function buildOfficialExamPageModel(exam, normalizedExamCode) {
   );
   const title = pick(exam, "title", "name") || "";
   const code = pick(exam, "code", "exam_code") || normalizedExamCode;
-  const practiceBaseSlug =
-    slug &&
-    slug !== officialUrlSlug &&
-    !String(slug).toLowerCase().endsWith("-exam-info")
-      ? slug
-      : "";
+  const practiceSlug = resolveOfficialDetailsPracticeSlug(exam, normalizedExamCode);
   const officialContent = pick(exam, "official_details_content") || "";
   const pageTitle =
     pick(exam, "official_details_page_title") ||
@@ -128,10 +138,10 @@ export function buildOfficialExamPageModel(exam, normalizedExamCode) {
 
   const practiceUrl =
     getExamPracticePath({
-      slug: practiceBaseSlug,
+      slug: practiceSlug,
       title,
       code,
-    }) || `/${practiceBaseSlug || slug}/practice`;
+    }) || (practiceSlug ? `/${practiceSlug}/practice` : "");
   const examDetailUrl =
     getExamLandingPath({
       slug,

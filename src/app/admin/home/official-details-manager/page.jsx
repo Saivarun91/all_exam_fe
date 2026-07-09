@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/lib/navigation/client";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -57,6 +57,8 @@ import {
   useDebouncedValue,
 } from "@/lib/adminPagination";
 import {
+  getAdminExamCodeForForm,
+  getDisplayExamCode,
   getPublicPageUrlFromSlug,
   resolveCourseCodeForSave,
 } from "@/utils/practiceTestRouting";
@@ -351,7 +353,7 @@ export default function OfficialDetailsManager() {
         : ""
     );
     setExamName(course?.exam_name || course?.title || "");
-    setExamCode(course?.code != null ? String(course.code) : "");
+    setExamCode(getAdminExamCodeForForm(course));
     setProvider(course?.provider || "");
     setOfficialDetailsContent(
       course.official_details_content || ""
@@ -1131,7 +1133,7 @@ export default function OfficialDetailsManager() {
                     <TableCell className="font-medium text-[#0C1A35]">
                       {course.exam_name || course.title || "-"}
                     </TableCell>
-                    <TableCell>{course.code || "-"}</TableCell>
+                    <TableCell>{getDisplayExamCode(course) || "-"}</TableCell>
                     <TableCell>{course.provider || "-"}</TableCell>
                     <TableCell>
                       <code className="text-xs bg-gray-100 px-1.5 py-0.5 rounded">
@@ -1203,14 +1205,18 @@ export default function OfficialDetailsManager() {
                     ? `Edit Official Details: ${selectedCourse.title}`
                     : "Edit Official Details"}
               </DialogTitle>
-              {selectedCourse && (
+              {selectedCourse && getDisplayExamCode(selectedCourse) ? (
                 <p className="text-sm text-[#0C1A35]/60">
-                  {selectedCourse.code}
+                  {getDisplayExamCode(selectedCourse)}
                   {selectedCourse.provider
                     ? ` · ${selectedCourse.provider}`
                     : ""}
                 </p>
-              )}
+              ) : selectedCourse?.provider ? (
+                <p className="text-sm text-[#0C1A35]/60">
+                  {selectedCourse.provider}
+                </p>
+              ) : null}
             </DialogHeader>
 
             <div className="space-y-6">
@@ -1240,7 +1246,7 @@ export default function OfficialDetailsManager() {
                         id="exam-code"
                         value={examCode}
                         onChange={(e) => setExamCode(e.target.value)}
-                        placeholder="e.g. AZ-900, SAA-C03 (uses URL slug if empty)"
+                        placeholder="e.g. AZ-900, SAA-C03"
                         className="mt-1"
                       />
                     </div>
@@ -1706,7 +1712,7 @@ export default function OfficialDetailsManager() {
 // "use client";
 
 // import { useState, useEffect, useMemo, useRef } from "react";
-// import { useRouter } from "next/navigation";
+// import { useRouter } from "@/lib/navigation/client";
 
 // import { Button } from "@/components/ui/button";
 // import { Input } from "@/components/ui/input";
