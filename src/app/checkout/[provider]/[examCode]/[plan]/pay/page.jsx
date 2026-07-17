@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "@/lib/navigation/client";
+import { useParams, useRouter, useSearchParams } from "@/lib/navigation/client";
 import Link from "next/link";
 import Script from "next/script";
 import { ArrowLeft, CheckCircle2, Lock, Loader2, CreditCard, Ticket, Tag, XCircle } from "lucide-react";
@@ -14,6 +14,11 @@ import {
   formatPrice,
   getPlanPriceFields,
 } from "@/lib/currencyUtils";
+import {
+  buildCourseLookupSlugs,
+  findPricingPlanBySlug,
+  getExamPricingPath,
+} from "@/utils/practiceTestRouting";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 const INDIA_COUNTRY_CODE = "IN";
@@ -134,13 +139,102 @@ function enrichPlanWithGst(plan, courseGst) {
   };
 }
 
+function enrichPlanFeatures(plan, featureSource = []) {
+  if (!plan) return plan;
+  if ((!plan.features || plan.features.length === 0) && featureSource.length > 0) {
+    plan.features = featureSource.map((f) => f.title || f.description || f);
+  }
+  return plan;
+}
+
+async function fetchExamBySlug(slug) {
+  if (!slug) return null;
+  const examRes = await fetch(
+    `${API_BASE_URL}/api/courses/exams/${encodeURIComponent(slug)}/`
+  );
+  if (!examRes.ok) return null;
+  return examRes.json();
+}
+
+async function fetchPricingByProviderExam(provider, examCode) {
+  const normalizedProvider = String(provider || "")
+    .toLowerCase()
+    .replace(/_/g, "-")
+    .trim();
+  const normalizedExamCode = String(examCode || "")
+    .toLowerCase()
+    .replace(/_/g, "-")
+    .trim();
+  if (!normalizedProvider || !normalizedExamCode) return null;
+
+  const pricingRes = await fetch(
+    `${API_BASE_URL}/api/courses/pricing/${encodeURIComponent(normalizedProvider)}/${encodeURIComponent(normalizedExamCode)}/`
+  );
+  if (!pricingRes.ok) return null;
+  return pricingRes.json();
+}
+
+function applyResolvedCheckoutData({
+  pricingData,
+  examData,
+  planSlug,
+  setExam,
+  setPlan,
+  setCourseCurrency,
+  setGstPercentage,
+  setCourseGstPercentage,
+  setResolvedCourseSlug,
+}) {
+  const plans = Array.isArray(pricingData?.pricing_plans)
+    ? pricingData.pricing_plans
+    : Array.isArray(examData?.pricing_plans)
+      ? examData.pricing_plans
+      : [];
+
+  if (!plans.length) return false;
+
+  const featureSource =
+    pricingData?.pricing_features || examData?.pricing_features || [];
+  const selectedPlan =
+    findPricingPlanBySlug(plans, planSlug) ||
+    plans.find((p) => p && p.status !== "inactive") ||
+    plans[0];
+
+  if (!selectedPlan) return false;
+
+  enrichPlanFeatures(selectedPlan, featureSource);
+
+  const courseGst = parseGstPercentage(pricingData || examData, selectedPlan);
+  const enrichedPlan = enrichPlanWithGst(selectedPlan, courseGst);
+
+  setExam({
+    title: pricingData?.course_title || examData?.title || "",
+    code: pricingData?.course_code || examData?.code || "",
+    slug: examData?.slug || pricingData?.course_slug || "",
+  });
+  setPlan(enrichedPlan);
+  setCourseCurrency(
+    pricingData?.currency || examData?.currency || "INR"
+  );
+  setGstPercentage(courseGst);
+  setCourseGstPercentage(courseGst);
+  setResolvedCourseSlug(
+    examData?.slug || pricingData?.course_slug || ""
+  );
+
+  return true;
+}
+
 export default function CheckoutPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   
   const provider = params?.provider;
   const examCode = params?.examCode;
   const planSlug = params?.plan; // Get plan from URL params (SEO-friendly)
+  const courseSlugHint =
+    searchParams.get("course") || searchParams.get("slug") || "";
 
   const [plan, setPlan] = useState(null);
   const [exam, setExam] = useState(null);
@@ -158,6 +252,7 @@ export default function CheckoutPage() {
   const [detectedCountryCode, setDetectedCountryCode] = useState(INDIA_COUNTRY_CODE);
   const [gstPercentage, setGstPercentage] = useState(0);
   const [courseGstPercentage, setCourseGstPercentage] = useState(0);
+  const [resolvedCourseSlug, setResolvedCourseSlug] = useState("");
   const [billingDetails, setBillingDetails] = useState({
     name: "",
     phone: "",
@@ -182,7 +277,7 @@ export default function CheckoutPage() {
       fetchData();
       fetchCoupons();
     }
-  }, [planSlug, provider, examCode]);
+  }, [planSlug, provider, examCode, courseSlugHint]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -206,107 +301,53 @@ export default function CheckoutPage() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      // Normalize provider and examCode for API call
-      const normalizedProvider = provider.toLowerCase().replace(/_/g, '-');
-      const normalizedExamCode = examCode.toLowerCase().replace(/_/g, '-');
-      
-      // Try fetching from pricing API first
-      const pricingRes = await fetch(`${API_BASE_URL}/api/courses/pricing/${normalizedProvider}/${normalizedExamCode}/`);
-      
-      let planFound = false;
-      let resolvedPlan = null;
-      let pricingData = null;
-      if (pricingRes.ok) {
-        pricingData = await pricingRes.json();
-        setCourseCurrency(pricingData.currency || "INR");
-        
-        // Check if pricing_plans exist and are not empty
-        if (pricingData.pricing_plans && Array.isArray(pricingData.pricing_plans) && pricingData.pricing_plans.length > 0) {
-          setExam({
-            title: pricingData.course_title,
-            code: pricingData.course_code
-          });
-          
-          // Find the selected plan from pricing_plans
-          const normalizedPlanSlug = planSlug?.toLowerCase().trim();
-          const selectedPlan = pricingData.pricing_plans.find(p => {
-            if (!p.name) return false;
-            const planNameNormalized = p.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-            return planNameNormalized === normalizedPlanSlug || 
-                   p.name.toLowerCase() === normalizedPlanSlug?.replace(/-/g, ' ') ||
-                   p.name.toLowerCase() === normalizedPlanSlug;
-          });
-          
-          if (selectedPlan) {
-            // Ensure features are populated from plan.features or pricing_features
-            if (!selectedPlan.features || selectedPlan.features.length === 0) {
-              // Try to get features from pricing_features if available
-              if (pricingData.pricing_features && pricingData.pricing_features.length > 0) {
-                selectedPlan.features = pricingData.pricing_features.map(f => f.title || f.description || f);
-              }
-            }
-            const courseGst = parseGstPercentage(pricingData, selectedPlan);
-            const enrichedPlan = enrichPlanWithGst(selectedPlan, courseGst);
-            setPlan(enrichedPlan);
-            resolvedPlan = enrichedPlan;
-            planFound = true;
-          } else if (pricingData.pricing_plans.length > 0) {
-            // Fallback to first plan if exact match not found
-            const fallbackPlan = pricingData.pricing_plans[0];
-            if (!fallbackPlan.features || fallbackPlan.features.length === 0) {
-              if (pricingData.pricing_features && pricingData.pricing_features.length > 0) {
-                fallbackPlan.features = pricingData.pricing_features.map(f => f.title || f.description || f);
-              }
-            }
-            const courseGst = parseGstPercentage(pricingData, fallbackPlan);
-            const enrichedPlan = enrichPlanWithGst(fallbackPlan, courseGst);
-            setPlan(enrichedPlan);
-            resolvedPlan = enrichedPlan;
-            planFound = true;
-          }
-        }
-        if (pricingData) {
-          const parsedGst = parseGstPercentage(pricingData, resolvedPlan);
-          setGstPercentage(parsedGst);
-          setCourseGstPercentage(parsedGst);
-        }
+
+      const slugCandidates = buildCourseLookupSlugs({
+        provider,
+        examCode,
+        courseSlug: courseSlugHint,
+      });
+
+      let resolved = false;
+
+      const pricingData = await fetchPricingByProviderExam(provider, examCode);
+      if (pricingData) {
+        resolved = applyResolvedCheckoutData({
+          pricingData,
+          examData: null,
+          planSlug,
+          setExam,
+          setPlan,
+          setCourseCurrency,
+          setGstPercentage,
+          setCourseGstPercentage,
+          setResolvedCourseSlug,
+        });
       }
-      
-      // Fallback: try course API if pricing API didn't return plans or plan not found
-      if (!planFound) {
-        const slug = `${normalizedProvider}-${normalizedExamCode}`;
-        const examRes = await fetch(`${API_BASE_URL}/api/courses/exams/${slug}/`);
-        
-        if (examRes.ok) {
-          const examData = await examRes.json();
-          setExam(examData);
-          setCourseCurrency(examData.currency || "INR");
-          
-          if (examData.pricing_plans && Array.isArray(examData.pricing_plans) && examData.pricing_plans.length > 0) {
-            const normalizedPlanSlug = planSlug?.toLowerCase().trim();
-            const selectedPlan = examData.pricing_plans.find(p => {
-              if (!p.name) return false;
-              const planNameNormalized = p.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-              return planNameNormalized === normalizedPlanSlug || 
-                     p.name.toLowerCase() === normalizedPlanSlug?.replace(/-/g, ' ') ||
-                     p.name.toLowerCase() === normalizedPlanSlug;
-            }) || examData.pricing_plans[0];
-            
-            // Ensure features are populated
-            if (selectedPlan && (!selectedPlan.features || selectedPlan.features.length === 0)) {
-              if (examData.pricing_features && examData.pricing_features.length > 0) {
-                selectedPlan.features = examData.pricing_features.map(f => f.title || f.description || f);
-              }
-            }
-            setPlan(enrichPlanWithGst(selectedPlan, parseGstPercentage(examData, selectedPlan)));
-            const parsedGst = parseGstPercentage(examData, selectedPlan);
-            setGstPercentage(parsedGst);
-            setCourseGstPercentage(parsedGst);
-          } else {
-            const parsedGst = parseGstPercentage(examData);
-            setGstPercentage(parsedGst);
-            setCourseGstPercentage(parsedGst);
-          }
+
+      if (!resolved) {
+        for (const slug of slugCandidates) {
+          const examData = await fetchExamBySlug(slug);
+          if (!examData) continue;
+
+          const pricingFromExam = await fetchPricingByProviderExam(
+            examData.provider_slug || examData.provider,
+            examData.code || examData.slug
+          );
+
+          resolved = applyResolvedCheckoutData({
+            pricingData: pricingFromExam,
+            examData,
+            planSlug,
+            setExam,
+            setPlan,
+            setCourseCurrency,
+            setGstPercentage,
+            setCourseGstPercentage,
+            setResolvedCourseSlug,
+          });
+
+          if (resolved) break;
         }
       }
     } catch (error) {
@@ -646,6 +687,18 @@ export default function CheckoutPage() {
   }
 
   if (!plan || !exam) {
+    const pricingRedirect =
+      getExamPricingPath({
+        slug: resolvedCourseSlug || courseSlugHint,
+        code: examCode,
+      }) ||
+      (resolvedCourseSlug || courseSlugHint
+        ? `/${resolvedCourseSlug || courseSlugHint}/practice/pricing`
+        : "") ||
+      (provider && examCode
+        ? `/exams/${provider}/${examCode}/practice/pricing`
+        : "/exams");
+
     return (
       <div className="min-h-screen bg-gray-50">
         <div className="container mx-auto px-4 py-20 text-center">
@@ -654,7 +707,7 @@ export default function CheckoutPage() {
           {planSlug && (
             <p className="text-sm text-gray-500 mb-4">Requested plan: {planSlug}</p>
           )}
-          <Button onClick={() => router.push(`/exams/${provider}/${examCode}/practice/pricing`)} className="bg-[#1A73E8]">
+          <Button onClick={() => router.push(pricingRedirect)} className="bg-[#1A73E8]">
             View Pricing Plans
           </Button>
         </div>

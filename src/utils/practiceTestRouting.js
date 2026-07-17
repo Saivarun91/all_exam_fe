@@ -286,6 +286,63 @@ export function getExamPricingPath(examOrSlug) {
   return practicePath ? `${practicePath}/pricing` : "";
 }
 
+/** Normalize a pricing plan name to a URL slug (matches checkout route segments). */
+export function normalizePlanSlug(value = "") {
+  return String(value || "")
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/[^a-z0-9-]/g, "");
+}
+
+/** Find a pricing plan by URL slug, id, or display name. */
+export function findPricingPlanBySlug(plans, planSlug) {
+  const normalizedPlanSlug = normalizePlanSlug(planSlug);
+  if (!normalizedPlanSlug || !Array.isArray(plans)) return null;
+
+  return (
+    plans.find((plan) => {
+      if (!plan) return false;
+      const planNameNormalized = normalizePlanSlug(plan.name);
+      return (
+        planNameNormalized === normalizedPlanSlug ||
+        String(plan.name || "")
+          .toLowerCase()
+          .trim() === normalizedPlanSlug.replace(/-/g, " ") ||
+        String(plan.name || "").toLowerCase().trim() === normalizedPlanSlug ||
+        normalizePlanSlug(plan.id) === normalizedPlanSlug ||
+        normalizePlanSlug(plan._id) === normalizedPlanSlug
+      );
+    }) || null
+  );
+}
+
+/** Build ordered course slug candidates for checkout / exam API lookups. */
+export function buildCourseLookupSlugs({
+  provider = "",
+  examCode = "",
+  courseSlug = "",
+} = {}) {
+  const slugs = [];
+  const add = (value) => {
+    const trimmed = trimPublicPathSegment(value);
+    if (trimmed && !slugs.includes(trimmed)) slugs.push(trimmed);
+  };
+
+  add(courseSlug);
+  probeExamLookupCandidates(courseSlug).forEach(add);
+
+  const normalizedProvider = slugifySegment(provider);
+  const normalizedExamCode = slugifySegment(examCode);
+  if (normalizedProvider && normalizedExamCode) {
+    add(`${normalizedProvider}-${normalizedExamCode}`);
+  }
+  add(normalizedExamCode);
+  probeExamLookupCandidates(normalizedExamCode).forEach(add);
+
+  return slugs;
+}
+
 /** Public exam landing page — uses admin slug exactly when stored. */
 export function getExamLandingPath(examOrSlug) {
   if (typeof examOrSlug === "object" && examOrSlug !== null) {

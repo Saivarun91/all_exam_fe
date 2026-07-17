@@ -4,7 +4,9 @@ import ExamDetailClient from "@/app/exams/[provider]/[examCode]/ExamDetailClient
 import TestPlayerClient from "@/components/TestPlayerClient";
 import {
   buildExamDetailPayload,
+  fetchExamByExactSlug,
   fetchExamByIdentifier,
+  resolveOfficialDetailsAvailability,
 } from "@/lib/loadExamDetailPage";
 import { loadPracticeTestPageData } from "@/lib/loadPracticeTestPage";
 import {
@@ -15,7 +17,7 @@ import {
 import { isOfficialDetailsOnlyCourse } from "@/lib/examListingFilters";
 import { ROBOTS_INDEX, ROBOTS_NOINDEX } from "@/lib/seoRobots";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 300;
 
 const SITE_URL = "https://allexamquestions.com";
 const PRACTICE_TEST_URL = /-free-practice-test-(\d+)$/i;
@@ -23,7 +25,9 @@ const PRACTICE_TEST_URL = /-free-practice-test-(\d+)$/i;
 export async function generateMetadata({ params }) {
   const { examCode } = await params;
   const rawExamCode = decodeURIComponent(String(examCode || "").trim());
-  const exam = await fetchExamByIdentifier(rawExamCode);
+  const exam =
+    (await fetchExamByExactSlug(rawExamCode)) ||
+    (await fetchExamByIdentifier(rawExamCode));
 
   if (!exam) {
     return {
@@ -83,7 +87,9 @@ export default async function SlugExamDetailPage({ params }) {
     );
   }
 
-  const exam = await fetchExamByIdentifier(rawExamCode);
+  const exam =
+    (await fetchExamByExactSlug(rawExamCode)) ||
+    (await fetchExamByIdentifier(rawExamCode));
 
   if (!exam) {
     notFound();
@@ -109,6 +115,13 @@ export default async function SlugExamDetailPage({ params }) {
       examCode: slug,
     }
   );
+
+  const officialMeta = await resolveOfficialDetailsAvailability(exam, {
+    slug,
+    examCode: slug,
+  });
+  examData.hasOfficialDetails = officialMeta.hasOfficialDetails;
+  examData.officialDetailsUrl = officialMeta.officialDetailsUrl;
 
   return (
     <ExamDetailClient

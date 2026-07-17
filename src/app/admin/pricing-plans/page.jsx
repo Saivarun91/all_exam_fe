@@ -38,9 +38,13 @@ import {
 import { Plus, Edit, Trash2, Star, Eye, Save, BookOpen, CheckCircle2, Clock, RefreshCw, Target, BarChart3, TrendingUp, Bell, X, Check, SearchIcon, ArrowLeft } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { checkAuth, getAuthHeaders } from "@/utils/authCheck";
-import { belongsInExamDetailsManager } from "@/lib/examListingFilters";
 import AdminTablePagination, { ADMIN_TABLE_PAGE_SIZE } from "@/components/admin/AdminTablePagination";
-import { getListPaginationSlice } from "@/components/common/ListPagination";
+import {
+  buildAdminListUrl,
+  DEFAULT_ADMIN_PAGINATION,
+  normalizeAdminPagination,
+  useDebouncedValue,
+} from "@/lib/adminPagination";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
@@ -95,6 +99,8 @@ export default function PricingPlansAdmin() {
   const [message, setMessage] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [listPage, setListPage] = useState(1);
+  const [listPagination, setListPagination] = useState(DEFAULT_ADMIN_PAGINATION);
+  const debouncedSearchQuery = useDebouncedValue(searchQuery);
   const [activeTab, setActiveTab] = useState("hero");
   
   // SEO states
@@ -177,9 +183,13 @@ export default function PricingPlansAdmin() {
       router.push("/admin/auth");
       return;
     }
-    fetchCourses();
     fetchSeoData();
   }, []);
+
+  useEffect(() => {
+    if (!checkAuth()) return;
+    fetchCourses();
+  }, [listPage, debouncedSearchQuery]);
 
   // Fetch SEO Data
   const fetchSeoData = async () => {
@@ -255,9 +265,18 @@ export default function PricingPlansAdmin() {
   const fetchCourses = async () => {
     setCoursesLoading(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/courses/admin/list/`, {
-        headers: getAuthHeaders(),
-      });
+      const res = await fetch(
+        buildAdminListUrl(`${API_BASE_URL}/api/courses/admin/list/`, {
+          page: listPage,
+          page_size: ADMIN_TABLE_PAGE_SIZE,
+          search: debouncedSearchQuery.trim(),
+          manager: "exam_details",
+        }),
+        {
+          headers: getAuthHeaders(),
+          cache: "no-store",
+        }
+      );
 
       if (res.status === 401) {
         setMessage("❌ Authentication failed. Please log in again.");
@@ -270,39 +289,31 @@ export default function PricingPlansAdmin() {
       }
 
       const data = await res.json();
-      const list = data.success && Array.isArray(data.data) ? data.data : [];
-      setCourses(list.filter(belongsInExamDetailsManager));
+      if (data.success) {
+        setCourses(data.data || []);
+        setListPagination(normalizeAdminPagination(data.pagination));
+      } else {
+        setCourses([]);
+        setListPagination(DEFAULT_ADMIN_PAGINATION);
+      }
     } catch (error) {
       console.error("Error fetching courses:", error);
       setCourses([]);
+      setListPagination(DEFAULT_ADMIN_PAGINATION);
       setMessage("❌ Error loading exams. Please try again.");
     } finally {
       setCoursesLoading(false);
     }
   };
 
-  const filteredCourses = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
-    if (!query) return courses;
-    return courses.filter((course) => {
-      const title = String(course.title || "").toLowerCase();
-      const code = String(course.code || "").toLowerCase();
-      const provider = String(course.provider || "").toLowerCase();
-      const category = String(course.category || "").toLowerCase();
-      const slug = String(course.slug || "").toLowerCase();
-      return (
-        title.includes(query) ||
-        code.includes(query) ||
-        provider.includes(query) ||
-        category.includes(query) ||
-        slug.includes(query)
-      );
-    });
-  }, [courses, searchQuery]);
-
   const paginatedCourses = useMemo(
-    () => getListPaginationSlice(filteredCourses, listPage, ADMIN_TABLE_PAGE_SIZE),
-    [filteredCourses, listPage]
+    () => ({
+      items: courses,
+      page: listPagination.page,
+      totalPages: listPagination.total_pages,
+      totalItems: listPagination.count,
+    }),
+    [courses, listPagination]
   );
 
   useEffect(() => {
@@ -903,7 +914,7 @@ export default function PricingPlansAdmin() {
                       Loading exams...
                     </TableCell>
                   </TableRow>
-                ) : filteredCourses.length === 0 ? (
+                ) : courses.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={7} className="text-center text-[#0C1A35]/60 py-8">
                       No exams found. Add exams in Exam Details Manager first.
@@ -969,7 +980,7 @@ export default function PricingPlansAdmin() {
                 )}
               </TableBody>
             </Table>
-            {!coursesLoading && filteredCourses.length > 0 && (
+            {!coursesLoading && courses.length > 0 && (
               <AdminTablePagination
                 currentPage={paginatedCourses.page}
                 totalPages={paginatedCourses.totalPages}

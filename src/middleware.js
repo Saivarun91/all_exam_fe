@@ -15,7 +15,37 @@ import {
 } from "./utils/practiceTestRouting";
 
 async function fetchExamByPathProbe(apiBaseUrl, pathSegment) {
-  for (const candidate of probeExamLookupCandidates(pathSegment)) {
+  const candidates = probeExamLookupCandidates(pathSegment);
+  if (!candidates.length) return null;
+
+  // Fast path: try the full path segment first (typical /exams → exam click).
+  try {
+    const primary = candidates[0];
+    const res = await fetch(
+      `${apiBaseUrl}/api/courses/exams/${encodeURIComponent(primary)}/`,
+      middlewareFetchOptions()
+    );
+    if (res.ok) {
+      const exam = await res.json();
+      if (exam && typeof exam === "object") {
+        const returnedSlug = String(exam.slug || "")
+          .trim()
+          .toLowerCase();
+        const requested = String(primary || "")
+          .trim()
+          .toLowerCase();
+        if (!returnedSlug || returnedSlug === requested) {
+          return exam;
+        }
+        // Fuzzy mismatch on primary — keep probing shorter candidates below.
+      }
+    }
+  } catch {
+    // fall through to remaining candidates
+  }
+
+  for (let i = 1; i < candidates.length; i += 1) {
+    const candidate = candidates[i];
     try {
       const res = await fetch(
         `${apiBaseUrl}/api/courses/exams/${encodeURIComponent(candidate)}/`,

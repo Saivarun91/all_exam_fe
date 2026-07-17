@@ -200,9 +200,135 @@ import {
   resolveExamPublicPathBase,
   getStoredExamSlug,
   trimPublicPathSegment,
+  getDisplayExamCode,
 } from "@/utils/practiceTestRouting";
 
 const EXAM_INFO_SUFFIX = "-exam-info";
+
+const OFFICIAL_INFO_SLUG_SUFFIXES = [
+  "-info",
+  "-exam-info",
+  "-certification-information",
+];
+
+/** Strip practice/landing suffixes to recover shared exam base slug. */
+const PRACTICE_HUB_STRIP_SUFFIXES = [
+  "-certification-information",
+  "-exam-info",
+  "-certification",
+  "-information",
+  "-info",
+  "-practice-test",
+  "-practice-exam",
+  "-free-practice-test",
+  "-free-test",
+  "-free-practice-test",
+];
+
+function stripToOfficialDetailsBaseSlug(slug = "") {
+  let base = String(slug || "").trim().toLowerCase();
+  if (!base) return "";
+
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const suffix of PRACTICE_HUB_STRIP_SUFFIXES) {
+      if (base.endsWith(suffix)) {
+        base = base.slice(0, -suffix.length).replace(/-+$/g, "");
+        changed = true;
+        break;
+      }
+    }
+  }
+
+  return base;
+}
+
+/** Derive sibling official-details slug candidates from a practice/landing slug. */
+export function deriveOfficialInfoSlugCandidates(slug = "") {
+  const stored = trimPublicPathSegment(slug);
+  if (!stored) return [];
+
+  const lower = stored.toLowerCase();
+  if (OFFICIAL_INFO_SLUG_SUFFIXES.some((suffix) => lower.endsWith(suffix))) {
+    return [stored];
+  }
+
+  const base = stripToOfficialDetailsBaseSlug(stored);
+  if (!base) return [];
+
+  return OFFICIAL_INFO_SLUG_SUFFIXES.map((suffix) => `${base}${suffix}`);
+}
+
+/** Derive sibling official-details slug from a practice/landing slug (no exam code needed). */
+export function deriveOfficialInfoSlugFromExamSlug(slug = "") {
+  const candidates = deriveOfficialInfoSlugCandidates(slug);
+  return candidates[0] || "";
+}
+
+/** Pull official-details page candidates from exam HTML content links. */
+export function extractOfficialDetailsHrefCandidates(exam = {}) {
+  const htmlFields = [
+    exam?.about,
+    exam?.exam_details,
+    exam?.details,
+    exam?.why_matters,
+    exam?.short_description,
+    exam?.test_description,
+  ];
+
+  const candidates = [];
+  const add = (value) => {
+    const trimmed = trimPublicPathSegment(value);
+    if (!trimmed) return;
+    if (trimmed.toLowerCase() === "official-details") return;
+    if (!candidates.some((c) => c.toLowerCase() === trimmed.toLowerCase())) {
+      candidates.push(trimmed);
+    }
+  };
+
+  const hrefRe = /href\s*=\s*["']([^"']+)["']/gi;
+  for (const raw of htmlFields) {
+    const html = String(raw || "");
+    if (!html) continue;
+    let match;
+    while ((match = hrefRe.exec(html)) !== null) {
+      let href = String(match[1] || "").trim();
+      if (!href || href.startsWith("#") || href.startsWith("mailto:")) continue;
+
+      try {
+        if (/^https?:\/\//i.test(href)) {
+          const url = new URL(href);
+          href = url.pathname || "";
+        }
+      } catch {
+        // keep raw href
+      }
+
+      href = href.split("?")[0].split("#")[0];
+      const parts = href.replace(/^\/+|\/+$/g, "").split("/").filter(Boolean);
+      if (parts.length !== 1) continue;
+
+      const segment = parts[0];
+      const lower = segment.toLowerCase();
+      if (
+        OFFICIAL_INFO_SLUG_SUFFIXES.some((suffix) => lower.endsWith(suffix)) ||
+        lower.includes("exam-info") ||
+        lower.includes("official")
+      ) {
+        add(segment);
+      }
+    }
+  }
+
+  return candidates;
+}
+
+export function isOfficialDetailsSlug(slug = "") {
+  const normalized = trimPublicPathSegment(slug).toLowerCase();
+  if (!normalized) return false;
+  return OFFICIAL_INFO_SLUG_SUFFIXES.some((suffix) => normalized.endsWith(suffix));
+}
 
 export function getOfficialDetailsPath(examSlug, urlSlug) {
   const base = String(examSlug || "").trim().replace(/^\/+|\/+$/g, "");
@@ -212,17 +338,58 @@ export function getOfficialDetailsPath(examSlug, urlSlug) {
 
 /** Same public URL as exam pages / admin official-details manager. */
 export function buildOfficialDetailsPublicUrl(exam = {}) {
-  const slug = getStoredExamSlug(exam) || exam.slug || exam.code || "";
   const officialPublicSlug = trimPublicPathSegment(
     exam.official_details_url_slug || ""
   );
-  if (officialPublicSlug) {
+  if (officialPublicSlug && officialPublicSlug.toLowerCase() !== "official-details") {
     return `/${officialPublicSlug}`;
   }
-  return getOfficialDetailsPath(
-    slug,
-    exam.official_details_url_slug || "official-details"
+
+  const contentCandidates = extractOfficialDetailsHrefCandidates(exam);
+  if (contentCandidates[0]) {
+    return `/${contentCandidates[0]}`;
+  }
+
+  const slug = getStoredExamSlug(exam) || trimPublicPathSegment(exam.slug || "");
+  const derivedInfoSlug = deriveOfficialInfoSlugFromExamSlug(slug);
+  if (derivedInfoSlug) {
+    return `/${derivedInfoSlug}`;
+  }
+
+  const pathFromTitle = getOfficialExamInfoPath(
+    exam.title || exam.name || exam.examName || exam.exam_name || "",
+    getDisplayExamCode(exam)
   );
+  if (pathFromTitle && pathFromTitle !== "/exam-info") {
+    return pathFromTitle;
+  }
+
+  return slug
+    ? getOfficialDetailsPath(slug, "official-details")
+    : "/official-details";
+}
+
+/** Resolve official-details href for exam details sidebar (slug/title first, not URL exam code). */
+export function resolveOfficialDetailsLink(exam = {}) {
+  return (
+    buildOfficialDetailsPublicUrl(exam) ||
+    getOfficialExamInfoPathFromExam(exam) ||
+    ""
+  ).trim();
+}
+
+export function isResolvableOfficialDetailsLink(url = "") {
+  const path = String(url || "").trim();
+  if (!path || path === "/official-details" || path === "/exam-info") return false;
+
+  const segments = path.replace(/^\/+|\/+$/g, "").split("/").filter(Boolean);
+  // Public official pages are single-segment slugs (e.g. /exam-name-info).
+  if (segments.length !== 1) return false;
+
+  const slug = segments[0].toLowerCase();
+  if (slug === "official-details" || slug === "exam-info") return false;
+
+  return true;
 }
 
 /** Public pretty URL: /[exam-name]-[exam-code]-exam-info */
@@ -243,14 +410,25 @@ export function getOfficialExamInfoPathFromExam(exam = {}) {
     return `/${officialPublicSlug}`;
   }
 
-  const stored = getStoredExamSlug(exam);
-  if (stored && stored.toLowerCase().endsWith(EXAM_INFO_SUFFIX)) {
-    return `/${stored}`;
+  const stored = getStoredExamSlug(exam) || trimPublicPathSegment(exam.slug || "");
+  if (stored) {
+    const lower = stored.toLowerCase();
+    if (
+      lower.endsWith(EXAM_INFO_SUFFIX) ||
+      OFFICIAL_INFO_SLUG_SUFFIXES.some((suffix) => lower.endsWith(suffix))
+    ) {
+      return `/${stored}`;
+    }
+
+    const derived = deriveOfficialInfoSlugFromExamSlug(stored);
+    if (derived) {
+      return `/${derived}`;
+    }
   }
 
   return getOfficialExamInfoPath(
-    exam.title || exam.name || exam.examName || "",
-    exam.code || exam.exam_code || exam.examCode || ""
+    exam.title || exam.name || exam.examName || exam.exam_name || "",
+    getDisplayExamCode(exam)
   );
 }
 

@@ -148,6 +148,7 @@ export default async function SlugPricingPage({ params }) {
       pricingData={pricingData}
       error={error}
       practicePath={practicePath}
+      examSlug={getStoredExamSlug(exam) || exam?.slug || rawExamCode}
     />
   );
 }

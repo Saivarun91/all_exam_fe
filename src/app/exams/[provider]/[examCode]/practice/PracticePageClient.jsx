@@ -77,6 +77,7 @@ export default function PracticePageClient({
   };
 
   const handleViewPricing = () => {
+    // Prefer public practice pricing path (same pattern as exam practice hub URLs).
     const url =
       getExamPricingPath({
         slug: examSlug,
@@ -142,9 +143,7 @@ export default function PracticePageClient({
           </div>
         </section>
       )}
-
       {children}
-
       <section className="mb-12">
         <div className="rounded-2xl border border-[#1A73E8]/20 bg-gradient-to-br from-[#0C1A35] to-[#0E2444] text-white p-8 sm:p-10 text-center shadow-lg">
           <h2 className="text-2xl md:text-3xl font-bold mb-4 text-[#F0F4FF]">
@@ -159,7 +158,7 @@ export default function PracticePageClient({
             onClick={handleViewPricing}
             className="bg-[#1A73E8] hover:bg-[#1557B0] text-white font-semibold px-8 py-3 shadow-[0_4px_14px_rgba(26,115,232,0.35)]"
           >
-            View Pricing Plans
+            Start Your Free Test
           </Button>
         </div>
       </section>

@@ -3,11 +3,14 @@ import { notFound } from "next/navigation";
 import OfficialExamDetailsView, {
   buildOfficialExamPageModel,
 } from "@/components/exam/OfficialExamDetailsView";
-import { fetchExamByIdentifier } from "@/lib/loadExamDetailPage";
+import {
+  fetchExamByExactSlug,
+  fetchExamByIdentifier,
+} from "@/lib/loadExamDetailPage";
 import { loadAdminSubroutePage } from "@/lib/adminSubrouteLoaders";
 import { ROBOTS_INDEX, ROBOTS_NOINDEX } from "@/lib/seoRobots";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 300;
 
 const SITE_URL = "https://allexamquestions.com";
 
@@ -23,7 +26,9 @@ export async function generateMetadata({ params }) {
   const { examCode, pageSlug } = await params;
   const rawExamCode = decodePathSegment(examCode);
   const rawPageSlug = decodePathSegment(pageSlug);
-  const exam = await fetchExamByIdentifier(rawExamCode);
+  const exam =
+    (await fetchExamByExactSlug(rawExamCode)) ||
+    (await fetchExamByIdentifier(rawExamCode));
 
   if (!exam) {
     return {
@@ -74,7 +79,9 @@ export default async function ExamCustomOfficialDetailsPage({ params }) {
 
   const rawExamCode = decodePathSegment(examCode);
   const rawPageSlug = decodePathSegment(pageSlug);
-  const exam = await fetchExamByIdentifier(rawExamCode);
+  const exam =
+    (await fetchExamByExactSlug(rawExamCode)) ||
+    (await fetchExamByIdentifier(rawExamCode));
 
   if (!exam) notFound();
 

@@ -13,6 +13,11 @@ import {
   formatPrice,
   getPlanPriceFields,
 } from "@/lib/currencyUtils";
+import {
+  buildCourseLookupSlugs,
+  findPricingPlanBySlug,
+  getExamPricingPath,
+} from "@/utils/practiceTestRouting";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
@@ -34,77 +39,92 @@ export default function CheckoutPage() {
   const [loadingCoupons, setLoadingCoupons] = useState(true);
   const [selectedCoupon, setSelectedCoupon] = useState(null);
   const [courseCurrency, setCourseCurrency] = useState("INR");
+  const [resolvedCourseSlug, setResolvedCourseSlug] = useState("");
+  const courseSlugHint =
+    searchParams.get("course") || searchParams.get("slug") || "";
 
   useEffect(() => {
     console.log("Checkout page loaded:", { provider, examCode, planSlug });
     fetchData();
     fetchCoupons();
-  }, [planSlug, provider, examCode]);
+  }, [planSlug, provider, examCode, courseSlugHint]);
 
   const fetchData = async () => {
     try {
       setLoading(true);
-      // Try fetching from pricing API first
-      const pricingRes = await fetch(`${API_BASE_URL}/api/courses/pricing/${provider}/${examCode}/`);
-      
+
+      const slugCandidates = buildCourseLookupSlugs({
+        provider,
+        examCode,
+        courseSlug: courseSlugHint,
+      });
+
+      let resolved = false;
+
+      const tryApply = (pricingData, examData) => {
+        const plans = Array.isArray(pricingData?.pricing_plans)
+          ? pricingData.pricing_plans
+          : Array.isArray(examData?.pricing_plans)
+            ? examData.pricing_plans
+            : [];
+        if (!plans.length) return false;
+
+        const featureSource =
+          pricingData?.pricing_features || examData?.pricing_features || [];
+        const selectedPlan =
+          findPricingPlanBySlug(plans, planSlug) ||
+          plans.find((p) => p && p.status !== "inactive") ||
+          plans[0];
+        if (!selectedPlan) return false;
+
+        if (
+          (!selectedPlan.features || selectedPlan.features.length === 0) &&
+          featureSource.length > 0
+        ) {
+          selectedPlan.features = featureSource.map(
+            (f) => f.title || f.description || f
+          );
+        }
+
+        setCourseCurrency(
+          pricingData?.currency || examData?.currency || "INR"
+        );
+        setExam(
+          examData || {
+            title: pricingData?.course_title,
+            code: pricingData?.course_code,
+          }
+        );
+        setPlan(selectedPlan);
+        setResolvedCourseSlug(examData?.slug || courseSlugHint || "");
+        return true;
+      };
+
+      const pricingRes = await fetch(
+        `${API_BASE_URL}/api/courses/pricing/${provider}/${examCode}/`
+      );
       if (pricingRes.ok) {
         const pricingData = await pricingRes.json();
-        setCourseCurrency(pricingData.currency || "INR");
-        setExam({
-          title: pricingData.course_title,
-          code: pricingData.course_code
-        });
-        
-        // Find the selected plan from pricing_plans
-        if (pricingData.pricing_plans && Array.isArray(pricingData.pricing_plans)) {
-          const normalizedPlanSlug = planSlug?.toLowerCase().trim();
-          const selectedPlan = pricingData.pricing_plans.find(p => {
-            const planNameNormalized = p.name.toLowerCase().replace(/\s+/g, '-');
-            return planNameNormalized === normalizedPlanSlug || 
-                   p.name.toLowerCase() === normalizedPlanSlug.replace(/-/g, ' ');
-          });
-          
-          if (selectedPlan) {
-            // Ensure features are populated from plan.features or pricing_features
-            if (!selectedPlan.features || selectedPlan.features.length === 0) {
-              if (pricingData.pricing_features && pricingData.pricing_features.length > 0) {
-                selectedPlan.features = pricingData.pricing_features.map(f => f.title || f.description || f);
-              }
-            }
-            setPlan(selectedPlan);
-          } else if (pricingData.pricing_plans.length > 0) {
-            const fallbackPlan = pricingData.pricing_plans[0];
-            if (!fallbackPlan.features || fallbackPlan.features.length === 0) {
-              if (pricingData.pricing_features && pricingData.pricing_features.length > 0) {
-                fallbackPlan.features = pricingData.pricing_features.map(f => f.title || f.description || f);
-              }
-            }
-            setPlan(fallbackPlan); // Fallback to first plan
-          }
-        }
-      } else {
-        // Fallback: try course API
-        const slug = `${provider}-${examCode}`.toLowerCase();
-        const examRes = await fetch(`${API_BASE_URL}/api/courses/exams/${slug}/`);
-        
-        if (examRes.ok) {
+        resolved = tryApply(pricingData, null);
+      }
+
+      if (!resolved) {
+        for (const slug of slugCandidates) {
+          const examRes = await fetch(
+            `${API_BASE_URL}/api/courses/exams/${encodeURIComponent(slug)}/`
+          );
+          if (!examRes.ok) continue;
           const examData = await examRes.json();
-          setExam(examData);
-          setCourseCurrency(examData.currency || "INR");
-          
-          if (examData.pricing_plans && Array.isArray(examData.pricing_plans)) {
-            const selectedPlan = examData.pricing_plans.find(p => 
-              p.name.toLowerCase().replace(/\s+/g, '-') === planSlug
-            ) || examData.pricing_plans[0];
-            
-            // Ensure features are populated
-            if (selectedPlan && (!selectedPlan.features || selectedPlan.features.length === 0)) {
-              if (examData.pricing_features && examData.pricing_features.length > 0) {
-                selectedPlan.features = examData.pricing_features.map(f => f.title || f.description || f);
-              }
-            }
-            setPlan(selectedPlan);
-          }
+
+          const pricingFromExamRes = await fetch(
+            `${API_BASE_URL}/api/courses/pricing/${examData.provider_slug || examData.provider}/${examData.code || examData.slug}/`
+          );
+          const pricingFromExam = pricingFromExamRes.ok
+            ? await pricingFromExamRes.json()
+            : null;
+
+          resolved = tryApply(pricingFromExam, examData);
+          if (resolved) break;
         }
       }
     } catch (error) {
@@ -319,6 +339,18 @@ export default function CheckoutPage() {
   }
 
   if (!plan || !exam) {
+    const pricingRedirect =
+      getExamPricingPath({
+        slug: resolvedCourseSlug || courseSlugHint,
+        code: examCode,
+      }) ||
+      (resolvedCourseSlug || courseSlugHint
+        ? `/${resolvedCourseSlug || courseSlugHint}/practice/pricing`
+        : "") ||
+      (provider && examCode
+        ? `/exams/${provider}/${examCode}/practice/pricing`
+        : "/exams");
+
     return (
       <div className="min-h-screen bg-gray-50">
         <div className="container mx-auto px-4 py-20 text-center">
@@ -327,7 +359,7 @@ export default function CheckoutPage() {
           {planSlug && (
             <p className="text-sm text-gray-500 mb-4">Requested plan: {planSlug}</p>
           )}
-          <Button onClick={() => router.push(`/exams/${provider}/${examCode}/practice/pricing`)} className="bg-[#1A73E8]">
+          <Button onClick={() => router.push(pricingRedirect)} className="bg-[#1A73E8]">
             View Pricing Plans
           </Button>
         </div>

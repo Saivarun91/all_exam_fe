@@ -17,6 +17,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { normalizeAnswersToIndexKey } from "@/utils/testReviewDisplay";
+import {
+  getExamPricingPath,
+  getStoredExamSlug,
+} from "@/utils/practiceTestRouting";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
@@ -46,6 +50,7 @@ export default function TestReview() {
   const [showCouponModal, setShowCouponModal] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const [pendingPricingUrl, setPendingPricingUrl] = useState(null);
   
   // Fetch exam data dynamically
   useEffect(() => {
@@ -269,6 +274,32 @@ export default function TestReview() {
     }
   }, [provider, examCode, router]);
 
+  const pricingUrl =
+    getExamPricingPath({
+      slug: getStoredExamSlug(exam) || exam?.slug,
+      title: exam?.title,
+      code: exam?.code,
+    }) ||
+    (getStoredExamSlug(exam) || exam?.slug
+      ? `/${getStoredExamSlug(exam) || exam.slug}/practice/pricing`
+      : "") ||
+    (provider && examCode
+      ? `/exams/${provider}/${examCode}/practice/pricing`
+      : "");
+
+  useEffect(() => {
+    const handleLogin = () => {
+      if (pendingPricingUrl) {
+        setShowLoginModal(false);
+        router.push(pendingPricingUrl);
+        setPendingPricingUrl(null);
+      }
+    };
+
+    window.addEventListener("userLoggedIn", handleLogin);
+    return () => window.removeEventListener("userLoggedIn", handleLogin);
+  }, [pendingPricingUrl, router]);
+
   if (!testResults) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
@@ -322,16 +353,22 @@ export default function TestReview() {
     setShowUpgradeModal(true);
   };
 
-  const pricingUrl = `/exams/${provider}/${examCode}/practice/pricing`;
-
   const handleContinueFullTest = () => {
+    const targetUrl =
+      pricingUrl ||
+      (provider && examCode
+        ? `/exams/${provider}/${examCode}/practice/pricing`
+        : "");
+    if (!targetUrl) return;
+
     const token =
       typeof window !== "undefined" ? localStorage.getItem("token") : null;
     if (!token) {
+      setPendingPricingUrl(targetUrl);
       setShowLoginModal(true);
       return;
     }
-    router.push(pricingUrl);
+    router.push(targetUrl);
   };
 
   const handlePurchase = (planId) => {
@@ -980,7 +1017,9 @@ export default function TestReview() {
             <Button
               onClick={() =>
                 router.push(
-                  `/auth/login?redirect=${encodeURIComponent(pricingUrl)}`
+                  `/auth/login?redirect=${encodeURIComponent(
+                    pendingPricingUrl || pricingUrl || window.location.pathname
+                  )}`
                 )
               }
               className="flex-1 bg-[#1A73E8] hover:bg-[#1557B0] text-white"

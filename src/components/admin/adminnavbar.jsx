@@ -1,12 +1,20 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import axios from "axios";
+import Link from "next/link";
+import { useRouter } from "@/lib/navigation/client";
+import { ChevronDown, LogOut, User } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function AdminNavbar() {
+  const router = useRouter();
+  const { logout } = useAuth();
+  const dropdownRef = useRef(null);
   const [userName, setUserName] = useState("Admin");
   const [userEmail, setUserEmail] = useState("Administrator");
   const [userInitial, setUserInitial] = useState("A");
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   const fetchAdminProfile = async () => {
     try {
@@ -55,6 +63,12 @@ export default function AdminNavbar() {
         console.warn("Admin profile fetch failed, using stored values");
       }
     }
+  };
+
+  const handleLogout = () => {
+    setIsDropdownOpen(false);
+    logout();
+    router.push("/admin/auth");
   };
 
   useEffect(() => {
@@ -106,12 +120,20 @@ export default function AdminNavbar() {
       fetchAdminProfile();
     };
 
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsDropdownOpen(false);
+      }
+    };
+
     window.addEventListener("storage", handleStorageChange);
     window.addEventListener("adminProfileUpdated", handleProfileUpdate);
+    document.addEventListener("mousedown", handleClickOutside);
 
     return () => {
       window.removeEventListener("storage", handleStorageChange);
       window.removeEventListener("adminProfileUpdated", handleProfileUpdate);
+      document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
 
@@ -120,14 +142,52 @@ export default function AdminNavbar() {
       <div className="flex items-center" />
 
       <div className="flex items-center gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white font-semibold text-sm">
-            {userInitial}
-          </div>
-          <div className="hidden md:block">
-            <p className="text-sm font-semibold text-gray-800">{userName}</p>
-            <p className="text-xs text-gray-500">{userEmail}</p>
-          </div>
+        <div className="relative" ref={dropdownRef}>
+          <button
+            type="button"
+            onClick={() => setIsDropdownOpen((prev) => !prev)}
+            className="flex items-center gap-3 rounded-lg px-2 py-1.5 hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+            aria-expanded={isDropdownOpen}
+            aria-haspopup="true"
+          >
+            <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white font-semibold text-sm">
+              {userInitial}
+            </div>
+            <div className="hidden md:block text-left">
+              <p className="text-sm font-semibold text-gray-800">{userName}</p>
+              <p className="text-xs text-gray-500">{userEmail}</p>
+            </div>
+            <ChevronDown
+              className={`w-4 h-4 text-gray-500 transition-transform ${
+                isDropdownOpen ? "rotate-180" : ""
+              }`}
+            />
+          </button>
+
+          {isDropdownOpen && (
+            <div className="absolute right-0 mt-2 w-52 rounded-lg border border-gray-200 bg-white shadow-lg z-50 overflow-hidden">
+              <div className="px-4 py-3 border-b border-gray-100 md:hidden">
+                <p className="text-sm font-semibold text-gray-800">{userName}</p>
+                <p className="text-xs text-gray-500 truncate">{userEmail}</p>
+              </div>
+              <Link
+                href="/admin/profile"
+                onClick={() => setIsDropdownOpen(false)}
+                className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                <User className="w-4 h-4" />
+                <span>View Profile</span>
+              </Link>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="flex w-full items-center gap-3 px-4 py-3 text-sm text-red-600 hover:bg-red-50 transition-colors"
+              >
+                <LogOut className="w-4 h-4" />
+                <span>Logout</span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

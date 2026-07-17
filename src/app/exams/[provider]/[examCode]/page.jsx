@@ -1445,14 +1445,13 @@
 
 import { notFound, permanentRedirect } from "next/navigation";
 import ExamDetailClient from "./ExamDetailClient";
-import { buildOfficialDetailsPublicUrl } from "./examInfoUtils";
-import { hasOfficialDetailsData } from "@/components/exam/OfficialExamDetailsView";
 import {
+  getDisplayExamCode,
   getExamLandingPath,
   getExamPracticePath,
   pathsMatchPublicUrl,
 } from "@/utils/practiceTestRouting";
-import { fetchExamByLegacyRoute } from "@/lib/loadExamDetailPage";
+import { fetchExamByLegacyRoute, resolveOfficialDetailsAvailability } from "@/lib/loadExamDetailPage";
 import {
   buildPopularExamsSidebarItems,
   fetchPopularExamsCourses,
@@ -1740,15 +1739,11 @@ export default async function ExamDetailPage({ params }) {
         code: pick("code", "exam_code") || examCode,
       }) || (slug ? `/${slug}/practice` : `/${examCode}/practice`),
 
-    hasOfficialDetails: hasOfficialDetailsData(exam),
-    officialDetailsUrl: buildOfficialDetailsPublicUrl({
-      slug: slug || examCode,
-      title: pick("title", "name") || "",
-      code: pick("code", "exam_code") || examCode,
-      official_details_url_slug: pick("official_details_url_slug") || "",
-    }),
+    hasOfficialDetails: false,
+    officialDetailsUrl: "",
 
     code: pick("code", "exam_code") || examCode,
+    displayCode: getDisplayExamCode(exam),
     title: pick("title", "name") || "",
 
     page_heading: pick("page_heading") || null,
@@ -1794,6 +1789,13 @@ export default async function ExamDetailPage({ params }) {
     testimonials: pickArray("testimonials"),
     faqs: pickArray("faqs"),
   };
+
+  const officialMeta = await resolveOfficialDetailsAvailability(exam, {
+    slug,
+    examCode,
+  });
+  examData.hasOfficialDetails = officialMeta.hasOfficialDetails;
+  examData.officialDetailsUrl = officialMeta.officialDetailsUrl;
 
   const popularExams = buildPopularExamsSidebarItems(popularExamsCourses, {
     excludeProvider: examData.provider,

@@ -522,11 +522,9 @@ import RatingJsonLd from "@/components/RatingJsonLd";
 import BreadcrumbJsonLd from "@/components/BreadcrumbJsonLd";
 
 import PracticePageClient from "./PracticePageClient";
-import PracticeTopicsSection from "./PracticeTopicsSection";
 import PracticePageBreadcrumbs, {
   PRACTICE_PAGE_CONTAINER,
 } from "./PracticePageBreadcrumbs";
-import { parseExamTopics } from "@/lib/parseExamTopics";
 import {
   fetchExamByIdentifier,
   fetchExamByLegacyRoute,
@@ -675,9 +673,6 @@ export default async function PracticePage(props) {
     ? examData.practice_tests
     : [];
 
-  const topics = parseExamTopics(examData.topics);
-  const topicsHeading = examData.topics_heading || "";
-
   const faqs = Array.isArray(examData.faqs) ? examData.faqs : [];
   const testimonials = Array.isArray(examData.testimonials) ? examData.testimonials : [];
 
@@ -769,9 +764,7 @@ export default async function PracticePage(props) {
         examCode={examCode}
         examTitle={exam.title}
         examSlug={examData.slug || examCode}
-      >
-        <PracticeTopicsSection topics={topics} topicsHeading={topicsHeading} />
-      </PracticePageClient>
+      />
       </div>
     </div>
   );

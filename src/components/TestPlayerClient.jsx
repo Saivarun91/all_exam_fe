@@ -1030,8 +1030,8 @@ const timeTaken = `${minutes}:${seconds.toString().padStart(2, '0')}`;
         </div>
       </div>
 
-      <div className="flex-1 flex">
-        <div className="w-64 bg-white border-r border-gray-200 flex flex-col">
+      <div className="flex-1 flex min-w-0">
+        <div className="w-64 shrink-0 bg-white border-r border-gray-200 flex flex-col">
           <div className="p-4 border-b border-gray-200">
             <div className="flex items-center gap-2 mb-3">
               <Compass className="w-5 h-5 text-[#1A73E8]" />
@@ -1118,7 +1118,7 @@ const timeTaken = `${minutes}:${seconds.toString().padStart(2, '0')}`;
           )}
         </div>
 
-        <div className="flex-1 flex flex-col bg-white">
+        <div className="flex-1 min-w-0 flex flex-col bg-white">
           <div className="px-6 py-4 border-b border-gray-200">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm text-gray-600">
@@ -1137,7 +1137,7 @@ const timeTaken = `${minutes}:${seconds.toString().padStart(2, '0')}`;
           </div>
 
           <div className="flex-1 overflow-y-auto px-6 py-6">
-            <div className="max-w-4xl">
+            <div className="w-full max-w-none">
               <h2 className="text-2xl font-bold text-[#0C1A35] mb-2">
                 Q{currentQuestion}.
               </h2>

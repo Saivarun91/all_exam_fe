@@ -718,11 +718,13 @@ export default async function PricingPage({ params }) {
 
   let pricingData = null;
   let error = "";
+  let courseSlug = slug;
 
   try {
     const courseRes = await fetch(`${API_BASE_URL}/api/courses/exams/${slug}/`, { next: { revalidate: 60 } });
     if (!courseRes.ok) throw new Error("Exam not found");
     const courseData = await courseRes.json();
+    courseSlug = courseData.slug || slug;
 
     const pricingRes = await fetch(`${API_BASE_URL}/api/courses/pricing/${normalizedProvider}/${normalizedExamCode}/`, { next: { revalidate: 60 } });
 
@@ -766,6 +768,7 @@ export default async function PricingPage({ params }) {
       examCode={normalizedExamCode}
       pricingData={pricingData}
       error={error}
+      examSlug={courseSlug}
     />
   );
 }

@@ -546,8 +546,8 @@ export default async function BlogSection() {
             const blogUrl = article.slug ? `/blog/${article.slug}` : "#";
 
             const imgSrc = article.image_url
-              ? getOptimizedImageUrl(article.image_url, 360, 203)
-              : "https://via.placeholder.com/360x203";
+              ? getOptimizedImageUrl(article.image_url, 600, 600, "fit")
+              : "https://via.placeholder.com/600x600";
 
             return (
 
@@ -565,20 +565,22 @@ export default async function BlogSection() {
                 <Card className="overflow-hidden bg-white border-[#DDE7FF] hover:shadow-xl hover:-translate-y-1 transition duration-300 h-full flex flex-col">
 
                   {/* IMAGE */}
-                  <div className="relative w-full bg-gray-100">
+                  {/* IMAGE */}
+                  <div className="relative w-full h-[220px] bg-gray-50 overflow-hidden flex items-center justify-center">
                     <OptimizedImage
                       src={imgSrc}
                       alt={article.title}
-                      width={360}
-                      height={203}
-                      aspectRatio="16 / 9"
-                      className="transition duration-500 hover:scale-105"
+                      width={600}
+                      height={600}
+                      crop="fit"
+                      objectFit="contain"
+                      className="max-w-full max-h-full transition duration-500 group-hover:scale-105"
+                      containerClassName="w-full h-full flex items-center justify-center"
                       sizes="360px"
-                      containerClassName="w-full"
                     />
 
                     {article.category && (
-                      <span className="absolute top-3 left-3 bg-[#1A73E8] text-white text-xs font-semibold px-3 py-1 rounded-full">
+                      <span className="absolute top-3 left-3 bg-[#1A73E8] text-white text-xs font-semibold px-3 py-1 rounded-full z-10">
                         {article.category}
                       </span>
                     )}

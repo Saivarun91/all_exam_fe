@@ -5,17 +5,18 @@ import RatingJsonLd from "@/components/RatingJsonLd";
 import BreadcrumbJsonLd from "@/components/BreadcrumbJsonLd";
 
 import PracticePageClient from "@/app/exams/[provider]/[examCode]/practice/PracticePageClient";
-import PracticeTopicsSection from "@/app/exams/[provider]/[examCode]/practice/PracticeTopicsSection";
 import PracticePageBreadcrumbs, {
   PRACTICE_PAGE_CONTAINER,
 } from "@/app/exams/[provider]/[examCode]/practice/PracticePageBreadcrumbs";
-import { parseExamTopics } from "@/lib/parseExamTopics";
 import {
   getExamLandingPath,
   getExamPracticePath,
   resolveExamPublicPathBase,
 } from "@/utils/practiceTestRouting";
-import { fetchExamByIdentifier } from "@/lib/loadExamDetailPage";
+import {
+  fetchExamByExactSlug,
+  fetchExamByIdentifier,
+} from "@/lib/loadExamDetailPage";
 
 export const dynamic = "force-dynamic";
 
@@ -40,7 +41,9 @@ function toSlug(value = "") {
 export async function generateMetadata({ params }) {
   const { examCode } = await params;
   const normalizedExamCode = toSlug(examCode);
-  const exam = await fetchExamByIdentifier(normalizedExamCode);
+  const exam =
+    (await fetchExamByExactSlug(normalizedExamCode)) ||
+    (await fetchExamByIdentifier(normalizedExamCode));
 
   if (!exam) {
     return { title: "Practice Tests | AllExamQuestions" };
@@ -78,7 +81,9 @@ export async function generateMetadata({ params }) {
 export default async function CleanPracticePage({ params }) {
   const { examCode } = await params;
   const normalizedExamCode = toSlug(examCode);
-  const examData = await fetchExamByIdentifier(normalizedExamCode);
+  const examData =
+    (await fetchExamByExactSlug(normalizedExamCode)) ||
+    (await fetchExamByIdentifier(normalizedExamCode));
 
   if (!examData) return notFound();
 
@@ -95,9 +100,6 @@ export default async function CleanPracticePage({ params }) {
     : Array.isArray(examData.practice_tests)
     ? examData.practice_tests
     : [];
-
-  const topics = parseExamTopics(examData.topics);
-  const topicsHeading = examData.topics_heading || "";
 
   const faqs = Array.isArray(examData.faqs) ? examData.faqs : [];
   const testimonials = Array.isArray(examData.testimonials) ? examData.testimonials : [];
@@ -188,9 +190,7 @@ export default async function CleanPracticePage({ params }) {
         examCode={examData.code || normalizedExamCode}
         examTitle={exam.title}
         examSlug={examData.slug || publicPathBase}
-      >
-        <PracticeTopicsSection topics={topics} topicsHeading={topicsHeading} />
-      </PracticePageClient>
+      />
       </div>
     </div>
   );

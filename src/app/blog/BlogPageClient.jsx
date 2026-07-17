@@ -209,14 +209,15 @@ export default function BlogPageClient({
                 <Link key={article.id} href={blogUrl} className="block group">
                   <Card className="overflow-hidden hover:shadow-[0_6px_20px_rgba(26,115,232,0.15)] hover:-translate-y-1 transition-all duration-300 border-[#DDE7FF] cursor-pointer bg-white shadow-[0_2px_8px_rgba(26,115,232,0.08)] h-full flex flex-col">
                     {article.image_url ? (
-                      <div className="relative w-full overflow-hidden bg-white">
+                      <div className="relative w-full bg-gray-50 flex items-center justify-center p-3">
                         <OptimizedImage
-                          src={getOptimizedImageUrl(article.image_url, 400, 225)}
+                          src={getOptimizedImageUrl(article.image_url, 600, 600, "fit")}
                           alt={article.title}
-                          width={400}
-                          height={225}
-                          aspectRatio="16 / 9"
-                          className="transition-transform duration-300 group-hover:scale-[1.02]"
+                          width={600}
+                          height={600}
+                          crop="fit"
+                          className="w-full h-auto object-contain transition-transform duration-300 group-hover:scale-[1.02]"
+                          containerClassName="w-full"
                           sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 400px"
                           fallbackSrc="https://via.placeholder.com/400x300/1A73E8/ffffff?text=Blog+Post"
                         />

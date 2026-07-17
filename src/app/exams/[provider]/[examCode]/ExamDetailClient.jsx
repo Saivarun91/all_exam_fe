@@ -936,16 +936,14 @@ import BreadcrumbJsonLd from "@/components/BreadcrumbJsonLd";
 import RatingJsonLd from "@/components/RatingJsonLd";
 import ReviewsJsonLd from "@/components/ReviewsJsonLd";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
-import StartTestButton from "./StartTestButton";
 import TipTapContent from "@/components/editor/TipTapContent";
 import ExamPlatformSidebar from "./ExamPlatformSidebar";
 import SuccessStoriesCarousel from "./SuccessStoriesCarousel";
 import {
-  buildOfficialDetailsPublicUrl,
   formatLastUpdatedLabel,
   getOfficialExamInfoPathFromExam,
+  resolveOfficialDetailsLink,
 } from "./examInfoUtils";
-import { hasOfficialDetailsData } from "@/components/exam/OfficialExamDetailsView";
 import {
   buildPracticeTestSeoSegment,
   getExamLandingPath,
@@ -1039,23 +1037,19 @@ export default function ExamDetailClient({
   const lastUpdatedLabel = formatLastUpdatedLabel(examData);
   const providerSlug = examData.providerSlug || provider;
 
+  const officialDetailsLinkExam = {
+    slug: examData.slug || examCode,
+    title: examData.title || examData.exam_name || "",
+    code: examData.displayCode || "",
+    official_details_url_slug: examData.official_details_url_slug || "",
+  };
+
   const officialDetailsUrl =
     examData.officialDetailsUrl ||
-    buildOfficialDetailsPublicUrl({
-      slug: examData.slug || examCode,
-      title: examData.title || examData.code || examCode,
-      code: examData.code || examCode,
-      official_details_url_slug: examData.official_details_url_slug || "",
-    }) ||
-    getOfficialExamInfoPathFromExam({
-      slug: examData.slug,
-      title: examData.title || examData.code || examCode,
-      code: examData.code || examCode,
-      official_details_url_slug: examData.official_details_url_slug || "",
-    });
+    resolveOfficialDetailsLink(officialDetailsLinkExam) ||
+    getOfficialExamInfoPathFromExam(officialDetailsLinkExam);
 
-  const showOfficialDetailsLink =
-    examData?.hasOfficialDetails === true || hasOfficialDetailsData(examData);
+  const showOfficialDetailsLink = examData?.hasOfficialDetails === true;
 
   const platformRows = [
     ...(hasProvider
@@ -1068,7 +1062,7 @@ export default function ExamDetailClient({
           },
         ]
       : []),
-    { label: "Exam Code", value: examData.code || examCode },
+    { label: "Exam Code", value: examData.displayCode || "" },
     { label: "Exam Name", value: examData.title },
     {
       label: "Exam Questions",
@@ -1248,6 +1242,65 @@ export default function ExamDetailClient({
                       </Button>
                     </div>
                   ))}
+                </CardContent>
+              </Card>
+            )}
+
+            {Array.isArray(examData.topics) &&
+              examData.topics.some((topic) => topic?.name) && (
+              <Card className="border-[#DDE7FF]">
+                <CardHeader>
+                  {examData.topics_heading ? (
+                    <div
+                      className="text-[#0C1A35]"
+                      dangerouslySetInnerHTML={{ __html: examData.topics_heading }}
+                      suppressHydrationWarning
+                    />
+                  ) : (
+                    <CardTitle className="text-[#0C1A35]">Topics Covered</CardTitle>
+                  )}
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {examData.topics.map((topic, idx) => {
+                    if (!topic?.name) return null;
+
+                    const percentage = Math.round(
+                      ((Number(topic.startPercentage) || 0) +
+                        (Number(topic.endPercentage) || 0)) /
+                        2
+                    );
+                    const weightLabel =
+                      topic.rawPercentage ||
+                      topic.labelPercentage ||
+                      `${percentage}%`;
+                    const topicExplanation =
+                      typeof topic.explanation === "string" &&
+                      topic.explanation.trim()
+                        ? topic.explanation.trim()
+                        : typeof topic.description === "string" &&
+                            topic.description.trim()
+                          ? topic.description.trim()
+                          : "";
+
+                    return (
+                      <div key={`${topic.name}-${idx}`}>
+                        <div className="flex justify-between mb-2 gap-3">
+                          <span className="text-sm font-medium text-[#0C1A35]">
+                            {topic.name}
+                          </span>
+                          <span className="text-sm text-[#0C1A35]/60 whitespace-nowrap">
+                            {weightLabel}
+                          </span>
+                        </div>
+                        <Progress value={percentage} className="h-2" />
+                        {topicExplanation ? (
+                          <p className="text-sm text-[#0C1A35]/70 mt-2 leading-relaxed whitespace-pre-wrap">
+                            {topicExplanation}
+                          </p>
+                        ) : null}
+                      </div>
+                    );
+                  })}
                 </CardContent>
               </Card>
             )}

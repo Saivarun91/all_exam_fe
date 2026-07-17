@@ -771,7 +771,7 @@ function IntentPrefetchLink({ href, children, onMouseEnter, onFocus, onTouchStar
   return (
     <Link
       href={href}
-      prefetch={false}
+      prefetch
       onMouseEnter={(event) => {
         prefetchOnIntent();
         onMouseEnter?.(event);

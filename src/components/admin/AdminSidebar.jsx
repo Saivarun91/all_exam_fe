@@ -4,7 +4,6 @@ import { usePathname } from "@/lib/navigation/client";
 import Link from "next/link";
 import { useSiteName } from "@/hooks/useSiteName";
 import { useLogoUrl } from "@/hooks/useLogoUrl";
-import { getOptimizedImageUrl } from "@/utils/imageUtils";
 import {
   Home,
   Layers,
@@ -14,26 +13,22 @@ import {
   Settings,
   BarChart3,
   Search,
-  LogOut,
   GraduationCap,
   DollarSign,
   Ticket,
   UserCheck,
   BookOpen,
   Scale,
-  Sparkles,
   FileInput,
   Building2,
   ScrollText,
   ClipboardList,
 } from "lucide-react";
-import { useRouter } from "@/lib/navigation/client";
 
 export default function AdminSidebar() {
   const siteName = useSiteName();
   const logoUrl = useLogoUrl();
   const pathname = usePathname();
-  const router = useRouter();
 
   const menuItems = [
     { name: "Dashboard", path: "/admin", icon: Home },
@@ -58,12 +53,6 @@ export default function AdminSidebar() {
     { name: "Subscribers", path: "/admin/subscribers", icon: UserCheck },
     { name: "Settings", path: "/admin/settings", icon: Settings },
   ];
-
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("role");
-    router.push("/admin/auth");
-  };
 
   const isPathActive = (path) => {
     if (path === "/admin/home") {
@@ -134,19 +123,7 @@ export default function AdminSidebar() {
 
           </ul>
         </nav>
-
-        {/* Logout Button */}
-        <div className="border-t border-[#1A73E8]/20 p-4 bg-[#0C1A35]">
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-3 px-4 py-3 w-full rounded-lg text-[#E7ECF6] hover:bg-red-600/20 hover:text-red-400 transition-all duration-200"
-          >
-            <LogOut className="w-5 h-5" />
-            <span>Logout</span>
-          </button>
-        </div>
       </div>
     </aside>
   );
 }
-

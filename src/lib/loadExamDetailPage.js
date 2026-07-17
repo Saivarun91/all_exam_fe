@@ -1,10 +1,16 @@
 import { cache } from "react";
 import {
   buildOfficialDetailsPublicUrl,
+  deriveOfficialInfoSlugCandidates,
+  extractOfficialDetailsHrefCandidates,
+  isOfficialDetailsSlug,
+  isResolvableOfficialDetailsLink,
+  resolveOfficialDetailsLink,
 } from "@/app/exams/[provider]/[examCode]/examInfoUtils";
 import { hasOfficialDetailsData } from "@/components/exam/OfficialExamDetailsView";
 import { examFetchOptions } from "@/lib/serverRevalidate";
 import {
+  getDisplayExamCode,
   getExamLandingPath,
   getExamPracticePath,
   stripExamPublicPathSuffix,
@@ -31,6 +37,35 @@ export function toExamSlug(value = "") {
     .replace(/^-+|-+$/g, "");
 }
 
+function examSlugMatchesCandidate(exam, candidate) {
+  const returned = String(exam?.slug || "")
+    .trim()
+    .toLowerCase();
+  const requested = trimPublicPathSegment(candidate).toLowerCase();
+  return Boolean(returned && requested && returned === requested);
+}
+
+/** Fetch a course only when the API returns the exact slug requested (no fuzzy fallback). */
+export const fetchExamByExactSlug = cache(async function fetchExamByExactSlug(
+  identifier
+) {
+  const raw = trimPublicPathSegment(identifier);
+  if (!raw) return null;
+
+  try {
+    const res = await fetch(
+      `${API_BASE}/api/courses/exams/${encodeURIComponent(raw)}/`,
+      examFetchOptions()
+    );
+    if (!res.ok) return null;
+    const exam = await res.json();
+    if (!exam || typeof exam !== "object") return null;
+    return examSlugMatchesCandidate(exam, raw) ? exam : null;
+  } catch {
+    return null;
+  }
+});
+
 export const fetchExamByIdentifier = cache(async function fetchExamByIdentifier(
   identifier
 ) {
@@ -54,7 +89,8 @@ export const fetchExamByIdentifier = cache(async function fetchExamByIdentifier(
     if (candidate && !candidates.includes(candidate)) candidates.push(candidate);
   }
 
-  for (const candidate of candidates) {
+  for (let index = 0; index < candidates.length; index += 1) {
+    const candidate = candidates[index];
     try {
       const res = await fetch(
         `${API_BASE}/api/courses/exams/${encodeURIComponent(candidate)}/`,
@@ -62,7 +98,10 @@ export const fetchExamByIdentifier = cache(async function fetchExamByIdentifier(
       );
       if (!res.ok) continue;
       const exam = await res.json();
-      if (exam && typeof exam === "object") return exam;
+      if (!exam || typeof exam !== "object") continue;
+      // Reject backend fuzzy matches for the full requested slug (prevents wrong exam data).
+      if (index === 0 && !examSlugMatchesCandidate(exam, candidate)) continue;
+      return exam;
     } catch {
       // try next candidate
     }
@@ -124,6 +163,134 @@ function getTotalDuration(obj) {
     }
   }
   return total;
+}
+
+function courseHasOfficialDetailsPage(course) {
+  if (!course || typeof course !== "object") return false;
+  return (
+    hasOfficialDetailsData(course) ||
+    course?.show_in_official_details === true ||
+    course?.show_in_official_details === "true" ||
+    isOfficialDetailsSlug(course?.slug)
+  );
+}
+
+async function fetchOfficialDetailsCourse(candidate) {
+  const slug = trimPublicPathSegment(candidate);
+  if (!slug) return null;
+  // Exact slug only — avoid expensive multi-candidate identifier probes on the hot path.
+  return fetchExamByExactSlug(slug);
+}
+
+function buildOfficialDetailsUrlFromCourse(course, fallbackSlug = "") {
+  const slug = trimPublicPathSegment(course?.slug || fallbackSlug);
+  if (!slug) return "";
+
+  return (
+    buildOfficialDetailsPublicUrl({
+      slug,
+      title: course?.title || course?.name || "",
+      code: getDisplayExamCode(course),
+      official_details_url_slug: course?.official_details_url_slug || "",
+    }) || `/${slug}`
+  );
+}
+
+function buildOfficialDetailsLinkPayload(exam, { slug = "", examCode = "" } = {}) {
+  return {
+    slug: slug || examCode,
+    title: exam?.title || exam?.name || exam?.exam_name || "",
+    code: getDisplayExamCode(exam),
+    official_details_url_slug: exam?.official_details_url_slug || "",
+    about: exam?.about || "",
+    exam_details: exam?.exam_details || exam?.details || "",
+    details: exam?.details || exam?.exam_details || "",
+    why_matters: exam?.why_matters || "",
+    short_description: exam?.short_description || "",
+    test_description: exam?.test_description || "",
+  };
+}
+
+/** Detect linked official-details page (same exam family) and return its public URL. */
+export async function resolveOfficialDetailsAvailability(
+  exam,
+  { slug = "", examCode = "" } = {}
+) {
+  const storedSlug = trimPublicPathSegment(slug || examCode || exam?.slug || "");
+  let officialDetailsUrl = resolveOfficialDetailsLink(
+    buildOfficialDetailsLinkPayload(exam, { slug: storedSlug, examCode })
+  );
+
+  // Prefer any real official-details link already present in exam HTML content.
+  // (Handles slug mismatches / typos between practice and official pages.)
+  const contentCandidates = extractOfficialDetailsHrefCandidates(exam);
+
+  // Content links are authoritative — unlock immediately (no extra API round-trips).
+  if (contentCandidates[0]) {
+    return {
+      hasOfficialDetails: true,
+      officialDetailsUrl: `/${contentCandidates[0]}`,
+    };
+  }
+
+  if (courseHasOfficialDetailsPage(exam)) {
+    return {
+      hasOfficialDetails: isResolvableOfficialDetailsLink(officialDetailsUrl),
+      officialDetailsUrl,
+    };
+  }
+
+  const candidates = [];
+  const addCandidate = (value) => {
+    const trimmed = trimPublicPathSegment(value);
+    if (!trimmed) return;
+    if (trimmed.toLowerCase() === "official-details") return;
+    if (!candidates.some((c) => c.toLowerCase() === trimmed.toLowerCase())) {
+      candidates.push(trimmed);
+    }
+  };
+
+  const configuredSlug = trimPublicPathSegment(exam?.official_details_url_slug || "");
+  if (configuredSlug && configuredSlug.toLowerCase() !== "official-details") {
+    addCandidate(configuredSlug);
+  }
+
+  deriveOfficialInfoSlugCandidates(storedSlug).forEach(addCandidate);
+
+  if (officialDetailsUrl) {
+    addCandidate(officialDetailsUrl.replace(/^\//, "").split("/")[0]);
+  }
+
+  if (candidates.length === 0) {
+    return {
+      hasOfficialDetails: false,
+      officialDetailsUrl,
+    };
+  }
+
+  // Probe candidates in parallel (exact slug only) and pick first valid official page.
+  const settled = await Promise.all(
+    candidates.map(async (candidate) => {
+      const sibling = await fetchOfficialDetailsCourse(candidate);
+      if (!sibling || !courseHasOfficialDetailsPage(sibling)) return null;
+
+      let url = buildOfficialDetailsUrlFromCourse(sibling, candidate);
+      if (!isResolvableOfficialDetailsLink(url)) {
+        url = `/${trimPublicPathSegment(sibling.slug || candidate)}`;
+      }
+      if (!isResolvableOfficialDetailsLink(url)) return null;
+
+      return { hasOfficialDetails: true, officialDetailsUrl: url };
+    })
+  );
+
+  const hit = settled.find(Boolean);
+  if (hit) return hit;
+
+  return {
+    hasOfficialDetails: false,
+    officialDetailsUrl,
+  };
 }
 
 export function buildExamDetailPayload(exam, { provider = "", examCode = "" } = {}) {
@@ -245,14 +412,15 @@ export function buildExamDetailPayload(exam, { provider = "", examCode = "" } = 
         title: pick("title", "name") || "",
         code: pick("code", "exam_code") || resolvedExamCode,
       }) || (slug ? `/${slug}/practice` : `/${resolvedExamCode}/practice`),
-    hasOfficialDetails: hasOfficialDetailsData(exam),
-    officialDetailsUrl: buildOfficialDetailsPublicUrl({
-      slug: slug || resolvedExamCode,
-      title: pick("title", "name") || "",
-      code: pick("code", "exam_code") || resolvedExamCode,
-      official_details_url_slug: pick("official_details_url_slug") || "",
-    }),
+    hasOfficialDetails: courseHasOfficialDetailsPage(exam),
+    officialDetailsUrl: resolveOfficialDetailsLink(
+      buildOfficialDetailsLinkPayload(exam, {
+        slug: slug || resolvedExamCode,
+        examCode: resolvedExamCode,
+      })
+    ),
     code: pick("code", "exam_code") || resolvedExamCode,
+    displayCode: getDisplayExamCode(exam),
     title: pick("title", "name") || "",
     page_heading: pick("page_heading") || null,
     duration: durationMerged,

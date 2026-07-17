@@ -472,6 +472,7 @@ export default function ProfilePage() {
                             </div>
                           </div>
                           <Button
+                            type="button"
                             onClick={() => handleDownloadInvoice(item.payment_id)}
                             disabled={downloadingId === item.payment_id}
                             className="bg-[#1A73E8] hover:bg-[#1557B0] text-white shrink-0"

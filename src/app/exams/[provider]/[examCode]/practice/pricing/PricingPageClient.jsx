@@ -467,6 +467,7 @@ export default function PricingPageClient({
   pricingData,
   error,
   practicePath = "",
+  examSlug = "",
 }) {
   const router = useRouter();
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
@@ -510,8 +511,16 @@ export default function PricingPageClient({
     (provider && examCode ? `/exams/${provider}/${examCode}/practice` : "");
 
   const handleUpgrade = (plan) => {
-    const planSlug = plan.name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
-    router.push(`/checkout/${provider}/${examCode}/${planSlug}/pay`);
+    const planSlug = String(plan?.name || "")
+      .toLowerCase()
+      .replace(/\s+/g, "-")
+      .replace(/[^a-z0-9-]/g, "");
+    if (!planSlug) return;
+
+    const courseQuery = examSlug
+      ? `?course=${encodeURIComponent(examSlug)}`
+      : "";
+    router.push(`/checkout/${provider}/${examCode}/${planSlug}/pay${courseQuery}`);
   };
 
   const scrollToPricing = () => {
