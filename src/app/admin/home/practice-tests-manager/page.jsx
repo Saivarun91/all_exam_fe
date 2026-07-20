@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "@/lib/navigation/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,11 +14,27 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Edit, Trash2, SearchIcon, ClipboardList } from "lucide-react";
 import { checkAuth, getAuthHeaders } from "@/utils/authCheck";
 import AdminTablePagination, { ADMIN_TABLE_PAGE_SIZE } from "@/components/admin/AdminTablePagination";
-import { buildAdminListUrl } from "@/lib/adminPagination";
 import {
+  buildAdminListUrl,
+  DEFAULT_ADMIN_PAGINATION,
+  normalizeAdminPagination,
+  useDebouncedValue,
+} from "@/lib/adminPagination";
+import {
+  buildPracticeHubSlugCandidates,
   getDisplayExamCode,
   getExamAdminDisplayName,
 } from "@/utils/practiceTestRouting";
@@ -27,13 +43,17 @@ const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
 function getPracticeTestCount(course) {
+  const storedCount = parseInt(course?.practice_exams, 10);
+  if (Number.isFinite(storedCount) && storedCount > 0) {
+    return storedCount;
+  }
   if (
     course?.practice_tests_list &&
     Array.isArray(course.practice_tests_list)
   ) {
     return course.practice_tests_list.length;
   }
-  return parseInt(course?.practice_exams, 10) || 0;
+  return 0;
 }
 
 function cacheCourseForTestsPage(course) {
@@ -53,31 +73,32 @@ async function resolvePracticeTestsCourseTarget(course) {
   let targetId = course?.id;
   let targetSlug = slug;
 
-  if (slug.toLowerCase().endsWith("-exam-info")) {
-    const practiceSlug = slug.replace(/-exam-info$/i, "-practice-exam");
+  for (const practiceSlug of buildPracticeHubSlugCandidates(slug)) {
+    if (practiceSlug === slug) continue;
+
     try {
       const res = await fetch(
         `${API_BASE_URL}/api/courses/exams/${encodeURIComponent(practiceSlug)}/`,
         { headers: getAuthHeaders(), cache: "no-store" }
       );
-      if (res.ok) {
-        const data = await res.json();
-        const practiceCourse =
-          data?.success && data?.data ? data.data : data;
-        if (practiceCourse?.id) {
-          targetId = practiceCourse.id;
-          targetSlug = practiceSlug;
-          cacheCourseForTestsPage({
-            ...course,
-            ...practiceCourse,
-            id: targetId,
-            slug: targetSlug,
-          });
-          return { targetId, targetSlug };
-        }
-      }
+      if (!res.ok) continue;
+
+      const data = await res.json();
+      const practiceCourse =
+        data?.success && data?.data ? data.data : data;
+      if (!practiceCourse?.id) continue;
+
+      targetId = practiceCourse.id;
+      targetSlug = practiceSlug;
+      cacheCourseForTestsPage({
+        ...course,
+        ...practiceCourse,
+        id: targetId,
+        slug: targetSlug,
+      });
+      return { targetId, targetSlug };
     } catch {
-      // Fall back to the original course record
+      // Try the next practice-hub slug variant
     }
   }
 
@@ -90,104 +111,66 @@ export default function PracticeTestsManagerPage() {
   const [courses, setCourses] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [listPage, setListPage] = useState(1);
+  const [listPagination, setListPagination] = useState(DEFAULT_ADMIN_PAGINATION);
   const [coursesLoading, setCoursesLoading] = useState(true);
   const [message, setMessage] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const debouncedSearchQuery = useDebouncedValue(searchQuery);
 
   useEffect(() => {
     if (!checkAuth()) {
       router.push("/admin/auth");
-      return;
     }
   }, [router]);
 
-  useEffect(() => {
-    if (!checkAuth()) return;
-    fetchCourses();
-  }, []);
-
-  const fetchCourses = async () => {
+  const fetchCourses = useCallback(async () => {
     setCoursesLoading(true);
     try {
-      let page = 1;
-      let totalPages = 1;
-      const allCourses = [];
-
-      do {
-        const res = await fetch(
-          buildAdminListUrl(`${API_BASE_URL}/api/courses/admin/list/`, {
-            page,
-            page_size: 100,
-            manager: "practice_tests",
-          }),
-          {
-            headers: getAuthHeaders(),
-            cache: "no-store",
-          }
-        );
-
-        if (res.status === 401) {
-          setMessage("Authentication failed. Please log in again.");
-          setTimeout(() => router.push("/admin/auth"), 2000);
-          return;
+      const res = await fetch(
+        buildAdminListUrl(`${API_BASE_URL}/api/courses/admin/list/`, {
+          page: listPage,
+          page_size: ADMIN_TABLE_PAGE_SIZE,
+          search: debouncedSearchQuery.trim(),
+          manager: "practice_tests",
+          lite: 1,
+        }),
+        {
+          headers: getAuthHeaders(),
+          cache: "no-store",
         }
+      );
 
-        const data = await res.json();
-        if (!data.success) break;
+      if (res.status === 401) {
+        setMessage("Authentication failed. Please log in again.");
+        setTimeout(() => router.push("/admin/auth"), 2000);
+        return;
+      }
 
-        allCourses.push(...(Array.isArray(data.data) ? data.data : []));
-        totalPages = Number(data.pagination?.total_pages) || 1;
-        page += 1;
-      } while (page <= totalPages);
+      const data = await res.json();
+      if (!data?.success) {
+        setCourses([]);
+        setListPagination(DEFAULT_ADMIN_PAGINATION);
+        return;
+      }
 
-      setCourses(allCourses);
+      setCourses(Array.isArray(data.data) ? data.data : []);
+      setListPagination(normalizeAdminPagination(data.pagination));
     } catch (error) {
       setMessage(`Error loading exams: ${error.message}`);
     } finally {
       setCoursesLoading(false);
     }
-  };
+  }, [debouncedSearchQuery, listPage, router]);
+
+  useEffect(() => {
+    if (!checkAuth()) return;
+    fetchCourses();
+  }, [fetchCourses]);
 
   useEffect(() => {
     setListPage(1);
   }, [searchQuery]);
-
-  const filteredCourses = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
-    if (!query) return courses;
-
-    return courses.filter((course) => {
-      const name = getExamAdminDisplayName(course).toLowerCase();
-      const code = String(getDisplayExamCode(course) || "").toLowerCase();
-      const provider = String(course?.provider || "").toLowerCase();
-      const category = String(course?.category || "").toLowerCase();
-      const slug = String(course?.slug || "").toLowerCase();
-
-      return (
-        name.includes(query) ||
-        code.includes(query) ||
-        provider.includes(query) ||
-        category.includes(query) ||
-        slug.includes(query)
-      );
-    });
-  }, [courses, searchQuery]);
-
-  const paginatedCourses = useMemo(() => {
-    const totalItems = filteredCourses.length;
-    const totalPages = Math.max(
-      1,
-      Math.ceil(totalItems / ADMIN_TABLE_PAGE_SIZE)
-    );
-    const page = Math.min(listPage, totalPages);
-    const start = (page - 1) * ADMIN_TABLE_PAGE_SIZE;
-
-    return {
-      items: filteredCourses.slice(start, start + ADMIN_TABLE_PAGE_SIZE),
-      page,
-      totalPages,
-      totalItems,
-    };
-  }, [filteredCourses, listPage]);
 
   const handleManageTests = async (course) => {
     if (!course?.id) return;
@@ -201,11 +184,8 @@ export default function PracticeTestsManagerPage() {
 
   const handleDeleteExam = async (course) => {
     if (!course?.id) return;
-    const ok = window.confirm(
-      `Delete exam "${course.title || course.code}" and all its practice tests? This cannot be undone.`
-    );
-    if (!ok) return;
 
+    setDeleteLoading(true);
     try {
       const res = await fetch(
         `${API_BASE_URL}/api/courses/admin/${course.id}/delete/`,
@@ -227,11 +207,14 @@ export default function PracticeTestsManagerPage() {
         return;
       }
 
-      setCourses((prev) => prev.filter((c) => c.id !== course.id));
       setMessage("Exam deleted successfully.");
       setTimeout(() => setMessage(""), 3000);
+      setDeleteTarget(null);
+      await fetchCourses();
     } catch (error) {
       setMessage(`Error: ${error.message}`);
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -302,7 +285,7 @@ export default function PracticeTestsManagerPage() {
                     Loading exams...
                   </TableCell>
                 </TableRow>
-              ) : filteredCourses.length === 0 ? (
+              ) : courses.length === 0 ? (
                 <TableRow>
                   <TableCell
                     colSpan={6}
@@ -312,7 +295,7 @@ export default function PracticeTestsManagerPage() {
                   </TableCell>
                 </TableRow>
               ) : (
-                paginatedCourses.items.map((course) => {
+                courses.map((course) => {
                   const testCount = getPracticeTestCount(course);
                   return (
                     <TableRow key={course.id}>
@@ -344,7 +327,7 @@ export default function PracticeTestsManagerPage() {
                           <Button
                             size="icon"
                             variant="destructive"
-                            onClick={() => handleDeleteExam(course)}
+                            onClick={() => setDeleteTarget(course)}
                             title="Delete exam"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -358,14 +341,49 @@ export default function PracticeTestsManagerPage() {
             </TableBody>
           </Table>
           <AdminTablePagination
-            currentPage={paginatedCourses.page}
-            totalPages={paginatedCourses.totalPages}
-            totalItems={paginatedCourses.totalItems}
+            currentPage={listPagination.page}
+            totalPages={listPagination.total_pages}
+            totalItems={listPagination.count}
             onPageChange={setListPage}
             itemLabel="exams"
           />
         </CardContent>
       </Card>
+
+      <AlertDialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(open) => {
+          if (!open && !deleteLoading) setDeleteTarget(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete exam?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Delete exam{" "}
+              <span className="font-medium text-[#0C1A35]">
+                {getExamAdminDisplayName(deleteTarget) || deleteTarget?.code || "this exam"}
+              </span>{" "}
+              and all its practice tests? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteLoading}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700"
+              disabled={deleteLoading}
+              onClick={(event) => {
+                event.preventDefault();
+                if (deleteTarget) {
+                  handleDeleteExam(deleteTarget);
+                }
+              }}
+            >
+              {deleteLoading ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

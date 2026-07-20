@@ -764,6 +764,11 @@ export default async function PracticePage(props) {
         examCode={examCode}
         examTitle={exam.title}
         examSlug={examData.slug || examCode}
+        totalQuestions={
+          exam.totalQuestions ||
+          Number(examData.questions) ||
+          0
+        }
       />
       </div>
     </div>

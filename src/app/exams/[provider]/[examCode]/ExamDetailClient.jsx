@@ -1198,7 +1198,7 @@ export default function ExamDetailClient({
               </Card>
             )}
 
-            {examData.practiceTestsList && examData.practiceTestsList.length > 0 && (
+            {examData.practiceTestsList && examData.practiceTestsList.length > 0 ? (
               <Card className="border-[#DDE7FF]">
                 <CardHeader>
                   <h2 className="text-[#0C1A35] text-xl font-semibold leading-none tracking-tight">
@@ -1242,6 +1242,26 @@ export default function ExamDetailClient({
                       </Button>
                     </div>
                   ))}
+                </CardContent>
+              </Card>
+            ) : (
+              <Card className="border-[#DDE7FF]">
+                <CardHeader>
+                  <h2 className="text-[#0C1A35] text-xl font-semibold leading-none tracking-tight">
+                    {getHeadingText(
+                      examData.practice_tests_heading,
+                      "Available Practice Tests"
+                    )}
+                  </h2>
+                </CardHeader>
+                <CardContent className="py-8 text-center">
+                  <p className="text-lg font-semibold text-[#0C1A35] mb-2">
+                    Practice Tests Will Be Available Soon
+                  </p>
+                  <p className="text-sm text-[#0C1A35]/70">
+                    We are preparing practice tests for this exam. Please check
+                    back shortly.
+                  </p>
                 </CardContent>
               </Card>
             )}

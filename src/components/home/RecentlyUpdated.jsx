@@ -174,6 +174,7 @@ import { Badge } from "@/components/ui/badge";
 import { Award, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { getExamUrl } from "@/lib/utils";
+import { getDisplayExamCode } from "@/utils/practiceTestRouting";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
@@ -265,6 +266,7 @@ export default async function RecentlyUpdated() {
           <div className="max-h-[600px] overflow-y-auto space-y-4 pr-2 custom-scrollbar">
 
             {exams.map((exam, index) => {
+              const displayCode = getDisplayExamCode(exam);
 
               let practiceCount = 0;
               if (
@@ -314,12 +316,14 @@ export default async function RecentlyUpdated() {
                           {exam.title}
                         </h3>
 
-                        <Badge
-                          variant="outline"
-                          className="text-xs border-[#D3E3FF] text-[#0C1A35] font-medium"
-                        >
-                          {exam.code}
-                        </Badge>
+                        {displayCode ? (
+                          <Badge
+                            variant="outline"
+                            className="text-xs border-[#D3E3FF] text-[#0C1A35] font-medium"
+                          >
+                            {displayCode}
+                          </Badge>
+                        ) : null}
                       </div>
 
                       <p

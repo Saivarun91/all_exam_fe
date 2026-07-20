@@ -3,6 +3,9 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter, useSearchParams } from "@/lib/navigation/client";
 import { buildAdminListUrl } from "@/lib/adminPagination";
+import {
+  buildPracticeHubSlugCandidates,
+} from "@/utils/practiceTestRouting";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +18,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Select,
   SelectContent,
@@ -45,6 +58,15 @@ function readCachedCourse(id) {
     return parsed;
   } catch {
     return null;
+  }
+}
+
+function writeCachedCourse(id, course) {
+  try {
+    if (!id || !course || typeof course !== "object") return;
+    sessionStorage.setItem(courseCacheKey(id), JSON.stringify(course));
+  } catch {
+    // ignore cache write failures
   }
 }
 
@@ -154,12 +176,78 @@ async function resolvePracticeCourse(course) {
     return course;
   }
 
-  const practiceSlug = slug.replace(/-exam-info$/i, "-practice-exam");
-  const practiceCourse = await fetchCourseBySlug(practiceSlug);
-  if (!practiceCourse?.id) return course;
+  for (const practiceSlug of buildPracticeHubSlugCandidates(slug)) {
+    const practiceCourse = await fetchCourseBySlug(practiceSlug);
+    if (!practiceCourse?.id) continue;
 
-  const { course: adminPractice } = await fetchAdminCourseById(practiceCourse.id);
-  return adminPractice || practiceCourse;
+    const { course: adminPractice } = await fetchAdminCourseById(practiceCourse.id);
+    return adminPractice || practiceCourse;
+  }
+
+  return course;
+}
+
+function getPracticeTestId(test) {
+  return String(test?.id || test?._id || "").trim();
+}
+
+function formatPracticeTestDuration(value) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return "";
+  if (/[a-z]/i.test(raw)) return raw;
+  const minutes = parseInt(raw, 10);
+  return Number.isFinite(minutes) && minutes > 0 ? `${minutes} minutes` : raw;
+}
+
+function practiceTestWasSaved(tests, expectedName) {
+  const list = Array.isArray(tests) ? tests : [];
+  const trimmedName = String(expectedName || "").trim().toLowerCase();
+  if (!trimmedName) return false;
+  return list.some(
+    (test) =>
+      String(test?.name || test?.title || "").trim().toLowerCase() === trimmedName
+  );
+}
+
+async function applyPracticeTestsCourseUpdate({
+  course,
+  courseId,
+  expectedName,
+  responseData,
+  optimisticTests,
+}) {
+  let nextCourse = responseData?.data || {
+    ...course,
+    practice_tests_list: optimisticTests,
+  };
+
+  const warnings = Array.isArray(responseData?.sync_warnings)
+    ? responseData.sync_warnings
+    : [];
+  const saved = practiceTestWasSaved(
+    nextCourse?.practice_tests_list,
+    expectedName
+  );
+
+  if (!saved) {
+    const { course: refreshed } = await fetchAdminCourseById(course.id);
+    if (refreshed) {
+      nextCourse = refreshed;
+    }
+  }
+
+  const savedAfterRefresh = practiceTestWasSaved(
+    nextCourse?.practice_tests_list,
+    expectedName
+  );
+
+  if (!savedAfterRefresh) {
+    const warningText = warnings[0] || responseData?.message || "Practice test could not be saved.";
+    return { ok: false, message: `❌ ${warningText}`, course: nextCourse };
+  }
+
+  writeCachedCourse(course.id || courseId, nextCourse);
+  return { ok: true, message: "✅ Practice test added successfully!", course: nextCourse };
 }
 
 export default function CourseTestsPage() {
@@ -174,6 +262,8 @@ export default function CourseTestsPage() {
   const [message, setMessage] = useState("");
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
   const [editingTest, setEditingTest] = useState(null);
   const [testQuestionCounts, setTestQuestionCounts] = useState({});
   const [testForm, setTestForm] = useState({
@@ -235,6 +325,7 @@ export default function CourseTestsPage() {
 
         if (foundCourse) {
           setCourse(foundCourse);
+          writeCachedCourse(foundCourse.id || courseId, foundCourse);
           fetchTestQuestionCounts(foundCourse.practice_tests_list || []);
           if (String(foundCourse.id) !== String(courseId)) {
             const slugQuery = foundCourse.slug
@@ -338,8 +429,15 @@ export default function CourseTestsPage() {
   const practiceTests = course.practice_tests_list || [];
 
   const handleAddTest = async () => {
+    const testName = String(testForm.name || "").trim();
+    if (!testName) {
+      setMessage("❌ Test name is required.");
+      setTimeout(() => setMessage(""), 3000);
+      return;
+    }
+
     try {
-      const updatedTests = [...practiceTests, { ...testForm }];
+      const updatedTests = [...practiceTests, { ...testForm, name: testName }];
       const res = await fetch(`${API_BASE_URL}/api/courses/admin/${course.id}/update/`, {
         method: "PUT",
         headers: {
@@ -351,11 +449,36 @@ export default function CourseTestsPage() {
         }),
       });
 
-      if (res.ok) {
-        const responseData = await res.json().catch(() => null);
-        const nextCourse = responseData?.data || { ...course, practice_tests_list: updatedTests };
-        setCourse(nextCourse);
-        fetchTestQuestionCounts(nextCourse.practice_tests_list || updatedTests);
+      const responseData = await res.json().catch(() => null);
+
+      if (res.status === 401 || res.status === 403) {
+        setMessage("Authentication failed. Please log in again.");
+        setTimeout(() => router.push("/admin/auth"), 2000);
+        return;
+      }
+
+      if (!res.ok) {
+        const errText =
+          responseData?.error ||
+          responseData?.message ||
+          "Failed to add practice test.";
+        setMessage(`❌ ${errText}`);
+        setTimeout(() => setMessage(""), 5000);
+        return;
+      }
+
+      const result = await applyPracticeTestsCourseUpdate({
+        course,
+        courseId,
+        expectedName: testName,
+        responseData,
+        optimisticTests: updatedTests,
+      });
+
+      setCourse(result.course);
+      fetchTestQuestionCounts(result.course.practice_tests_list || updatedTests);
+
+      if (result.ok) {
         setShowAddDialog(false);
         setTestForm({
           name: "",
@@ -367,9 +490,10 @@ export default function CourseTestsPage() {
           rating: 4.5,
           reviews_count: 0,
         });
-        setMessage("✅ Practice test added successfully!");
-        setTimeout(() => setMessage(""), 3000);
       }
+
+      setMessage(result.message);
+      setTimeout(() => setMessage(""), result.ok ? 3000 : 5000);
     } catch (err) {
       setMessage(`❌ Error: ${err.message}`);
       setTimeout(() => setMessage(""), 3000);
@@ -377,9 +501,30 @@ export default function CourseTestsPage() {
   };
 
   const handleUpdateTest = async () => {
+    const editingId = getPracticeTestId(editingTest);
+    if (!editingId) {
+      setMessage("❌ Cannot update: practice test has no id. Refresh and try again.");
+      setTimeout(() => setMessage(""), 5000);
+      return;
+    }
+
+    const testName = String(testForm.name || "").trim();
+    if (!testName) {
+      setMessage("❌ Test name is required.");
+      setTimeout(() => setMessage(""), 3000);
+      return;
+    }
+
+    const updatedEntry = {
+      ...editingTest,
+      ...testForm,
+      id: editingId,
+      name: testName,
+    };
+
     try {
       const updatedTests = practiceTests.map((t) =>
-        t.id === editingTest.id ? { ...testForm, id: editingTest.id } : t
+        getPracticeTestId(t) === editingId ? updatedEntry : t
       );
       const res = await fetch(`${API_BASE_URL}/api/courses/admin/${course.id}/update/`, {
         method: "PUT",
@@ -392,17 +537,76 @@ export default function CourseTestsPage() {
         }),
       });
 
-      if (res.ok) {
-        const responseData = await res.json().catch(() => null);
-        const nextCourse = responseData?.data || { ...course, practice_tests_list: updatedTests };
-        setCourse(nextCourse);
-        setShowEditDialog(false);
-        setEditingTest(null);
-        setMessage("✅ Practice test updated successfully!");
-        // Refresh question counts after updating test
-        fetchTestQuestionCounts(nextCourse.practice_tests_list || updatedTests);
-        setTimeout(() => setMessage(""), 3000);
+      const responseData = await res.json().catch(() => null);
+
+      if (res.status === 401 || res.status === 403) {
+        setMessage("Authentication failed. Please log in again.");
+        setTimeout(() => router.push("/admin/auth"), 2000);
+        return;
       }
+
+      if (!res.ok) {
+        const errText =
+          responseData?.error ||
+          responseData?.message ||
+          "Failed to update practice test.";
+        setMessage(`❌ ${errText}`);
+        setTimeout(() => setMessage(""), 5000);
+        return;
+      }
+
+      const warnings = Array.isArray(responseData?.sync_warnings)
+        ? responseData.sync_warnings
+        : [];
+
+      let nextCourse = responseData?.data || {
+        ...course,
+        practice_tests_list: updatedTests,
+      };
+
+      if (warnings.length > 0) {
+        const { course: refreshed } = await fetchAdminCourseById(course.id);
+        if (refreshed) nextCourse = refreshed;
+        setMessage(`❌ ${warnings[0]}`);
+        setTimeout(() => setMessage(""), 5000);
+        setCourse(nextCourse);
+        writeCachedCourse(course.id || courseId, nextCourse);
+        return;
+      }
+
+      const savedTest = (nextCourse.practice_tests_list || []).find(
+        (test) => getPracticeTestId(test) === editingId
+      );
+
+      if (!savedTest) {
+        const { course: refreshed } = await fetchAdminCourseById(course.id);
+        if (refreshed) nextCourse = refreshed;
+      }
+
+      const verifiedTest = (nextCourse.practice_tests_list || []).find(
+        (test) => getPracticeTestId(test) === editingId
+      );
+
+      if (!verifiedTest) {
+        setMessage("❌ Failed to update practice test. Please try again.");
+        setTimeout(() => setMessage(""), 5000);
+        return;
+      }
+
+      nextCourse = {
+        ...nextCourse,
+        practice_tests_list: (nextCourse.practice_tests_list || []).map((test) =>
+          getPracticeTestId(test) === editingId ? { ...verifiedTest, ...updatedEntry } : test
+        ),
+      };
+
+      setCourse(nextCourse);
+      writeCachedCourse(course.id || courseId, nextCourse);
+      setShowEditDialog(false);
+      setEditingTest(null);
+      setMessage("✅ Practice test updated successfully!");
+      fetchTestQuestionCounts(nextCourse.practice_tests_list || updatedTests);
+      setTimeout(() => setMessage(""), 3000);
     } catch (err) {
       setMessage(`❌ Error: ${err.message}`);
       setTimeout(() => setMessage(""), 3000);
@@ -410,10 +614,33 @@ export default function CourseTestsPage() {
   };
 
   const handleDeleteTest = async (testId) => {
-    if (!confirm("Are you sure you want to delete this practice test?")) return;
+    const id = testId != null ? String(testId).trim() : "";
+    if (!id) {
+      setMessage("❌ Cannot delete: this practice test has no id. Refresh and try again.");
+      setTimeout(() => setMessage(""), 3000);
+      return;
+    }
 
+    setDeleteLoading(true);
     try {
-      const updatedTests = practiceTests.filter((t) => t.id !== testId);
+      // 1) Delete the actual PracticeTest document
+      const deleteRes = await fetch(
+        `${API_BASE_URL}/api/tests/${encodeURIComponent(id)}/delete/`,
+        {
+          method: "DELETE",
+          headers: getAuthHeaders(),
+        }
+      );
+
+      if (!deleteRes.ok && deleteRes.status !== 204) {
+        const errData = await deleteRes.json().catch(() => ({}));
+        throw new Error(errData.error || errData.message || "Failed to delete practice test");
+      }
+
+      // 2) Keep course practice_tests_list / references in sync
+      const updatedTests = practiceTests.filter(
+        (t) => String(t?.id || t?._id || "") !== id
+      );
       const res = await fetch(`${API_BASE_URL}/api/courses/admin/${course.id}/update/`, {
         method: "PUT",
         headers: {
@@ -425,32 +652,41 @@ export default function CourseTestsPage() {
         }),
       });
 
+      // Prefer server truth after delete
+      let nextCourse = { ...course, practice_tests_list: updatedTests };
       if (res.ok) {
         const responseData = await res.json().catch(() => null);
-        const nextCourse = responseData?.data || { ...course, practice_tests_list: updatedTests };
-        setCourse(nextCourse);
-        setMessage("✅ Practice test deleted successfully!");
-        // Refresh question counts after deleting test
-        fetchTestQuestionCounts(nextCourse.practice_tests_list || updatedTests);
-        setTimeout(() => setMessage(""), 3000);
+        if (responseData?.data) nextCourse = responseData.data;
+      } else {
+        const { course: refreshed } = await fetchAdminCourseById(course.id);
+        if (refreshed) nextCourse = refreshed;
       }
+
+      setCourse(nextCourse);
+      writeCachedCourse(course.id || courseId, nextCourse);
+      setMessage("✅ Practice test deleted successfully!");
+      fetchTestQuestionCounts(nextCourse.practice_tests_list || updatedTests);
+      setTimeout(() => setMessage(""), 3000);
+      setDeleteTarget(null);
     } catch (err) {
       setMessage(`❌ Error: ${err.message}`);
       setTimeout(() => setMessage(""), 3000);
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
   const openEditDialog = (test) => {
     setEditingTest(test);
     setTestForm({
-      name: test.name || "",
+      name: test.name || test.title || "",
       description: test.description || "",
       questions: test.questions || 0,
-      duration: test.duration || "",
+      duration: formatPracticeTestDuration(test.duration),
       difficulty: test.difficulty || "Intermediate",
-      pass_rate: test.pass_rate || 94,
-      rating: test.rating || 4.5,
-      reviews_count: test.reviews_count || 0,
+      pass_rate: test.pass_rate ?? 94,
+      rating: test.rating ?? 4.5,
+      reviews_count: test.reviews_count ?? 0,
     });
     setShowEditDialog(true);
   };
@@ -648,7 +884,12 @@ export default function CourseTestsPage() {
                     <Button
                       variant="outline"
                       className="flex-1 border-red-200 text-red-600 hover:bg-red-50"
-                      onClick={() => handleDeleteTest(test.id)}
+                      onClick={() =>
+                        setDeleteTarget({
+                          id: test.id,
+                          name: test.name || test.title || "this practice test",
+                        })
+                      }
                     >
                       <Trash2 className="w-4 h-4 mr-2" />
                       Delete
@@ -682,6 +923,41 @@ export default function CourseTestsPage() {
           {renderTestForm(testForm, setTestForm, handleUpdateTest, true)}
         </DialogContent>
       </Dialog>
+
+      <AlertDialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(open) => {
+          if (!open && !deleteLoading) setDeleteTarget(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete practice test?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete{" "}
+              <span className="font-medium text-[#0C1A35]">
+                {deleteTarget?.name || "this practice test"}
+              </span>
+              ? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteLoading}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700"
+              disabled={deleteLoading}
+              onClick={(event) => {
+                event.preventDefault();
+                if (deleteTarget?.id) {
+                  handleDeleteTest(deleteTarget.id);
+                }
+              }}
+            >
+              {deleteLoading ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Quick Actions */}
       <div className="mt-8 p-6 bg-blue-50 rounded-lg border border-blue-200">

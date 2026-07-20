@@ -157,6 +157,35 @@ export function normalizePublicPageSlug(value = "") {
 export const FREE_PRACTICE_TEST_LANDING_SUFFIX = "-free-practice-test";
 const EXAM_INFO_SUFFIX = "-exam-info";
 
+/** Suffixes used for practice-hub sibling courses (longest first). */
+export const PRACTICE_HUB_SLUG_SUFFIXES = [
+  "-free-practice-exams",
+  "-free-practice-tests",
+  "-free-practice-test",
+  "-practice-exams",
+  "-practice-tests",
+  "-practice-exam",
+  "-practice-test",
+  "-free-test",
+];
+
+/**
+ * Build candidate practice-hub slugs from an official exam-info slug.
+ */
+export function buildPracticeHubSlugCandidates(slug = "") {
+  const raw = trimPublicPathSegment(slug);
+  if (!raw) return [];
+
+  const lower = raw.toLowerCase();
+  if (!lower.endsWith(EXAM_INFO_SUFFIX)) {
+    return [raw];
+  }
+
+  const base = raw.replace(/-exam-info$/i, "");
+  const candidates = PRACTICE_HUB_SLUG_SUFFIXES.map((suffix) => `${base}${suffix}`);
+  return candidates.filter((value, index, list) => list.indexOf(value) === index);
+}
+
 /**
  * Ordered API lookup keys for a public path segment (longest first, then suffix probes).
  */

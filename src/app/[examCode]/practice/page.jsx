@@ -190,6 +190,11 @@ export default async function CleanPracticePage({ params }) {
         examCode={examData.code || normalizedExamCode}
         examTitle={exam.title}
         examSlug={examData.slug || publicPathBase}
+        totalQuestions={
+          exam.totalQuestions ||
+          Number(examData.questions) ||
+          0
+        }
       />
       </div>
     </div>

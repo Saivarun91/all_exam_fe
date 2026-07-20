@@ -89,17 +89,26 @@ const OFFICIAL_PRACTICE_BASE_SUFFIXES = [
   "-certification",
   "-information",
   "-info",
-  "-practice-test",
-  "-practice-exam",
+  // Longest practice variants first (production uses plural forms heavily).
+  "-free-practice-exams",
+  "-free-practice-tests",
   "-free-practice-test",
+  "-practice-exams",
+  "-practice-tests",
+  "-practice-exam",
+  "-practice-test",
   "-free-test",
 ];
 
 /** Practice-hub slug suffixes derived from the shared base (longest first). */
 const OFFICIAL_PRACTICE_HUB_SUFFIXES = [
-  "-practice-test",
-  "-practice-exam",
+  "-free-practice-exams",
+  "-free-practice-tests",
   "-free-practice-test",
+  "-practice-exams",
+  "-practice-tests",
+  "-practice-exam",
+  "-practice-test",
   "-free-test",
 ];
 
@@ -125,12 +134,24 @@ function stripToPracticeBaseSlug(slug = "") {
 
 /**
  * Official-details entries often use an `-exam-info` slug while the practice
- * hub lives on a sibling slug (`-free-test`, `-practice-exam`, etc.).
+ * hub lives on a sibling slug (`-practice-exams`, `-practice-test`, etc.).
  */
 function resolveOfficialDetailsPracticeSlug(exam, normalizedExamCode) {
+  const linked = String(pick(exam, "linked_practice_slug") || "").trim();
+  if (linked) return linked;
+
   const storedSlug = pick(exam, "slug") || normalizedExamCode || "";
+  // Prefer an already-known practice-hub slug over inventing one.
+  const lower = String(storedSlug || "").toLowerCase();
+  if (
+    OFFICIAL_PRACTICE_HUB_SUFFIXES.some((suffix) => lower.endsWith(suffix))
+  ) {
+    return storedSlug;
+  }
+
   const coreBase = stripToPracticeBaseSlug(storedSlug);
-  if (coreBase) return `${coreBase}-practice-test`;
+  // Most common production sibling; callers still verify before navigation.
+  if (coreBase) return `${coreBase}-practice-exams`;
   return storedSlug;
 }
 
@@ -139,9 +160,23 @@ function isSiblingPracticeSlug(candidateSlug, coreBase) {
   const base = String(coreBase || "").trim().toLowerCase();
   if (!candidate || !base) return false;
   if (candidate === base) return true;
-  return OFFICIAL_PRACTICE_HUB_SUFFIXES.some(
-    (suffix) => candidate === `${base}${suffix}`
-  );
+  if (
+    OFFICIAL_PRACTICE_HUB_SUFFIXES.some(
+      (suffix) => candidate === `${base}${suffix}`
+    )
+  ) {
+    return true;
+  }
+  // Catch variants like `base-online-practice-exams`.
+  if (candidate.startsWith(`${base}-`)) {
+    const remainder = candidate.slice(base.length + 1);
+    return (
+      remainder.startsWith("practice") ||
+      remainder.startsWith("free-practice") ||
+      remainder.startsWith("free-test")
+    );
+  }
+  return false;
 }
 
 function deriveOfficialPracticeExamCandidates(exam, normalizedExamCode) {
@@ -389,13 +424,17 @@ async function resolveOfficialPracticeUrl(exam, normalizedExamCode) {
   if (linkedPracticeSlug) {
     const linkedPractice = await verifiedPracticeFromSlug(linkedPracticeSlug);
     if (linkedPractice) return linkedPractice;
-    // Trust backend slug when it is clearly a practice-hub slug.
+    // Trust backend slug when it is clearly a practice-hub slug (or same family).
+    const linkedNormalized = String(linkedPracticeSlug)
+      .replace(/^\/+|\/+$/g, "")
+      .replace(/\/practice(?:\/pricing)?$/i, "");
     if (
       OFFICIAL_PRACTICE_HUB_SUFFIXES.some((suffix) =>
-        String(linkedPracticeSlug).toLowerCase().endsWith(suffix)
-      )
+        linkedNormalized.toLowerCase().endsWith(suffix)
+      ) ||
+      (coreBase && isSiblingPracticeSlug(linkedNormalized, coreBase))
     ) {
-      return `/${String(linkedPracticeSlug).replace(/^\/+|\/+$/g, "")}/practice`;
+      return `/${linkedNormalized}/practice`;
     }
   }
 
@@ -668,13 +707,10 @@ export default async function OfficialExamDetailsView({
     statRows,
     examData,
   } = buildOfficialExamPageModel(exam, normalizedExamCode);
-  // "Start Practicing Tests" button is only shown when we have at least one
-  // meaningful stat row. Avoid expensive practice-hub probing on pages where
-  // the button isn't rendered. Popular exams can load from cache in parallel.
+  // "Start Practicing Tests" uses the verified practice-hub URL for this exam.
+  // Always resolve so the CTA can render even when official stats are empty.
   const [resolvedPracticeUrl, popularExamsCourses] = await Promise.all([
-    statRows.length > 0
-      ? resolveOfficialPracticeUrl(exam, normalizedExamCode)
-      : Promise.resolve(""),
+    resolveOfficialPracticeUrl(exam, normalizedExamCode),
     fetchPopularExamsCourses({ limit: 8 }),
   ]);
   // Exact same destination as exam-details "Start Practicing tests":
@@ -709,43 +745,47 @@ export default async function OfficialExamDetailsView({
           </Card>
         ) : (
         <>
-          {/* Stats table — centered above content */}
-          {statRows.length > 0 ? (
+          {/* Stats table + Start Practicing — centered above content */}
+          {statRows.length > 0 || practiceUrl ? (
             <div className="max-w-3xl mx-auto space-y-8 mb-8">
-              <CardContent>
-                <div className="overflow-hidden rounded-lg border border-[#DDE7FF]">
-                  {statRows.map((row, index) => (
-                    <div
-                      key={row.label}
-                      className={`grid grid-cols-[140px_1fr] gap-4 px-4 py-3 items-center ${
-                        index !== statRows.length - 1
-                          ? "border-b border-[#DDE7FF]"
-                          : ""
-                      } ${
-                        index % 2 === 0
-                          ? "bg-white"
-                          : "bg-[#F8FAFF]"
-                      }`}
-                    >
-                      <div className="text-sm font-medium text-[#0C1A35]/70">
-                        {row.label}
-                      </div>
+              {statRows.length > 0 ? (
+                <CardContent>
+                  <div className="overflow-hidden rounded-lg border border-[#DDE7FF]">
+                    {statRows.map((row, index) => (
+                      <div
+                        key={row.label}
+                        className={`grid grid-cols-[140px_1fr] gap-4 px-4 py-3 items-center ${
+                          index !== statRows.length - 1
+                            ? "border-b border-[#DDE7FF]"
+                            : ""
+                        } ${
+                          index % 2 === 0
+                            ? "bg-white"
+                            : "bg-[#F8FAFF]"
+                        }`}
+                      >
+                        <div className="text-sm font-medium text-[#0C1A35]/70">
+                          {row.label}
+                        </div>
 
-                      <div className="text-sm font-semibold text-[#0C1A35] text-right break-words">
-                        {row.value}
+                        <div className="text-sm font-semibold text-[#0C1A35] text-right break-words">
+                          {row.value}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
+                </CardContent>
+              ) : null}
+
+              {practiceUrl ? (
+                <div className="flex justify-center">
+                  <StartTestButton
+                    url={practiceUrl}
+                    label="Start Practicing Tests"
+                    className="bg-[#1A73E8] text-white hover:bg-[#1557B0] h-12 text-lg px-8"
+                  />
                 </div>
-              </CardContent>
-
-              <div className="flex justify-center">
-                <StartTestButton
-                  url={practiceUrl}
-                  label="Start Practicing Tests"
-                  className="bg-[#1A73E8] text-white hover:bg-[#1557B0] h-12 text-lg px-8"
-                />
-              </div>
+              ) : null}
             </div>
           ) : null}
 

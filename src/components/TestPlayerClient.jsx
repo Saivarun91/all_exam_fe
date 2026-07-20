@@ -40,6 +40,68 @@ const resolveMediaUrl = (url) => {
 const hasHtmlContent = (value) =>
   typeof value === "string" && /<\/?[a-z][\s\S]*>/i.test(value);
 
+/**
+ * Single correct → radios; multiple correct → checkboxes.
+ * Handles both vocabularies: questions app (`single`/`multiple`) and exams app (`SINGLE`/`MCQ`).
+ */
+const getCorrectAnswersCount = (question) => {
+  if (Array.isArray(question?.correct_answers)) {
+    return question.correct_answers.filter(
+      (a) => a !== null && a !== undefined && String(a).trim() !== ""
+    ).length;
+  }
+  if (question?.correct_answer != null && String(question.correct_answer).trim() !== "") {
+    return 1;
+  }
+  // Fallback: count options marked correct (if present on the payload)
+  if (Array.isArray(question?.options)) {
+    return question.options.filter((opt) => {
+      if (!opt || typeof opt !== "object") return false;
+      return opt.is_correct === true || opt.correct === true;
+    }).length;
+  }
+  return 0;
+};
+
+const isSingleChoiceQuestion = (question) => {
+  const type = String(question?.question_type || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
+  const correctCount = getCorrectAnswersCount(question);
+
+  // Explicit multi-select types (admin maps UI "multiple" → backend "MCQ")
+  if (
+    type === "multiple" ||
+    type === "mcq" ||
+    type === "multi" ||
+    type === "multiple_choice" ||
+    type === "multi_correct" ||
+    type === "multiple_correct"
+  ) {
+    return false;
+  }
+
+  // More than one correct answer always means checkboxes
+  if (correctCount > 1) {
+    return false;
+  }
+
+  // Explicit single-select (and true/false) → radios
+  if (
+    type === "single" ||
+    type === "true_false" ||
+    type === "truefalse" ||
+    type === "single_choice" ||
+    type === "single_correct"
+  ) {
+    return true;
+  }
+
+  // Unknown / missing type: default to single unless we already detected multi above
+  return true;
+};
+
 /** TipTap / ProseMirror JSON → plain text for display (never "[object Object]"). */
 const extractPlainFromProseMirrorLike = (node, depth = 0) => {
   if (depth > 50 || node == null) return "";
@@ -129,6 +191,10 @@ export default function TestPlayerClient({ exam, questions, test, provider, exam
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
   const handleSubmitRef = useRef(null);
   const timeRemainingRef = useRef(null);
+  /** Wall-clock start for accurate "time taken" on results. */
+  const testStartedAtRef = useRef(null);
+  /** Allotted seconds used by the countdown (same source as timer). */
+  const allottedSecondsRef = useRef(null);
   /** Prevents double time-up submit (Strict Mode / duplicate ticks). */
   const autoTimeExpiredSubmitRef = useRef(false);
 
@@ -301,6 +367,62 @@ export default function TestPlayerClient({ exam, questions, test, provider, exam
     return 30;
   };
 
+  const resolveTestDurationMinutes = () =>
+    Math.max(
+      1,
+      parseDuration(
+        currentTest?.duration ?? test?.duration ?? exam?.duration ?? "30"
+      )
+    );
+
+  const formatElapsedClock = (totalSeconds) => {
+    const secs = Math.max(0, Math.floor(Number(totalSeconds) || 0));
+    const hours = Math.floor(secs / 3600);
+    const minutes = Math.floor((secs % 3600) / 60);
+    const seconds = secs % 60;
+    if (hours > 0) {
+      return `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+    }
+    return `${minutes}:${String(seconds).padStart(2, "0")}`;
+  };
+
+  /** Prefer wall-clock; fall back to allotted − remaining. Optionally blend server minutes. */
+  const computeTimeTaken = (serverDurationMinutes = null) => {
+    const allotted = allottedSecondsRef.current;
+    let elapsed = null;
+
+    if (testStartedAtRef.current) {
+      elapsed = Math.floor((Date.now() - testStartedAtRef.current) / 1000);
+    }
+
+    if (elapsed == null || Number.isNaN(elapsed) || elapsed < 0) {
+      const remaining = timeRemainingRef.current;
+      if (allotted != null && remaining != null) {
+        elapsed = allotted - remaining;
+      } else {
+        elapsed = 0;
+      }
+    }
+
+    if (
+      serverDurationMinutes != null &&
+      Number.isFinite(Number(serverDurationMinutes)) &&
+      Number(serverDurationMinutes) >= 0
+    ) {
+      const serverSeconds = Math.round(Number(serverDurationMinutes) * 60);
+      // Prefer finer client clock when close; otherwise trust server elapsed minutes.
+      if (Math.abs(serverSeconds - elapsed) > 90) {
+        elapsed = serverSeconds;
+      }
+    }
+
+    if (allotted != null && allotted > 0) {
+      elapsed = Math.min(elapsed, allotted);
+    }
+
+    return formatElapsedClock(Math.max(0, elapsed));
+  };
+
   const formatDurationDisplay = (duration) => {
     const minutes = parseDuration(duration);
     return `${minutes} mins`;
@@ -314,9 +436,7 @@ export default function TestPlayerClient({ exam, questions, test, provider, exam
     if (!canAccessQuestion(currentQuestion)) return;
     
     const currentQuestionData = questions[currentQuestion - 1];
-    const questionType = currentQuestionData?.question_type?.toLowerCase();
-    const correctAnswersCount = currentQuestionData?.correct_answers?.length || 0;
-    const isSingle = questionType === "single" || (questionType !== "multiple" && correctAnswersCount <= 1);
+    const isSingle = isSingleChoiceQuestion(currentQuestionData);
     
     if (isSingle) {
       setAnswers({ ...answers, [currentQuestion]: optionText });
@@ -446,13 +566,7 @@ export default function TestPlayerClient({ exam, questions, test, provider, exam
     const accessibleQuestions = questions.slice(0, totalAccessible);
     const { correct, unanswered } = scoreGuestAnswers(accessibleQuestions);
     const incorrect = totalAccessible - correct - unanswered;
-    const totalDurationSeconds = parseDuration(
-      currentTest?.duration ?? test?.duration ?? exam?.duration ?? "30"
-    ) * 60;
-    const elapsedSeconds = totalDurationSeconds - (timeRemaining || 0);
-    const minutes = Math.floor(elapsedSeconds / 60);
-    const seconds = elapsedSeconds % 60;
-    const timeTaken = `${minutes}:${seconds.toString().padStart(2, "0")}`;
+    const timeTaken = computeTimeTaken();
     const percentage =
       totalAccessible > 0 ? Math.round((correct / totalAccessible) * 100) : 0;
 
@@ -478,6 +592,9 @@ export default function TestPlayerClient({ exam, questions, test, provider, exam
         JSON.stringify(accessibleQuestions)
       );
       sessionStorage.setItem("attemptId", GUEST_ATTEMPT_ID);
+      if (Array.isArray(exam?.topics)) {
+        sessionStorage.setItem("examTopics", JSON.stringify(exam.topics));
+      }
     }
 
     router.push(`/test-review/${provider}/${examCode}`);
@@ -607,13 +724,7 @@ export default function TestPlayerClient({ exam, questions, test, provider, exam
         }
       }
       
-      const totalDurationSeconds = parseDuration(exam?.duration) * 60;
-const elapsedSeconds = totalDurationSeconds - (timeRemaining || 0);
-
-const minutes = Math.floor(elapsedSeconds / 60);
-const seconds = elapsedSeconds % 60;
-
-const timeTaken = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+      const timeTaken = computeTimeTaken(submitData.duration_taken);
 
       const testResults = {
         questionsCompleted: totalAccessible,
@@ -634,6 +745,9 @@ const timeTaken = `${minutes}:${seconds.toString().padStart(2, '0')}`;
         sessionStorage.setItem('userAnswers', JSON.stringify(answers));
         sessionStorage.setItem('testQuestions', JSON.stringify(questions.slice(0, totalAccessible)));
         sessionStorage.setItem('attemptId', attemptId);
+        if (Array.isArray(exam?.topics)) {
+          sessionStorage.setItem('examTopics', JSON.stringify(exam.topics));
+        }
       }
       
       router.push(`/test-review/${provider}/${examCode}`);
@@ -685,14 +799,11 @@ const timeTaken = `${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
 
   const startGuestTestSession = () => {
-    const limitMinutes = Math.max(
-      1,
-      parseDuration(
-        currentTest?.duration ?? test?.duration ?? exam?.duration ?? "30"
-      )
-    );
+    const limitMinutes = resolveTestDurationMinutes();
     const totalSeconds = Math.floor(limitMinutes * 60);
     autoTimeExpiredSubmitRef.current = false;
+    testStartedAtRef.current = Date.now();
+    allottedSecondsRef.current = totalSeconds;
     setAttemptId(GUEST_ATTEMPT_ID);
     setTimeRemaining(totalSeconds);
     setTestStarted(true);
@@ -812,22 +923,27 @@ const timeTaken = `${minutes}:${seconds.toString().padStart(2, '0')}`;
           1,
           typeof attemptData.time_limit === "number" && attemptData.time_limit > 0
             ? attemptData.time_limit
-            : parseDuration(test?.duration ?? exam?.duration ?? "30")
+            : resolveTestDurationMinutes()
         );
         const totalSeconds = Math.floor(limitMinutes * 60);
         let initialSeconds = totalSeconds;
+        let startedAtMs = Date.now();
         if (attemptData.is_existing && attemptData.start_time) {
           const started = Date.parse(attemptData.start_time);
           if (!Number.isNaN(started)) {
+            startedAtMs = started;
             const elapsed = Math.floor((Date.now() - started) / 1000);
             initialSeconds = Math.max(0, totalSeconds - elapsed);
           }
         }
         if (initialSeconds <= 0) {
           initialSeconds = totalSeconds;
+          startedAtMs = Date.now();
         }
 
         autoTimeExpiredSubmitRef.current = false;
+        testStartedAtRef.current = startedAtMs;
+        allottedSecondsRef.current = totalSeconds;
         setAttemptId(attemptData.attempt_id);
         setTimeRemaining(initialSeconds);
         setTestStarted(true);
@@ -966,10 +1082,7 @@ const timeTaken = `${minutes}:${seconds.toString().padStart(2, '0')}`;
   }
 
   const currentQuestionData = questions[currentQuestion - 1];
-  const questionType = currentQuestionData?.question_type?.toLowerCase();
-  const correctAnswersCount = currentQuestionData?.correct_answers?.length || 0;
-  const isSingleChoice = questionType === "single" || 
-    (questionType !== "multiple" && correctAnswersCount <= 1);
+  const isSingleChoice = isSingleChoiceQuestion(currentQuestionData);
   const currentAnswer = isSingleChoice 
     ? (answers[currentQuestion] || "") 
     : (Array.isArray(answers[currentQuestion]) ? answers[currentQuestion] : []);

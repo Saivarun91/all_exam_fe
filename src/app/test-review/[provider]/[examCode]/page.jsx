@@ -21,10 +21,217 @@ import {
   getExamPricingPath,
   getStoredExamSlug,
 } from "@/utils/practiceTestRouting";
+import { parseExamTopics } from "@/lib/parseExamTopics";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
+const normalizeTopicKey = (value) =>
+  String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[_-]+/g, " ")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 
+const collectQuestionTopicCandidates = (question) => {
+  const candidates = [];
+  if (Array.isArray(question?.tags)) {
+    question.tags.forEach((tag) => {
+      const value = String(tag || "").trim();
+      if (value) candidates.push(value);
+    });
+  }
+  ["domain", "topic", "category", "subject"].forEach((key) => {
+    const value = String(question?.[key] || "").trim();
+    if (value) candidates.push(value);
+  });
+  return candidates;
+};
+
+/** Match a question to one of the exam's configured topic names. */
+const matchQuestionToExamTopic = (question, examTopics) => {
+  if (!examTopics.length) return null;
+
+  const candidates = collectQuestionTopicCandidates(question);
+  if (!candidates.length) return null;
+
+  const normalizedTopics = examTopics.map((topic) => ({
+    name: topic.name,
+    key: normalizeTopicKey(topic.name),
+  }));
+
+  for (const candidate of candidates) {
+    const key = normalizeTopicKey(candidate);
+    if (!key) continue;
+    const exact = normalizedTopics.find((topic) => topic.key === key);
+    if (exact) return exact.name;
+  }
+
+  for (const candidate of candidates) {
+    const key = normalizeTopicKey(candidate);
+    if (!key || key.length < 3) continue;
+    const partial = normalizedTopics.find(
+      (topic) =>
+        topic.key.includes(key) ||
+        key.includes(topic.key) ||
+        topic.key.split(" ").some((part) => part.length > 3 && key.includes(part)) ||
+        key.split(" ").some((part) => part.length > 3 && topic.key.includes(part))
+    );
+    if (partial) return partial.name;
+  }
+
+  return null;
+};
+
+/** Assign untagged questions across exam topics using topic weights. */
+const assignTopicByWeight = (questionIndex, totalQuestions, examTopics) => {
+  if (!examTopics.length) return "General";
+  if (totalQuestions <= 0) return examTopics[0].name;
+
+  const weights = examTopics.map((topic) => {
+    const weight = Number(topic.progressValue);
+    return Number.isFinite(weight) && weight > 0 ? weight : 1;
+  });
+  const totalWeight = weights.reduce((sum, weight) => sum + weight, 0) || examTopics.length;
+  const position = (questionIndex + 0.5) / totalQuestions;
+
+  let cumulative = 0;
+  for (let i = 0; i < examTopics.length; i++) {
+    cumulative += weights[i] / totalWeight;
+    if (position <= cumulative) return examTopics[i].name;
+  }
+  return examTopics[examTopics.length - 1].name;
+};
+
+const isQuestionAnswerCorrect = (question, userAnswerValue) => {
+  if (userAnswerValue === null || userAnswerValue === undefined) return false;
+  const correctAnswers =
+    question.correct_answers ||
+    (question.correct_answer ? [question.correct_answer] : []);
+  if (!correctAnswers.length) return false;
+
+  const opts =
+    question.options && Array.isArray(question.options) ? question.options : [];
+  if (opts.length > 0) {
+    const userKey = normalizeAnswersToIndexKey(userAnswerValue, opts);
+    const correctKey = normalizeAnswersToIndexKey(correctAnswers, opts);
+    return userKey === correctKey && userKey !== "";
+  }
+  if (Array.isArray(userAnswerValue)) {
+    const userAnswerTexts = userAnswerValue
+      .map((a) => String(a).trim().toLowerCase())
+      .sort();
+    const correctAnswerTexts = correctAnswers
+      .map((a) => String(a).trim().toLowerCase())
+      .sort();
+    return JSON.stringify(userAnswerTexts) === JSON.stringify(correctAnswerTexts);
+  }
+  const userAnswerText = String(userAnswerValue).trim().toLowerCase();
+  return correctAnswers.some(
+    (ca) => String(ca).trim().toLowerCase() === userAnswerText
+  );
+};
+
+const resolveUserAnswerValue = (userAnswer) => {
+  if (userAnswer === undefined || userAnswer === null) return null;
+  if (Array.isArray(userAnswer)) {
+    return userAnswer.length > 0 ? userAnswer : null;
+  }
+  if (
+    userAnswer === "" ||
+    userAnswer === "null" ||
+    userAnswer === "undefined"
+  ) {
+    return null;
+  }
+  return userAnswer;
+};
+
+/**
+ * Build topic performance from the exam's configured topics (preferred)
+ * or from question tags when the exam has no topics configured.
+ * Never invents static placeholder topic names.
+ */
+const buildTopicPerformance = (questions, userAnswers, examTopicsRaw, results) => {
+  const examTopics = parseExamTopics(examTopicsRaw || []);
+  const questionList = Array.isArray(questions) ? questions : [];
+  const answerMap = userAnswers && typeof userAnswers === "object" ? userAnswers : {};
+
+  const scored = questionList.map((question, idx) => {
+    const userAnswerValue = resolveUserAnswerValue(answerMap[idx + 1]);
+    return {
+      question,
+      index: idx,
+      isCorrect: isQuestionAnswerCorrect(question, userAnswerValue),
+      matchedTopic: matchQuestionToExamTopic(question, examTopics),
+      tagTopic: collectQuestionTopicCandidates(question)[0] || null,
+    };
+  });
+
+  // 1) Exam has configured topics → always show those topic names
+  if (examTopics.length > 0) {
+    const topicMap = {};
+    examTopics.forEach((topic) => {
+      topicMap[topic.name] = { correct: 0, total: 0 };
+    });
+
+    scored.forEach((row) => {
+      const topicName =
+        row.matchedTopic ||
+        assignTopicByWeight(row.index, scored.length, examTopics);
+      if (!topicMap[topicName]) {
+        topicMap[topicName] = { correct: 0, total: 0 };
+      }
+      topicMap[topicName].total += 1;
+      if (row.isCorrect) topicMap[topicName].correct += 1;
+    });
+
+    return examTopics.map((topic) => {
+      const stats = topicMap[topic.name] || { correct: 0, total: 0 };
+      return {
+        topic: topic.name,
+        correct: stats.correct,
+        total: stats.total,
+        percentage:
+          stats.total > 0 ? Math.round((stats.correct / stats.total) * 100) : 0,
+      };
+    });
+  }
+
+  // 2) No exam topics → group by real question tags/domains
+  const tagMap = {};
+  scored.forEach((row) => {
+    const topicName = row.tagTopic || "General";
+    if (!tagMap[topicName]) tagMap[topicName] = { correct: 0, total: 0 };
+    tagMap[topicName].total += 1;
+    if (row.isCorrect) tagMap[topicName].correct += 1;
+  });
+
+  const fromTags = Object.entries(tagMap)
+    .map(([topic, stats]) => ({
+      topic,
+      correct: stats.correct,
+      total: stats.total,
+      percentage:
+        stats.total > 0 ? Math.round((stats.correct / stats.total) * 100) : 0,
+    }))
+    .sort((a, b) => a.topic.localeCompare(b.topic));
+
+  if (fromTags.length > 0) return fromTags;
+
+  // 3) Last resort: overall score only (no invented topic names)
+  const completed = Number(results?.questionsCompleted) || scored.length || 0;
+  const correct = Number(results?.correctAnswers) || 0;
+  return [
+    {
+      topic: "Overall",
+      correct,
+      total: completed,
+      percentage: completed > 0 ? Math.round((correct / completed) * 100) : 0,
+    },
+  ];
+};
 
 export default function TestReview() {
   const params = useParams();
@@ -115,164 +322,70 @@ export default function TestReview() {
     }
   }, [provider, examCode]);
 
-  // Load test results and calculate topic performance
+  // Load test results once from sessionStorage
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const storedResults = sessionStorage.getItem('testResults');
-      const storedQuestions = sessionStorage.getItem('testQuestions');
-      const storedAnswers = sessionStorage.getItem('userAnswers');
-      console.log('storedResults', storedResults);
-      console.log('storedQuestions', storedQuestions);
-      console.log('storedAnswers', storedAnswers);
-      if (storedResults) {
-        const results = JSON.parse(storedResults);
-        setTestResults(results);
-        setHasFullAccess(results.hasFullAccess || false);
-        
-        // Calculate topic performance from actual questions and answers
-        if (storedQuestions && storedAnswers) {
-          try {
-            const questions = JSON.parse(storedQuestions);
-            const userAnswers = JSON.parse(storedAnswers);
-            
-            // Group questions by topic/tag if available, otherwise use default categories
-            const topicMap = {};
-            
-            questions.forEach((q, idx) => {
-              const questionNum = idx + 1;
-              const userAnswer = userAnswers[questionNum];
-              
-              // Handle both single answer and multiple choice
-              let userAnswerValue = null;
-              if (userAnswer !== undefined && userAnswer !== null) {
-                if (Array.isArray(userAnswer)) {
-                  userAnswerValue = userAnswer.length > 0 ? userAnswer : null;
-                } else if (userAnswer !== '' && userAnswer !== 'null' && userAnswer !== 'undefined') {
-                  userAnswerValue = userAnswer;
-                }
-              }
-              
-              // Check if answer is correct by comparing with correct_answers
-              // Use the same logic as the review answers page for consistency
-              let isCorrect = false;
-              let isUnanswered = userAnswerValue === null || userAnswerValue === undefined;
-              
-              if (!isUnanswered) {
-                const correctAnswers = q.correct_answers || (q.correct_answer ? [q.correct_answer] : []);
-                
-                if (correctAnswers.length > 0) {
-                  const opts = q.options && Array.isArray(q.options) ? q.options : [];
-                  if (opts.length > 0) {
-                    const userKey = normalizeAnswersToIndexKey(userAnswerValue, opts);
-                    const correctKey = normalizeAnswersToIndexKey(correctAnswers, opts);
-                    isCorrect = userKey === correctKey && userKey !== "";
-                  } else if (Array.isArray(userAnswerValue)) {
-                    const userAnswerTexts = userAnswerValue
-                      .map((a) => String(a).trim().toLowerCase())
-                      .sort();
-                    const correctAnswerTexts = correctAnswers
-                      .map((a) => String(a).trim().toLowerCase())
-                      .sort();
-                    isCorrect =
-                      JSON.stringify(userAnswerTexts) ===
-                      JSON.stringify(correctAnswerTexts);
-                  } else {
-                    const userAnswerText = String(userAnswerValue).trim().toLowerCase();
-                    isCorrect = correctAnswers.some(
-                      (ca) => String(ca).trim().toLowerCase() === userAnswerText
-                    );
-                  }
-                }
-              }
-              
-              // Get topic from question tags, domain, or use default distribution
-              let topic = "Other";
-              
-              // Try to get topic from tags (array of strings)
-              if (q.tags && Array.isArray(q.tags) && q.tags.length > 0) {
-                // Get first non-empty tag
-                const firstTag = q.tags.find(tag => tag && String(tag).trim() !== '');
-                if (firstTag) {
-                  topic = String(firstTag).trim();
-                }
-              }
-              
-              // Fallback to domain field if tags not available
-              if (topic === "Other" && q.domain && String(q.domain).trim() !== '') {
-                topic = String(q.domain).trim();
-              }
-              
-              // Fallback to topic field if available
-              if (topic === "Other" && q.topic && String(q.topic).trim() !== '') {
-                topic = String(q.topic).trim();
-              }
-              
-              // Final fallback: use default distribution only if no tags/domain/topic found
-              if (topic === "Other") {
-                topic = idx < Math.floor(questions.length * 0.3) ? "Core Concepts"
-                    : idx < Math.floor(questions.length * 0.55) ? "Advanced Topics"
-                    : idx < Math.floor(questions.length * 0.8) ? "Best Practices"
-                    : "Implementation";
-              }
-              
-              // Initialize topic in map if not exists
-              if (!topicMap[topic]) {
-                topicMap[topic] = { correct: 0, total: 0 };
-              }
-              
-              // Increment counters
-              topicMap[topic].total++;
-              if (isCorrect) {
-                topicMap[topic].correct++;
-              }
-            });
-            
-            // Convert to array format and sort by topic name
-            const performance = Object.entries(topicMap)
-              .map(([topic, stats]) => ({
-                topic,
-                correct: stats.correct,
-                total: stats.total,
-                percentage: stats.total > 0 ? Math.round((stats.correct / stats.total) * 100) : 0
-              }))
-              .sort((a, b) => {
-                // Sort by topic name alphabetically
-                return a.topic.localeCompare(b.topic);
-              });
-            
-            setTopicPerformance(performance.length > 0 ? performance : [
-              { 
-                topic: "Overall", 
-                correct: results.correctAnswers || 0, 
-                total: results.questionsCompleted || 0, 
-                percentage: (results.questionsCompleted || 0) > 0 ? Math.round(((results.correctAnswers || 0) / (results.questionsCompleted || 0)) * 100) : 0 
-              }
-            ]);
-          } catch (error) {
-            console.error("Error calculating topic performance:", error);
-            // Fallback to overall performance
-            setTopicPerformance([{
-              topic: "Overall",
-              correct: results.correctAnswers || 0,
-              total: results.questionsCompleted || 0,
-              percentage: (results.questionsCompleted || 0) > 0 ? Math.round(((results.correctAnswers || 0) / (results.questionsCompleted || 0)) * 100) : 0
-            }]);
-          }
-        } else {
-          // No questions stored, use overall stats
-          setTopicPerformance([{
-            topic: "Overall",
-            correct: results.correctAnswers || 0,
-            total: results.questionsCompleted || 0,
-            percentage: (results.questionsCompleted || 0) > 0 ? Math.round(((results.correctAnswers || 0) / (results.questionsCompleted || 0)) * 100) : 0
-          }]);
-        }
-      } else {
-        // No results found, redirect back
-        router.push(`/exams/${provider}/${examCode}/practice`);
-      }
+    if (typeof window === "undefined") return;
+
+    const storedResults = sessionStorage.getItem("testResults");
+    if (!storedResults) {
+      router.push(`/exams/${provider}/${examCode}/practice`);
+      return;
+    }
+
+    try {
+      const results = JSON.parse(storedResults);
+      setTestResults(results);
+      setHasFullAccess(results.hasFullAccess || false);
+    } catch (error) {
+      console.error("Error loading test results:", error);
+      router.push(`/exams/${provider}/${examCode}/practice`);
     }
   }, [provider, examCode, router]);
+
+  // Calculate performance by exam topics (or question tags) once results + exam are ready
+  useEffect(() => {
+    if (typeof window === "undefined" || !testResults) return;
+
+    try {
+      const storedQuestions = sessionStorage.getItem("testQuestions");
+      const storedAnswers = sessionStorage.getItem("userAnswers");
+      let storedExamTopics = null;
+      try {
+        const rawTopics = sessionStorage.getItem("examTopics");
+        if (rawTopics) storedExamTopics = JSON.parse(rawTopics);
+      } catch {
+        storedExamTopics = null;
+      }
+
+      // Prefer topics saved at test finish; fall back to live exam details
+      const examTopicsRaw =
+        (Array.isArray(storedExamTopics) && storedExamTopics.length > 0
+          ? storedExamTopics
+          : null) ||
+        (Array.isArray(exam?.topics) && exam.topics.length > 0
+          ? exam.topics
+          : []) ||
+        [];
+
+      if (!storedQuestions || !storedAnswers) {
+        setTopicPerformance(
+          buildTopicPerformance([], {}, examTopicsRaw, testResults)
+        );
+        return;
+      }
+
+      const questions = JSON.parse(storedQuestions);
+      const userAnswers = JSON.parse(storedAnswers);
+      setTopicPerformance(
+        buildTopicPerformance(questions, userAnswers, examTopicsRaw, testResults)
+      );
+    } catch (error) {
+      console.error("Error calculating topic performance:", error);
+      setTopicPerformance(
+        buildTopicPerformance([], {}, exam?.topics, testResults)
+      );
+    }
+  }, [testResults, exam]);
 
   const pricingUrl =
     getExamPricingPath({
@@ -336,10 +449,18 @@ export default function TestReview() {
       .replace(/\b\w/g, (char) => char.toUpperCase()) ||
     "Exam";
 
-  // Use calculated topic performance or fallback to overall
-  const displayTopicPerformance = topicPerformance.length > 0 ? topicPerformance : [
-    { topic: "Overall Performance", correct: verifiedCorrectAnswers, total: verifiedCompleted, percentage: scorePercentage }
-  ];
+  // Use calculated topic performance (exam topics / question tags) — never invent static names
+  const displayTopicPerformance =
+    topicPerformance.length > 0
+      ? topicPerformance
+      : [
+          {
+            topic: "Overall",
+            correct: verifiedCorrectAnswers,
+            total: verifiedCompleted,
+            percentage: scorePercentage,
+          },
+        ];
 
   const handleRetakeTest = () => {
     const testPath = `/exams/${provider}/${examCode}/practice/1`;

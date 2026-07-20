@@ -26,6 +26,7 @@ export default function PracticePageClient({
   examCode = "",
   examTitle = "",
   examSlug = "",
+  totalQuestions = 0,
   children = null,
 }) {
   const router = useRouter();
@@ -35,6 +36,29 @@ export default function PracticePageClient({
   const [startModalOpen, setStartModalOpen] = useState(false);
   const [startModalTest, setStartModalTest] = useState(null);
   const [startModalUrl, setStartModalUrl] = useState("");
+
+  const normalizedPracticeTests = useMemo(() => {
+    if (!Array.isArray(practiceTests)) return [];
+    return practiceTests.filter((test) => test && typeof test === "object");
+  }, [practiceTests]);
+
+  const questionsFromTests = useMemo(
+    () =>
+      normalizedPracticeTests.reduce(
+        (sum, test) =>
+          sum +
+          (parseInt(test?.questions ?? test?.total_questions ?? 0, 10) || 0),
+        0
+      ),
+    [normalizedPracticeTests]
+  );
+
+  const examQuestionCount = Math.max(
+    Number(totalQuestions) || 0,
+    questionsFromTests
+  );
+  const hasPracticeTests = normalizedPracticeTests.length > 0;
+  const hasPracticeContent = hasPracticeTests || examQuestionCount > 0;
 
   const startModalMeta = useMemo(() => {
     const test = startModalTest || {};
@@ -112,13 +136,13 @@ export default function PracticePageClient({
 
   return (
     <div className="w-full">
-      {practiceTests?.length > 0 && (
+      {hasPracticeTests ? (
         <section className="mb-12">
           <h2 className="text-2xl sm:text-3xl font-bold text-[#0C1A35] mb-6">
             Practice Tests Included
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-            {practiceTests.map((test, idx) => (
+            {normalizedPracticeTests.map((test, idx) => (
               <Card
                 key={getTestKey(test, idx)}
                 className="border-[#DDE7FF] bg-white shadow-sm hover:shadow-md hover:border-[#1A73E8]/30 transition-all rounded-xl py-0 gap-0"
@@ -142,8 +166,27 @@ export default function PracticePageClient({
             ))}
           </div>
         </section>
+      ) : (
+        <section className="mb-12">
+          <Card className="border-[#DDE7FF] bg-white shadow-sm rounded-xl">
+            <CardContent className="p-8 sm:p-12 text-center">
+              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#1A73E8]/10 text-[#1A73E8]">
+                <FileText className="h-7 w-7" aria-hidden />
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-bold text-[#0C1A35] mb-3">
+                Practice Tests Will Be Available Soon
+              </h2>
+              <p className="text-[#0C1A35]/70 max-w-xl mx-auto leading-relaxed">
+                {examTitle
+                  ? `We are preparing practice tests for ${examTitle}. Please check back shortly.`
+                  : "We are preparing practice tests for this exam. Please check back shortly."}
+              </p>
+            </CardContent>
+          </Card>
+        </section>
       )}
       {children}
+      {hasPracticeContent ? (
       <section className="mb-12">
         <div className="rounded-2xl border border-[#1A73E8]/20 bg-gradient-to-br from-[#0C1A35] to-[#0E2444] text-white p-8 sm:p-10 text-center shadow-lg">
           <h2 className="text-2xl md:text-3xl font-bold mb-4 text-[#F0F4FF]">
@@ -162,6 +205,7 @@ export default function PracticePageClient({
           </Button>
         </div>
       </section>
+      ) : null}
 
       <Dialog open={startModalOpen} onOpenChange={setStartModalOpen}>
         <DialogContent className="max-w-2xl">

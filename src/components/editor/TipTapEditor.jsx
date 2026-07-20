@@ -37,6 +37,7 @@ import {
   Undo,
   Redo,
   Link as LinkIcon,
+  Unlink,
   Image as ImageIcon,
   Table as TableIcon,
   Subscript as SubscriptIcon,
@@ -349,6 +350,15 @@ const TipTapEditor = ({
       TextStyle,
       Link.configure({
         openOnClick: false,
+        autolink: true,
+        linkOnPaste: true,
+        defaultProtocol: "https",
+        validate: (href) => {
+          const value = String(href || "").trim();
+          if (!value) return false;
+          if (value.startsWith("/") || value.startsWith("#")) return true;
+          return /^(https?:\/\/|mailto:|tel:)/i.test(value);
+        },
         HTMLAttributes: {
           class: "text-blue-600 underline",
         },
@@ -563,6 +573,8 @@ const TipTapEditor = ({
   };
 
   const currentParagraphStyle = getCurrentParagraphStyle();
+  const isLinkActive =
+    editor.isActive("link") || Boolean(editor.getAttributes("link")?.href);
   const isImageActive = editor.isActive("image");
   const selectedImageAlign = isImageActive
     ? editor.getAttributes("image").align || "left"
@@ -599,6 +611,39 @@ const TipTapEditor = ({
     editor.commands.updateAttributes("image", { width: next });
     setImageWidthDraft(String(next));
     onChange(editor.getHTML());
+  };
+
+  const syncLinkFormFromSelection = () => {
+    if (!editor) return;
+    const attrs = editor.getAttributes("link");
+    setLinkUrl(attrs.href || "");
+    const rel = String(attrs.rel || "").toLowerCase();
+    setLinkRel(rel.includes("nofollow") ? "nofollow" : "dofollow");
+  };
+
+  const removeActiveLink = () => {
+    if (!editor) return;
+    const removed = editor
+      .chain()
+      .focus()
+      .extendMarkRange("link")
+      .unsetLink()
+      .run();
+    if (!removed) {
+      toast.error("Select linked text first, then click remove link.");
+      return;
+    }
+    setLinkUrl("");
+    setLinkRel("");
+    setLinkOpen(false);
+    onChange(editor.getHTML());
+  };
+
+  const handleLinkPopoverChange = (open) => {
+    setLinkOpen(open);
+    if (open) {
+      syncLinkFormFromSelection();
+    }
   };
 
 
@@ -2127,17 +2172,21 @@ const TipTapEditor = ({
           <LinkIcon className="h-4 w-4" />
         </Button> */}
 
-        <Popover open={linkOpen} onOpenChange={setLinkOpen}>
-          <PopoverTrigger asChild>
-            <Button
-              type="button"
-              variant={editor.isActive("link") ? "default" : "ghost"}
-              size="sm"
-              className="h-8 w-8 p-0"
-            >
-              <LinkIcon className="h-4 w-4" />
-            </Button>
-          </PopoverTrigger>
+        <div className="flex items-center border border-gray-300 rounded bg-white hover:bg-gray-50 shrink-0">
+          <Popover open={linkOpen} onOpenChange={handleLinkPopoverChange}>
+            <PopoverTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className={`h-8 w-8 p-0 rounded-r-none border-r border-gray-300 ${
+                  isLinkActive ? "bg-blue-50 text-blue-700" : ""
+                }`}
+                title="Insert or edit link"
+              >
+                <LinkIcon className="h-4 w-4" />
+              </Button>
+            </PopoverTrigger>
 
           <PopoverContent className="w-64 p-4">
             <div className="space-y-2">
@@ -2147,7 +2196,7 @@ const TipTapEditor = ({
                 value={linkUrl}
                 onChange={(e) => setLinkUrl(e.target.value)}
                 className="w-full px-2 py-1 border rounded text-xs"
-                placeholder="https://example.com"
+                placeholder="/internal-page or https://example.com"
               />
 
               {/* Link Type Dropdown */}
@@ -2162,24 +2211,53 @@ const TipTapEditor = ({
                 <option value="dofollow">dofollow</option>
               </select>
 
-
-              <Button
-                type="button"
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white text-xs"
-                onClick={() => {
-                  editor.chain().focus().setLink({
-                    href: linkUrl,
-                    rel: linkRel || undefined,
-                    target: "_blank",
-                  }).run();
-                  setLinkOpen(false);
-                }}
-              >
-                Apply Link
-              </Button>
+              <div className="flex gap-2 pt-1">
+                <Button
+                  type="button"
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-xs"
+                  onClick={() => {
+                    const href = String(linkUrl || "").trim();
+                    if (!href) {
+                      toast.error("Enter a URL or internal page path.");
+                      return;
+                    }
+                    editor.chain().focus().extendMarkRange("link").setLink({
+                      href,
+                      rel: linkRel === "nofollow" ? "nofollow" : null,
+                      target: href.startsWith("/") || href.startsWith("#") ? null : "_blank",
+                    }).run();
+                    setLinkOpen(false);
+                    onChange(editor.getHTML());
+                  }}
+                >
+                  Apply Link
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-8 w-8 p-0 shrink-0"
+                  title="Remove link"
+                  onClick={removeActiveLink}
+                >
+                  <Unlink className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           </PopoverContent>
         </Popover>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={removeActiveLink}
+            className={`h-8 w-8 p-0 rounded-l-none ${
+              isLinkActive ? "bg-blue-50 text-blue-700" : "text-gray-700"
+            }`}
+            title="Remove link"
+          >
+            <Unlink className="h-4 w-4" />
+          </Button>
+        </div>
         <input
           ref={imageInputRef}
           type="file"

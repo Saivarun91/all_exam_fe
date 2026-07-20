@@ -218,11 +218,14 @@ const PRACTICE_HUB_STRIP_SUFFIXES = [
   "-certification",
   "-information",
   "-info",
-  "-practice-test",
+  "-free-practice-exams",
+  "-free-practice-tests",
+  "-free-practice-test",
+  "-practice-exams",
+  "-practice-tests",
   "-practice-exam",
-  "-free-practice-test",
+  "-practice-test",
   "-free-test",
-  "-free-practice-test",
 ];
 
 function stripToOfficialDetailsBaseSlug(slug = "") {
