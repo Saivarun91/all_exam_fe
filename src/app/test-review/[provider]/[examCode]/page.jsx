@@ -18,10 +18,14 @@ import {
 } from "@/components/ui/dialog";
 import { normalizeAnswersToIndexKey } from "@/utils/testReviewDisplay";
 import {
+  buildPracticeTestSeoSegment,
+  getExamLandingPath,
   getExamPricingPath,
   getStoredExamSlug,
 } from "@/utils/practiceTestRouting";
 import { parseExamTopics } from "@/lib/parseExamTopics";
+
+const SCROLL_TO_PRACTICE_TESTS_KEY = "scrollToPracticeTests";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
@@ -322,7 +326,7 @@ export default function TestReview() {
     }
   }, [provider, examCode]);
 
-  // Load test results once from sessionStorage
+  // Load test results once from sessionStorage (requires login for guest submissions)
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -334,6 +338,21 @@ export default function TestReview() {
 
     try {
       const results = JSON.parse(storedResults);
+      const token = localStorage.getItem("token");
+      const needsLogin =
+        results?.requiresLoginForResults === true ||
+        results?.attemptId === "guest-local" ||
+        sessionStorage.getItem("pendingGuestTestResults");
+
+      if (needsLogin && !token) {
+        router.replace(
+          `/auth/login?redirect=${encodeURIComponent(
+            `/test-review/${provider}/${examCode}`
+          )}`
+        );
+        return;
+      }
+
       setTestResults(results);
       setHasFullAccess(results.hasFullAccess || false);
     } catch (error) {
@@ -341,6 +360,73 @@ export default function TestReview() {
       router.push(`/exams/${provider}/${examCode}/practice`);
     }
   }, [provider, examCode, router]);
+
+  // Claim guest attempt after login so admin can see who took the test
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    const claimRaw = sessionStorage.getItem("guestClaimMeta");
+    if (!claimRaw) return;
+
+    let claimed = false;
+    const claimGuestAttempt = async () => {
+      if (claimed) return;
+      claimed = true;
+      try {
+        const meta = JSON.parse(claimRaw);
+        if (!meta?.exam_id && !meta?.test_id) {
+          sessionStorage.removeItem("guestClaimMeta");
+          sessionStorage.removeItem("pendingGuestTestResults");
+          return;
+        }
+
+        const res = await fetch(`${API_BASE_URL}/api/exams/attempt/claim-guest/`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(meta),
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.attempt_id) {
+            sessionStorage.setItem("attemptId", data.attempt_id);
+            try {
+              const stored = sessionStorage.getItem("testResults");
+              if (stored) {
+                const results = JSON.parse(stored);
+                results.attemptId = data.attempt_id;
+                results.requiresLoginForResults = false;
+                sessionStorage.setItem("testResults", JSON.stringify(results));
+                setTestResults((prev) =>
+                  prev
+                    ? {
+                        ...prev,
+                        attemptId: data.attempt_id,
+                        requiresLoginForResults: false,
+                      }
+                    : prev
+                );
+              }
+            } catch {
+              /* ignore */
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Failed to claim guest attempt:", err);
+      } finally {
+        sessionStorage.removeItem("guestClaimMeta");
+        sessionStorage.removeItem("pendingGuestTestResults");
+      }
+    };
+
+    void claimGuestAttempt();
+  }, []);
 
   // Calculate performance by exam topics (or question tags) once results + exam are ready
   useEffect(() => {
@@ -463,11 +549,67 @@ export default function TestReview() {
         ];
 
   const handleRetakeTest = () => {
-    const testPath = `/exams/${provider}/${examCode}/practice/1`;
+    // Prefer the exact public SEO URL used when the test was started.
+    let testPath = String(testResults?.testPath || "")
+      .trim()
+      .split("?")[0]
+      .split("#")[0];
+
+    if (!testPath || testPath.startsWith("/exams/")) {
+      const practiceTests = Array.isArray(exam?.practice_tests_list)
+        ? exam.practice_tests_list
+        : Array.isArray(exam?.practice_tests)
+          ? exam.practice_tests
+          : [];
+      const parsedIndex = Number(testResults?.testIndex);
+      const idx =
+        Number.isFinite(parsedIndex) && parsedIndex >= 0
+          ? parsedIndex
+          : 0;
+      const test = practiceTests[idx] || practiceTests[0] || null;
+      const segment = buildPracticeTestSeoSegment({
+        examName: exam?.title || exam?.name,
+        examCode: exam?.code || examCode,
+        examSlug: getStoredExamSlug(exam) || exam?.slug,
+        test,
+        index: test ? idx : 0,
+      });
+      if (segment) {
+        testPath = `/${segment}`;
+      }
+    }
+
+    if (!testPath) return;
+
     if (typeof window !== "undefined") {
+      // Same autostart signal as exam-details "Start Test Now" — clean URL.
       sessionStorage.setItem(`autostart:${testPath}`, "1");
     }
-    router.push(`${testPath}?autostart=1`);
+    router.push(testPath);
+  };
+
+  const handleViewAllTests = () => {
+    const landing =
+      getExamLandingPath({
+        slug: getStoredExamSlug(exam) || exam?.slug,
+        title: exam?.title || exam?.name,
+        code: exam?.code || examCode,
+      }) ||
+      (getStoredExamSlug(exam) || exam?.slug
+        ? `/${getStoredExamSlug(exam) || exam.slug}`
+        : "") ||
+      (provider && examCode ? `/exams/${provider}/${examCode}` : "");
+
+    if (!landing) return;
+
+    if (typeof window !== "undefined") {
+      try {
+        sessionStorage.setItem(SCROLL_TO_PRACTICE_TESTS_KEY, "1");
+      } catch {
+        // ignore
+      }
+    }
+    router.push(landing);
   };
 
   const handleEnrollClick = () => {
@@ -628,7 +770,7 @@ export default function TestReview() {
               <Trophy className="w-10 h-10 text-[#1A73E8]" />
             </div>
             <h1 className="text-3xl md:text-4xl font-bold text-[#0C1A35] mb-2">
-              {isPartialTest ? "Free Trial Complete!" : "Test Complete!"}
+              {isPartialTest ? "Practice Test Completed!" : "Test Complete!"}
             </h1>
             <p className="text-[#0C1A35]/70">{examDisplayName} - Practice Test</p>
           </div>
@@ -642,14 +784,14 @@ export default function TestReview() {
               <h2 className="text-2xl font-bold text-[#0C1A35] mb-2">
                 {scorePercentage >= 70 ? "Great Job!" : scorePercentage >= 50 ? "Good Effort!" : "Keep Practicing!"}
               </h2>
-              <p className="text-[#0C1A35]/70">
+              {/* <p className="text-[#0C1A35]/70">
                 You answered {verifiedCompleted} out of {isPartialTest ? `${verifiedCompleted} free` : totalQuestions} questions
-              </p>
-              {isPartialTest && (
+              </p> */}
+              {/* {isPartialTest && (
                 <p className="text-yellow-600 font-semibold mt-2">
                   🎁 Free Trial - {totalQuestions - questionsCompleted} questions remaining
                 </p>
-              )}
+              )} */}
             </div>
 
             {/* Stats Grid */}
@@ -772,7 +914,7 @@ export default function TestReview() {
             
             <Button
               size="lg"
-              onClick={() => router.push(`/exams/${provider}/${examCode}/practice`)}
+              onClick={handleViewAllTests}
               className="bg-[#1A73E8] text-white hover:bg-[#1557B0]"
             >
               View All Tests →

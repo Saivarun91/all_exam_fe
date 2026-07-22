@@ -921,7 +921,7 @@
 
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "@/lib/navigation/client";
 
 import { Star, Clock, CheckCircle2, FileText } from "lucide-react";
@@ -968,6 +968,42 @@ export default function ExamDetailClient({
   const [startModalOpen, setStartModalOpen] = useState(false);
   const [startModalTest, setStartModalTest] = useState(null);
   const [startModalUrl, setStartModalUrl] = useState("");
+
+  // Scroll to practice tests when arriving from official-details CTA (clean URL).
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    let shouldScroll = false;
+    try {
+      shouldScroll = sessionStorage.getItem("scrollToPracticeTests") === "1";
+      if (shouldScroll) {
+        sessionStorage.removeItem("scrollToPracticeTests");
+      }
+    } catch {
+      // ignore
+    }
+
+    // Legacy links with #practice-tests: scroll then strip the hash from the URL.
+    if (window.location.hash === "#practice-tests") {
+      shouldScroll = true;
+      const { pathname, search } = window.location;
+      window.history.replaceState(null, "", `${pathname}${search}`);
+    }
+
+    if (!shouldScroll) return undefined;
+
+    const scrollToPracticeTests = () => {
+      const section = document.getElementById("practice-tests");
+      if (!section) return false;
+      section.scrollIntoView({ behavior: "smooth", block: "start" });
+      return true;
+    };
+
+    if (scrollToPracticeTests()) return undefined;
+
+    const timer = window.setTimeout(scrollToPracticeTests, 100);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   const startModalMeta = useMemo(() => {
     const test = startModalTest || {};
@@ -1182,24 +1218,8 @@ export default function ExamDetailClient({
 
           <div className="lg:col-span-2 space-y-8">
 
-            {(examData.about || examData.exam_details) && (
-              <Card className="border-[#DDE7FF]">
-                <CardContent className="pt-0">
-                  <TipTapContent
-                    className="text-[#0C1A35]/80 leading-relaxed"
-                    content={
-                      examData.about ||
-                      examData.exam_details ||
-                      examData.details ||
-                      ""
-                    }
-                  />
-                </CardContent>
-              </Card>
-            )}
-
             {examData.practiceTestsList && examData.practiceTestsList.length > 0 ? (
-              <Card className="border-[#DDE7FF]">
+              <Card id="practice-tests" className="border-[#DDE7FF] scroll-mt-24">
                 <CardHeader>
                   <h2 className="text-[#0C1A35] text-xl font-semibold leading-none tracking-tight">
                     {getHeadingText(
@@ -1245,7 +1265,7 @@ export default function ExamDetailClient({
                 </CardContent>
               </Card>
             ) : (
-              <Card className="border-[#DDE7FF]">
+              <Card id="practice-tests" className="border-[#DDE7FF] scroll-mt-24">
                 <CardHeader>
                   <h2 className="text-[#0C1A35] text-xl font-semibold leading-none tracking-tight">
                     {getHeadingText(
@@ -1262,6 +1282,22 @@ export default function ExamDetailClient({
                     We are preparing practice tests for this exam. Please check
                     back shortly.
                   </p>
+                </CardContent>
+              </Card>
+            )}
+
+            {(examData.about || examData.exam_details) && (
+              <Card className="border-[#DDE7FF]">
+                <CardContent className="pt-0">
+                  <TipTapContent
+                    className="text-[#0C1A35]/80 leading-relaxed"
+                    content={
+                      examData.about ||
+                      examData.exam_details ||
+                      examData.details ||
+                      ""
+                    }
+                  />
                 </CardContent>
               </Card>
             )}
@@ -1381,6 +1417,7 @@ export default function ExamDetailClient({
               lastUpdatedLabel={lastUpdatedLabel}
               platformRows={platformRows}
               practiceUrl={practiceUrl}
+              practiceTestsSectionId="practice-tests"
               officialDetailsUrl={officialDetailsUrl}
               hasOfficialDetails={showOfficialDetailsLink}
               matchPercent={matchPercent}
@@ -1448,12 +1485,11 @@ export default function ExamDetailClient({
                   if (!startModalUrl) return;
                   setStartModalOpen(false);
                   if (typeof window !== "undefined") {
+                    // Autostart is signalled via sessionStorage so the test
+                    // page URL stays clean (no ?autostart=1 query param).
                     sessionStorage.setItem(`autostart:${startModalUrl}`, "1");
                   }
-                  const autostartUrl = startModalUrl.includes("?")
-                    ? `${startModalUrl}&autostart=1`
-                    : `${startModalUrl}?autostart=1`;
-                  router.push(autostartUrl);
+                  router.push(startModalUrl);
                 }}
               >
                 Start Test Now

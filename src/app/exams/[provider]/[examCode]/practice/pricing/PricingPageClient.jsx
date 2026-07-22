@@ -555,18 +555,22 @@ export default function PricingPageClient({
   } = pricingData;
   const effectiveCurrency = DISPLAY_CURRENCY;
   const isFreeExam = String(pricing_access_type || "paid").toLowerCase() === "free";
+  const heroTitle = isFreeExam ? "Free Access — All Questions Available" : hero_title;
+  const heroSubtitle = isFreeExam
+    ? `${course_title} is completely free. Practice every question with detailed explanations — no payment required.`
+    : hero_subtitle;
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-[#F5F8FC] to-white">
-      {pricingData && <PricingJsonLd pricingData={pricingData} courseTitle={course_title} courseCode={course_code} />}
+      {!isFreeExam && pricingData && <PricingJsonLd pricingData={pricingData} courseTitle={course_title} courseCode={course_code} />}
 
       {/* Hero Section */}
       <section className="py-16 px-4 bg-gradient-to-br from-[#1A73E8]/5 via-[#F5F8FF] to-white">
         <div className="container mx-auto max-w-4xl text-center">
           <h1 className="text-4xl md:text-5xl font-bold mb-4 bg-gradient-to-r from-[#0C1A35] to-[#1A73E8] bg-clip-text text-transparent">
-            {hero_title}
+            {heroTitle}
           </h1>
-          <p className="text-lg md:text-xl text-[#0C1A35]/80 mb-6">{hero_subtitle}</p>
+          <p className="text-lg md:text-xl text-[#0C1A35]/80 mb-6">{heroSubtitle}</p>
           <div className="inline-flex items-center gap-2 bg-gradient-to-r from-[#1A73E8]/10 to-[#4A90E2]/10 text-[#0C1A35] px-4 py-2 rounded-lg border border-[#1A73E8]/20 backdrop-blur-sm">
             <BookOpen className="h-5 w-5 text-[#1A73E8]" />
             <span className="font-medium">{course_title} ({course_code})</span>
@@ -575,7 +579,7 @@ export default function PricingPageClient({
       </section>
 
       {/* Free exam or enrolled access */}
-      {!checkingEnrollment && (isFreeExam || isEnrolled) && (
+      {(isFreeExam || (!checkingEnrollment && isEnrolled)) && (
         <section id="pricing-cards" className="py-16 px-4">
           <div className="container mx-auto max-w-4xl">
             <Card className="border-2 border-[#10B981] bg-gradient-to-br from-[#10B981]/5 to-[#059669]/5 shadow-lg">
@@ -672,10 +676,9 @@ export default function PricingPageClient({
         </section>
       )}
 
-      {/* Features, Comparison, Testimonials, FAQ, and CTA sections */}
-      {/* Keep all sections from your previous code, as they are correct */}
+      {/* Pricing-related sections are hidden for free exams */}
       {/* Features Section */}
-      {pricing_features && pricing_features.length > 0 && (
+      {!isFreeExam && pricing_features && pricing_features.length > 0 && (
           <section className="py-16 px-4 bg-gradient-to-br from-[#F5F8FF] via-white to-[#E0E7FF]/30">
             <div className="container mx-auto max-w-7xl">
               <div className="text-center mb-12">
@@ -707,7 +710,7 @@ export default function PricingPageClient({
         )}
 
         {/* Comparison Table */}
-        {pricing_comparison && pricing_comparison.length > 0 && (
+        {!isFreeExam && pricing_comparison && pricing_comparison.length > 0 && (
           <section className="py-16 px-4 bg-white">
             <div className="container mx-auto max-w-4xl">
               <div className="text-center mb-12">
@@ -760,7 +763,7 @@ export default function PricingPageClient({
         )}
 
         {/* Testimonials */}
-        {pricing_testimonials && pricing_testimonials.length > 0 && (
+        {!isFreeExam && pricing_testimonials && pricing_testimonials.length > 0 && (
           <section className="py-16 px-4 bg-gradient-to-br from-[#E0E7FF]/20 via-[#F5F8FF] to-white">
             <div className="container mx-auto max-w-6xl">
               <div className="text-center mb-12">
@@ -793,7 +796,7 @@ export default function PricingPageClient({
         )}
 
         {/* FAQ Section */}
-        {pricing_faqs && pricing_faqs.length > 0 && (
+        {!isFreeExam && pricing_faqs && pricing_faqs.length > 0 && (
           <section className="py-16 px-4 bg-white">
             <div className="container mx-auto max-w-3xl">
               <div className="text-center mb-12">
@@ -821,8 +824,8 @@ export default function PricingPageClient({
           </section>
         )}
 
-        {/* Final CTA - Only show if not enrolled */}
-        {!isEnrolled && (
+        {/* Final CTA - Only for paid exams when not enrolled */}
+        {!isFreeExam && !checkingEnrollment && !isEnrolled && (
           <section className="py-16 px-4 bg-gradient-to-br from-[#1A73E8] via-[#4A90E2] to-[#1A73E8]">
             <div className="container mx-auto max-w-3xl text-center">
               <h2 className="text-3xl md:text-4xl font-bold mb-6 text-white">

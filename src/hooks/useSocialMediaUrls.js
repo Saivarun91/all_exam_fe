@@ -36,11 +36,13 @@ export function useSocialMediaUrls() {
     };
 
     window.addEventListener("socialMediaUpdated", handleUpdate);
+    window.addEventListener("socialMediaUrlsUpdated", handleUpdate);
     window.addEventListener("siteNameUpdated", handleUpdate);
 
     return () => {
       cancelled = true;
       window.removeEventListener("socialMediaUpdated", handleUpdate);
+      window.removeEventListener("socialMediaUrlsUpdated", handleUpdate);
       window.removeEventListener("siteNameUpdated", handleUpdate);
     };
   }, []);

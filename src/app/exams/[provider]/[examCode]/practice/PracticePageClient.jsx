@@ -260,12 +260,11 @@ export default function PracticePageClient({
                   if (!startModalUrl) return;
                   setStartModalOpen(false);
                   if (typeof window !== "undefined") {
+                    // Autostart is signalled via sessionStorage so the test
+                    // page URL stays clean (no ?autostart=1 query param).
                     sessionStorage.setItem(`autostart:${startModalUrl}`, "1");
                   }
-                  const autostartUrl = startModalUrl.includes("?")
-                    ? `${startModalUrl}&autostart=1`
-                    : `${startModalUrl}?autostart=1`;
-                  router.push(autostartUrl);
+                  router.push(startModalUrl);
                 }}
               >
                 Start Test Now

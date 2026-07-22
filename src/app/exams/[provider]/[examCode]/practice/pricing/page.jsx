@@ -738,6 +738,7 @@ export default async function PricingPage({ params }) {
         course_code: courseData.code || "",
         provider: courseData.provider || normalizedProvider,
         currency: courseData.currency || "INR",
+        pricing_access_type: courseData.pricing_access_type || "paid",
         hero_title: courseData.hero_title || "Choose Your Access Plan",
         hero_subtitle: courseData.hero_subtitle || "Unlock full access for this exam — all questions, explanations, analytics, and unlimited attempts.",
         pricing_plans: courseData.pricing_plans || [],

@@ -269,24 +269,32 @@ export function buildPracticeTestSeoSegment({
     code: examCode,
     slug: examSlug,
   });
-  const fallbackNumber = (Number(index) || 0) + 1;
 
-  const testNumberSources = [
-    test?.test_number,
-    test?.number,
-    test?.order,
-    test?.position,
-  ];
-  let testNumber = fallbackNumber;
-  for (const source of testNumberSources) {
-    const parsed = parseInt(source, 10);
-    if (Number.isFinite(parsed) && parsed > 0) {
-      testNumber = parsed;
-      break;
+  // The URL number is resolved back to `practice_tests_list[number - 1]`
+  // (see normalizePracticeTestUrlSegment), so the clicked list position must
+  // be the source of truth. Metadata like test.order/position may not match
+  // the list order and would open the wrong test.
+  const parsedIndex = Number(index);
+  let testNumber =
+    Number.isFinite(parsedIndex) && parsedIndex >= 0 ? parsedIndex + 1 : 0;
+
+  if (!testNumber) {
+    const testNumberSources = [
+      test?.test_number,
+      test?.number,
+      test?.order,
+      test?.position,
+    ];
+    for (const source of testNumberSources) {
+      const parsed = parseInt(source, 10);
+      if (Number.isFinite(parsed) && parsed > 0) {
+        testNumber = parsed;
+        break;
+      }
     }
   }
 
-  return `${base}-free-practice-test-${testNumber}`;
+  return `${base}-free-practice-test-${testNumber || 1}`;
 }
 
 /** Internal Next.js route for a pretty practice-test URL segment. */

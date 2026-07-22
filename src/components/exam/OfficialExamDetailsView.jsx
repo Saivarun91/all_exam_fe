@@ -20,10 +20,7 @@ import {
 import {
   fetchExamByExactSlug,
 } from "@/lib/loadExamDetailPage";
-import {
-  getExamLandingPath,
-  getExamPracticePath,
-} from "@/utils/practiceTestRouting";
+import { getExamLandingPath } from "@/utils/practiceTestRouting";
 
 function pick(exam, ...keys) {
   for (const k of keys) {
@@ -274,6 +271,10 @@ function extractPracticeHubUrlsFromExam(exam = {}) {
   return urls;
 }
 
+/**
+ * Exam details page URL where practice tests are listed — same page the
+ * exam-details "Start Practicing tests" button reveals (clean URL, no hash).
+ */
 function buildPracticeUrlFromExam(practiceExam, fallbackExamCode = "") {
   const slug = pick(practiceExam, "slug") || "";
   const title = pick(practiceExam, "title", "name") || "";
@@ -281,12 +282,22 @@ function buildPracticeUrlFromExam(practiceExam, fallbackExamCode = "") {
     pick(practiceExam, "code", "exam_code", "examCode") || fallbackExamCode || "";
 
   return (
-    getExamPracticePath({
+    getExamLandingPath({
       slug,
       title,
       code,
-    }) || (slug ? `/${slug}/practice` : "")
+    }) || (slug ? `/${slug}` : "")
   );
+}
+
+/** Strip /practice paths to the clean exam-details landing URL (no hash/query). */
+function toExamDetailsUrl(path = "") {
+  const trimmed = String(path || "").trim();
+  if (!trimmed) return "";
+  return trimmed
+    .replace(/\/practice\/pricing\/?$/i, "")
+    .replace(/\/practice\/?$/i, "")
+    .replace(/[?#].*$/, "");
 }
 
 function normalizeCompare(value = "") {
@@ -381,8 +392,8 @@ function scorePracticeExamMatch(officialExam, candidateExam, coreBase = "") {
 
 /**
  * Resolve the practice exam linked to this official-details page, then return
- * that exam's practice-hub URL — same destination as exam-details
- * "Start Practicing tests" (never another exam, never invent unverified URLs).
+ * that exam's clean details-page URL — practice tests are scrolled via
+ * sessionStorage (never another exam, never invent unverified URLs).
  */
 async function resolveOfficialPracticeUrl(exam, normalizedExamCode) {
   const coreBase = stripToPracticeBaseSlug(
@@ -434,11 +445,11 @@ async function resolveOfficialPracticeUrl(exam, normalizedExamCode) {
       ) ||
       (coreBase && isSiblingPracticeSlug(linkedNormalized, coreBase))
     ) {
-      return `/${linkedNormalized}/practice`;
+      return toExamDetailsUrl(`/${linkedNormalized}`);
     }
   }
 
-  // 2) Content links → verify exact practice exam, then use practice hub URL.
+  // 2) Content links → verify exact practice exam, then use exam-details URL.
   const contentPracticeUrls = extractPracticeHubUrlsFromExam(exam);
   for (const practicePath of contentPracticeUrls) {
     const practiceUrl = await verifiedPracticeFromSlug(practicePath);
@@ -449,7 +460,7 @@ async function resolveOfficialPracticeUrl(exam, normalizedExamCode) {
       .replace(/^\/+|\/+$/g, "")
       .replace(/\/practice(?:\/pricing)?$/i, "");
     if (coreBase && isSiblingPracticeSlug(slug, coreBase)) {
-      return `/${slug}/practice`;
+      return toExamDetailsUrl(`/${slug}`);
     }
   }
 
@@ -707,17 +718,14 @@ export default async function OfficialExamDetailsView({
     statRows,
     examData,
   } = buildOfficialExamPageModel(exam, normalizedExamCode);
-  // "Start Practicing Tests" uses the verified practice-hub URL for this exam.
+  // "Start Practicing Tests" opens the exam details page (practice tests section
+  // is scrolled via sessionStorage — clean URL, no #practice-tests hash).
   // Always resolve so the CTA can render even when official stats are empty.
   const [resolvedPracticeUrl, popularExamsCourses] = await Promise.all([
     resolveOfficialPracticeUrl(exam, normalizedExamCode),
     fetchPopularExamsCourses({ limit: 8 }),
   ]);
-  // Exact same destination as exam-details "Start Practicing tests":
-  // /[exam-slug]/practice (never /practice/pricing).
-  const practiceUrl = String(resolvedPracticeUrl || "")
-    .trim()
-    .replace(/\/practice\/pricing\/?$/i, "/practice");
+  const practiceUrl = toExamDetailsUrl(resolvedPracticeUrl);
   const popularExams = buildPopularExamsSidebarItems(popularExamsCourses, {
     excludeProvider: examData.provider,
     excludeCode: examData.code,
@@ -782,6 +790,8 @@ export default async function OfficialExamDetailsView({
                   <StartTestButton
                     url={practiceUrl}
                     label="Start Practicing Tests"
+                    openInNewTab={false}
+                    scrollToPracticeTests
                     className="bg-[#1A73E8] text-white hover:bg-[#1557B0] h-12 text-lg px-8"
                   />
                 </div>

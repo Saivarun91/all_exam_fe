@@ -1,6 +1,6 @@
 "use client";
 
-import { GraduationCap, Facebook, Twitter, Linkedin, Youtube, Instagram, Shield, Mail, Phone, MapPin, Globe } from "lucide-react";
+import { GraduationCap, Facebook, Linkedin, Youtube, Instagram, Shield, Mail, Phone, MapPin, Globe } from "lucide-react";
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { usePathname, useRouter } from "@/lib/navigation/client";
@@ -8,18 +8,20 @@ import { useSiteName } from "@/hooks/useSiteName";
 import { useContactDetails } from "@/hooks/useContactDetails";
 import { useLogoUrl } from "@/hooks/useLogoUrl";
 import { useSocialMediaUrls } from "@/hooks/useSocialMediaUrls";
-import { t } from "@/lib/uiStrings";
+import { useFooterSettings } from "@/hooks/useFooterSettings";
 import { getOptimizedImageUrl } from "@/utils/imageUtils";
 import OptimizedImage from "@/components/common/OptimizedImage";
 import Image from "next/image";
+
 /**
  * Footer Component
- * 
+ *
  * IMPORTANT: This footer is IDENTICAL for both logged-in and non-logged-in users.
  * There is NO conditional rendering based on authentication status.
  * All sections and links are visible and functional for ALL users.
- * 
- * This footer dynamically fetches data from the API and only shows what exists in the website.
+ *
+ * Text content is editable from Admin → Footer. Logo, contact, and social URLs
+ * still come from Settings / Legal Pages.
  */
 
 function FooterProviderLink({ provider, href }) {
@@ -34,48 +36,67 @@ function FooterProviderLink({ provider, href }) {
   );
 }
 
-const Footer = ({ initialProviders = [], initialLogoUrl = "" }) => {
+const Footer = ({
+  initialProviders = [],
+  initialLogoUrl = "",
+  initialFooterSettings = null,
+}) => {
   const pathname = usePathname();
   const router = useRouter();
   const siteName = useSiteName();
   const contactDetails = useContactDetails();
   const logoUrl = useLogoUrl(initialLogoUrl);
   const socialUrls = useSocialMediaUrls();
+  const footerSettings = useFooterSettings(initialFooterSettings);
   const [providers, setProviders] = useState(initialProviders);
   const [loading, setLoading] = useState(initialProviders.length === 0);
 
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
+  const providersLimit = footerSettings.providers_limit || 5;
 
-  // Fetch providers only when not preloaded from the server layout.
+  // Fetch providers only when not preloaded, or when limit needs more than SSR data.
   useEffect(() => {
-    if (initialProviders.length > 0) {
+    const hasEnoughPreloaded =
+      initialProviders.length > 0 && initialProviders.length >= providersLimit;
+
+    if (hasEnoughPreloaded) {
+      setProviders(initialProviders.slice(0, providersLimit));
       setLoading(false);
       return;
     }
+
+    let cancelled = false;
 
     const fetchFooterData = async () => {
       try {
         const providersRes = await fetch(`${API_BASE_URL}/api/providers/`);
         if (providersRes.ok) {
           const providersData = await providersRes.json();
-          if (Array.isArray(providersData)) {
-            setProviders(providersData.filter(p => p.is_active !== false).slice(0, 10));
+          if (!cancelled && Array.isArray(providersData)) {
+            setProviders(
+              providersData
+                .filter((p) => p.is_active !== false)
+                .slice(0, providersLimit)
+            );
           }
         }
       } catch (error) {
         console.error("Error fetching footer data:", error);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
     fetchFooterData();
-  }, [initialProviders.length]);
+    return () => {
+      cancelled = true;
+    };
+  }, [initialProviders.length, providersLimit, API_BASE_URL]);
 
   // Available resources pages (only show what exists)
   const availableResources = [
-    { nameKey: "footer.blogs", href: "/blog", exists: true },
-    { nameKey: "footer.faq", href: "/", exists: true },
+    { label: footerSettings.blogs_label, href: "/blog", exists: true },
+    { label: footerSettings.faq_label, href: "/", exists: true, isFaq: true },
   ];
 
   // Company pages (only show if they exist - currently none exist, so empty)
@@ -83,22 +104,22 @@ const Footer = ({ initialProviders = [], initialLogoUrl = "" }) => {
 
   // Legal pages (only show if they exist)
   const availableLegalPages = [
-    { nameKey: "footer.privacy_policy", href: "/privacy-policy", exists: true },
-    { nameKey: "footer.terms", href: "/terms-and-conditions", exists: true },
-    { nameKey: "footer.refund_policy", href: "/refund-and-cancellation-policy", exists: true },
-    { nameKey: "footer.disclaimer", href: "/disclaimer", exists: true },
-    { nameKey: "footer.editor_policy", href: "/editor-policy", exists: true },
-    { nameKey: "footer.contact_us", href: "/contact-us", exists: true },
+    { label: footerSettings.privacy_policy_label, href: "/privacy-policy", exists: true },
+    { label: footerSettings.terms_label, href: "/terms-and-conditions", exists: true },
+    { label: footerSettings.refund_policy_label, href: "/refund-and-cancellation-policy", exists: true },
+    { label: footerSettings.disclaimer_link_label, href: "/disclaimer", exists: true },
+    { label: footerSettings.editor_policy_label, href: "/editor-policy", exists: true },
+    { label: footerSettings.contact_us_label, href: "/contact-us", exists: true },
   ];
 
-  // Build social links array from admin-configured URLs
+  // Build social links array from admin-configured URLs (only show links with URLs)
   const socialLinks = [
     { icon: Facebook, label: "Facebook", url: socialUrls.facebook },
-    { icon: Twitter, label: "Twitter", url: socialUrls.twitter },
+    { icon: null, label: "Twitter", url: socialUrls.twitter },
     { icon: Linkedin, label: "LinkedIn", url: socialUrls.linkedin },
     { icon: Youtube, label: "YouTube", url: socialUrls.youtube },
     { icon: Instagram, label: "Instagram", url: socialUrls.instagram },
-  ].filter(link => link.url && link.url.trim().length > 0); // Only show links with URLs
+  ].filter((link) => link.url && link.url.trim().length > 0);
 
   // Check if any contact details are available (must be non-empty strings)
   const hasEmail = contactDetails.email && contactDetails.email.trim().length > 0;
@@ -112,13 +133,18 @@ const Footer = ({ initialProviders = [], initialLogoUrl = "" }) => {
   const hasResources = availableResources.length > 0;
   const hasCompany = availableCompanyPages.length > 0;
   const hasLegal = availableLegalPages.length > 0;
-  
-  const visibleSections = [hasProviders, hasResources, hasCompany, hasLegal, hasContactDetails].filter(Boolean).length;
-  const gridCols = visibleSections <= 2 ? 'md:grid-cols-2' : 
-                   visibleSections <= 3 ? 'md:grid-cols-3' : 
-                   visibleSections <= 4 ? 'md:grid-cols-4' : 
-                   visibleSections <= 5 ? 'md:grid-cols-5' : 'md:grid-cols-6';
 
+  const visibleSections = [hasProviders, hasResources, hasCompany, hasLegal, hasContactDetails].filter(Boolean).length;
+  const gridCols =
+    visibleSections <= 2
+      ? "md:grid-cols-2"
+      : visibleSections <= 3
+        ? "md:grid-cols-3"
+        : visibleSections <= 4
+          ? "md:grid-cols-4"
+          : visibleSections <= 5
+            ? "md:grid-cols-5"
+            : "md:grid-cols-6";
 
   // Helper function to get provider URL
   const getProviderUrl = (provider) => {
@@ -126,7 +152,7 @@ const Footer = ({ initialProviders = [], initialLogoUrl = "" }) => {
       return `/providers/${provider.slug}`;
     }
     if (provider.name) {
-      const slug = provider.name.toLowerCase().replace(/\s+/g, '-');
+      const slug = provider.name.toLowerCase().replace(/\s+/g, "-");
       return `/providers/${slug}`;
     }
     return "#";
@@ -164,10 +190,14 @@ const Footer = ({ initialProviders = [], initialLogoUrl = "" }) => {
           {/* Providers Section - Only show if providers exist */}
           {hasProviders && (
             <div>
-              <h3 className="font-bold text-base md:text-lg mb-2 md:mb-3 text-[#F5F8FF]">{t("footer.providers_title")}</h3>
+              <h3 className="font-bold text-base md:text-lg mb-2 md:mb-3 text-[#F5F8FF]">
+                {footerSettings.providers_title}
+              </h3>
               <ul className="space-y-1 md:space-y-1.5">
                 {loading ? (
-                  <li className="text-[#F0F4FF] text-xs md:text-sm">{t("footer.loading")}</li>
+                  <li className="text-[#F0F4FF] text-xs md:text-sm">
+                    {footerSettings.loading}
+                  </li>
                 ) : providers.length > 0 ? (
                   providers.map((provider, index) => (
                     <li key={index}>
@@ -178,7 +208,9 @@ const Footer = ({ initialProviders = [], initialLogoUrl = "" }) => {
                     </li>
                   ))
                 ) : (
-                  <li className="text-[#F0F4FF]/85 text-xs md:text-sm">{t("footer.no_providers")}</li>
+                  <li className="text-[#F0F4FF]/85 text-xs md:text-sm">
+                    {footerSettings.no_providers}
+                  </li>
                 )}
               </ul>
             </div>
@@ -187,19 +219,21 @@ const Footer = ({ initialProviders = [], initialLogoUrl = "" }) => {
           {/* Resources Section - Only show if resources exist */}
           {hasResources && (
             <div>
-              <h3 className="font-bold text-base md:text-lg mb-2 md:mb-3 text-[#F5F8FF]">{t("footer.resources_title")}</h3>
+              <h3 className="font-bold text-base md:text-lg mb-2 md:mb-3 text-[#F5F8FF]">
+                {footerSettings.resources_title}
+              </h3>
               <ul className="space-y-1 md:space-y-1.5">
                 {availableResources
                   .filter((resource) => resource.exists)
                   .map((resource, index) => (
                     <li key={index}>
-                      {resource.nameKey === "footer.faq" ? (
+                      {resource.isFaq ? (
                         <button
                           type="button"
                           onClick={handleFooterFAQClick}
                           className="text-left text-[#F0F4FF] hover:text-[#1A73E8] transition-colors text-xs md:text-sm py-0.5 inline-flex items-center"
                         >
-                          {t(resource.nameKey)}
+                          {resource.label}
                         </button>
                       ) : (
                         <Link
@@ -207,7 +241,7 @@ const Footer = ({ initialProviders = [], initialLogoUrl = "" }) => {
                           prefetch={false}
                           className="text-[#F0F4FF] hover:text-[#1A73E8] transition-colors text-xs md:text-sm inline-flex items-center py-0.5"
                         >
-                          {t(resource.nameKey)}
+                          {resource.label}
                         </Link>
                       )}
                     </li>
@@ -239,7 +273,9 @@ const Footer = ({ initialProviders = [], initialLogoUrl = "" }) => {
           {/* Legal Section - Only show if legal pages exist */}
           {hasLegal && (
             <div>
-              <h3 className="font-bold text-base md:text-lg mb-2 md:mb-3 text-[#F5F8FF]">{t("footer.legal_title")}</h3>
+              <h3 className="font-bold text-base md:text-lg mb-2 md:mb-3 text-[#F5F8FF]">
+                {footerSettings.legal_title}
+              </h3>
               <ul className="space-y-1 md:space-y-1.5">
                 {availableLegalPages.map((page, index) => (
                   <li key={index}>
@@ -248,7 +284,7 @@ const Footer = ({ initialProviders = [], initialLogoUrl = "" }) => {
                       prefetch={false}
                       className="text-[#F0F4FF] hover:text-[#1A73E8] transition-colors text-xs md:text-sm inline-flex items-center py-0.5"
                     >
-                      {t(page.nameKey)}
+                      {page.label}
                     </Link>
                   </li>
                 ))}
@@ -259,20 +295,10 @@ const Footer = ({ initialProviders = [], initialLogoUrl = "" }) => {
           {/* Contact Us Section */}
           {hasContactDetails && (
             <div>
-              <h3 className="font-bold text-base md:text-lg mb-2 md:mb-3 text-[#F5F8FF]">{t("footer.contact_title")}</h3>
+              <h3 className="font-bold text-base md:text-lg mb-2 md:mb-3 text-[#F5F8FF]">
+                {footerSettings.contact_title}
+              </h3>
               <ul className="space-y-1.5 md:space-y-2">
-                {/* {hasEmail && (
-                  <li className="flex items-start gap-2">
-                    <Mail className="w-3.5 h-3.5 md:w-4 md:h-4 text-[#1A73E8] mt-0.5 flex-shrink-0" />
-                    <a 
-                      href={`mailto:${contactDetails.email.trim()}`}
-                      className="text-[#F0F4FF] hover:text-[#1A73E8] transition-colors text-xs md:text-sm break-all"
-                    >
-                      {contactDetails.email.trim()}
-                    </a>
-                  </li>
-                )} */}
-
                 {hasEmail && (
                   <li className="flex items-start gap-2">
                     <Mail className="w-3.5 h-3.5 md:w-4 md:h-4 text-[#1A73E8] mt-0.5 flex-shrink-0" />
@@ -285,12 +311,11 @@ const Footer = ({ initialProviders = [], initialLogoUrl = "" }) => {
                   </li>
                 )}
 
-
                 {hasPhone && (
                   <li className="flex items-start gap-2">
                     <Phone className="w-3.5 h-3.5 md:w-4 md:h-4 text-[#1A73E8] mt-0.5 flex-shrink-0" />
-                    <a 
-                      href={`tel:${contactDetails.phone.trim().replace(/\s+/g, '')}`}
+                    <a
+                      href={`tel:${contactDetails.phone.trim().replace(/\s+/g, "")}`}
                       className="text-[#F0F4FF] hover:text-[#1A73E8] transition-colors text-xs md:text-sm inline-flex items-center py-0.5"
                     >
                       {contactDetails.phone.trim()}
@@ -308,13 +333,17 @@ const Footer = ({ initialProviders = [], initialLogoUrl = "" }) => {
                 {hasWebsite && (
                   <li className="flex items-start gap-2">
                     <Globe className="w-3.5 h-3.5 md:w-4 md:h-4 text-[#1A73E8] mt-0.5 flex-shrink-0" />
-                    <a 
-                      href={contactDetails.website.trim().startsWith('http') ? contactDetails.website.trim() : `https://${contactDetails.website.trim()}`}
+                    <a
+                      href={
+                        contactDetails.website.trim().startsWith("http")
+                          ? contactDetails.website.trim()
+                          : `https://${contactDetails.website.trim()}`
+                      }
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-[#F0F4FF] hover:text-[#1A73E8] transition-colors text-xs md:text-sm break-all inline-flex items-center py-0.5"
                     >
-                      {contactDetails.website.trim().replace(/^https?:\/\//, '')}
+                      {contactDetails.website.trim().replace(/^https?:\/\//, "")}
                     </a>
                   </li>
                 )}
@@ -323,8 +352,9 @@ const Footer = ({ initialProviders = [], initialLogoUrl = "" }) => {
           )}
         </div>
 
-        <div className="border-t border-[#1A73E8]/15 pt-4 md:pt-5 mt-4 md:mt-5 flex flex-col md:flex-row justify-between items-center gap-3 md:gap-0">
-          <div className="flex items-center gap-2">
+        <div className="border-t border-[#1A73E8]/15 pt-4 md:pt-5 mt-4 md:mt-5 flex flex-col md:flex-row justify-between items-center md:items-start gap-4 md:gap-8">
+          {/* Logo with copyright underneath */}
+          <div className="flex flex-col items-center md:items-start gap-2 shrink-0">
             {logoUrl ? (
               <span className="relative block h-16 w-[180px] shrink-0">
                 <OptimizedImage
@@ -338,86 +368,61 @@ const Footer = ({ initialProviders = [], initialLogoUrl = "" }) => {
                 />
               </span>
             ) : (
-            <GraduationCap className="w-5 h-5 md:w-6 md:h-6 text-[#1A73E8]" />
+              <GraduationCap className="w-5 h-5 md:w-6 md:h-6 text-[#1A73E8]" />
             )}
-          </div>
 
-          <div className="flex items-center gap-4 md:gap-6">
-            {/* {socialLinks.map((social, index) => {
-              const Icon = social.icon;
-              return (
-                <a
-                  key={index}
-                  href={social.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-[#F0F4FF] hover:text-[#1A73E8] transition-colors"
-                  aria-label={social.label}
-                >
-                  <Icon className="w-4 h-4 md:w-5 md:h-5" />
-                </a>
-              );
-            })} */}
+            {/* Social media icons under the logo */}
+            {footerSettings.show_social_links && socialLinks.length > 0 && (
+              <div className="flex items-center gap-3 md:gap-4">
+                {socialLinks.map((social, index) => (
+                  <a
+                    key={index}
+                    href={social.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[#F0F4FF] hover:text-[#1A73E8] transition-colors inline-flex items-center justify-center p-1.5 rounded-md"
+                    aria-label={`${social.label} (opens in a new tab)`}
+                  >
+                    {social.label === "Twitter" ? (
+                      <Image
+                        src="/twitter_logo.png"
+                        alt="Twitter"
+                        width={20}
+                        height={20}
+                        className="w-4 h-4 md:w-5 md:h-5 object-contain"
+                      />
+                    ) : (
+                      <social.icon className="w-4 h-4 md:w-5 md:h-5" />
+                    )}
+                  </a>
+                ))}
+              </div>
+            )}
 
-            {socialLinks.map((social, index) => {
-              return (
-                <a
-                  key={index}
-                  href={social.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-[#F0F4FF] hover:text-[#1A73E8] transition-colors inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded-md"
-                  aria-label={`${social.label} (opens in a new tab)`}
-                >
-                  {social.label === "Twitter" ? (
-                    <Image
-                      src="/twitter_logo.png"
-                      alt="Twitter"
-                      width={20}
-                      height={20}
-                      className="w-4 h-4 md:w-5 md:h-5 object-contain"
-                    />
-                  ) : (
-                    <social.icon className="w-4 h-4 md:w-5 md:h-5" />
-                  )}
-                </a>
-              );
-            })}
-          </div>
-
-          <div className="flex items-center gap-2 md:gap-4">
-            <div className="flex items-center gap-1.5 md:gap-2 text-xs md:text-sm text-[#F0F4FF]">
-              <Shield className="w-3.5 h-3.5 md:w-4 md:h-4" />
-              <span>{t("footer.ssl_secure")}</span>
+            <div className="text-center md:text-left text-[#E8EDF7] text-xs md:text-sm space-y-0.5">
+              <p>{footerSettings.copyright}</p>
+              <p className="text-[10px] md:text-xs text-[#D4DFF0]">
+                {footerSettings.brand_line}
+              </p>
             </div>
           </div>
-        </div>
 
-        <div className="text-center text-[#E8EDF7] text-xs md:text-sm mt-4 md:mt-5 space-y-0.5 md:space-y-1">
-          <p>{t("footer.copyright")}</p>
-          <p className="text-[10px] md:text-xs text-[#D4DFF0]">
-            {t("footer.brand_line")}
-          </p>
-        </div>
+          {/* Disclaimer */}
+          {footerSettings.show_disclaimer && (
+            <div className="flex-1 max-w-3xl">
+              <p className="text-[#D8E3F5] text-[10px] md:text-xs leading-relaxed text-left">
+                <strong className="text-[#F5F8FF]">
+                  {footerSettings.disclaimer_label}
+                </strong>{" "}
+                <span>{footerSettings.disclaimer_text}</span>
+              </p>
+            </div>
+          )}
 
-        <div className="border-t border-[#1A73E8]/15 pt-4 md:pt-5 mt-4 md:mt-5">
-          <p className="text-[#D8E3F5] text-[10px] md:text-xs leading-relaxed max-w-4xl mx-auto text-left">
-            <strong
-              className="text-[#F5F8FF]"
-              data-i18n="footer.disclaimer"
-              data-i18n-fallback="Disclaimer:"
-            >
-              Disclaimer:
-            </strong>{" "}
-            <span
-              data-i18n="footer.disclaimer_text"
-              data-i18n-fallback="All trademarks, certification names, course titles, and logos displayed on this website are the property of their respective owners and are used solely for identification and informational purposes. AllExamQuestions is an independent exam preparation platform and is not affiliated with, endorsed by, authorized by, or sponsored by any exam provider, certification body, or brand mentioned on this website."
-            >
-              All trademarks, certification names, course titles, and logos displayed on this website are the property of their respective owners and are used solely for identification and informational purposes.
-              AllExamQuestions is an independent exam preparation platform and is not affiliated with, endorsed by, authorized by, or sponsored by any exam provider, certification body, or brand mentioned on this website.
-              Any brand names, product names, or service names are used only to describe the corresponding exams or content. Some graphics used on this website are sourced from royalty-free or publicly available resources and are believed to be free for commercial use.
-            </span>
-          </p>
+          <div className="flex items-center gap-1.5 md:gap-2 text-xs md:text-sm text-[#F0F4FF] shrink-0">
+            <Shield className="w-3.5 h-3.5 md:w-4 md:h-4" />
+            <span>{footerSettings.ssl_secure}</span>
+          </div>
         </div>
       </div>
     </footer>
@@ -425,10 +430,3 @@ const Footer = ({ initialProviders = [], initialLogoUrl = "" }) => {
 };
 
 export default Footer;
-
-
-
-
-
-
-       

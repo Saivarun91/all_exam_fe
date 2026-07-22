@@ -503,12 +503,30 @@ export default function ExamPlatformSidebar({
   lastUpdatedLabel,
   platformRows,
   practiceUrl,
+  practiceTestsSectionId = "",
   officialDetailsUrl,
   hasOfficialDetails,
   matchPercent,
   initialPopularExams = [],
 }) {
   const [popularExams, setPopularExams] = useState(initialPopularExams);
+
+  const handleStartPracticing = () => {
+    if (typeof window === "undefined") return;
+
+    if (practiceTestsSectionId) {
+      const section = document.getElementById(practiceTestsSectionId);
+      if (section) {
+        section.scrollIntoView({ behavior: "smooth", block: "start" });
+        return;
+      }
+    }
+
+    // Fallback when the practice tests section isn't on this page.
+    if (practiceUrl) {
+      window.location.href = practiceUrl;
+    }
+  };
 
   const currentExamKey = useMemo(() => {
     const codeRow = platformRows?.find(
@@ -617,11 +635,21 @@ export default function ExamPlatformSidebar({
             ))}
           </div>
 
-          <StartTestButton
-            url={practiceUrl}
-            label="Start Practicing tests "
-            className="w-full bg-[#16a34a] hover:bg-[#15803d] text-white h-12 text-base font-semibold rounded-lg"
-          />
+          {practiceTestsSectionId ? (
+            <Button
+              type="button"
+              onClick={handleStartPracticing}
+              className="w-full bg-[#16a34a] hover:bg-[#15803d] text-white h-12 text-base font-semibold rounded-lg"
+            >
+              Start Practicing tests
+            </Button>
+          ) : (
+            <StartTestButton
+              url={practiceUrl}
+              label="Start Practicing tests "
+              className="w-full bg-[#16a34a] hover:bg-[#15803d] text-white h-12 text-base font-semibold rounded-lg"
+            />
+          )}
 
           {hasOfficialDetails === true &&
           officialDetailsUrl &&

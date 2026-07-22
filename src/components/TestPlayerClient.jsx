@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef, useMemo } from "react";
 import { useRouter } from "@/lib/navigation/client";
 import Link from "next/link";
-import { Clock, Star, Compass, ChevronLeft, ChevronRight, FileText, Lock, ArrowLeft } from "lucide-react";
+import { Clock, Star, Compass, ChevronLeft, ChevronRight, FileText, Lock, ArrowLeft, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -12,13 +12,19 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import TipTapContent from "@/components/editor/TipTapContent";
+import { Badge } from "@/components/ui/badge";
 import { normalizeAnswersToIndexKey } from "@/utils/testReviewDisplay";
-import { getExamPracticePath } from "@/utils/practiceTestRouting";
+import {
+  buildPracticeTestSeoSegment,
+  getExamPracticePath,
+} from "@/utils/practiceTestRouting";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 const FREE_QUESTIONS_LIMIT = 10;
 const GUEST_ATTEMPT_ID = "guest-local";
 const QUESTIONS_PER_PAGE = 20;
+const PENDING_GUEST_RESULTS_KEY = "pendingGuestTestResults";
+const GUEST_CLAIM_META_KEY = "guestClaimMeta";
 
 const isGarbageImageRef = (url) =>
   typeof url === "string" &&
@@ -160,6 +166,214 @@ const RichContent = ({ content, className = "" }) => {
   );
 };
 
+/** All practice tests of the exam, shown under the test player. */
+function ExamPracticeTestsSection({ exam, currentTestIndex }) {
+  const practiceTests = Array.isArray(exam?.practice_tests_list)
+    ? exam.practice_tests_list
+    : [];
+
+  const [startModalOpen, setStartModalOpen] = useState(false);
+  const [startModalTest, setStartModalTest] = useState(null);
+  const [startModalUrl, setStartModalUrl] = useState("");
+
+  const startModalMeta = useMemo(() => {
+    const test = startModalTest || {};
+    const questions =
+      test.questions ?? test.total_questions ?? test.totalQuestions ?? 0;
+    const duration = test.duration ?? test.time ?? test.time_limit ?? "";
+    const difficulty = test.difficulty ?? test.level ?? "Intermediate";
+
+    return {
+      questions: Number.isFinite(Number(questions))
+        ? String(Number(questions))
+        : String(questions || 0),
+      duration: String(duration || "").trim(),
+      difficulty: String(difficulty || "").trim() || "Intermediate",
+    };
+  }, [startModalTest]);
+
+  if (practiceTests.length === 0) return null;
+
+  const openStartModalForTest = (practiceTest, idx) => {
+    const testSlug = buildPracticeTestSeoSegment({
+      examName: exam?.title || exam?.name,
+      examCode: exam?.code || exam?.exam_code,
+      examSlug: exam?.slug,
+      test: practiceTest,
+      index: idx,
+    });
+    const url = `/${testSlug}`;
+    setStartModalTest(practiceTest || null);
+    setStartModalUrl(url);
+    setStartModalOpen(true);
+  };
+
+  const handleStartTestNow = () => {
+    if (!startModalUrl) return;
+    setStartModalOpen(false);
+    if (typeof window === "undefined") return;
+
+    // Same signal as exam-details "Start Test Now" — clean URL, no ?autostart=1.
+    sessionStorage.setItem(`autostart:${startModalUrl}`, "1");
+
+    let currentPath = window.location.pathname || "";
+    try {
+      currentPath = decodeURIComponent(currentPath);
+    } catch {
+      /* keep raw */
+    }
+
+    // Full navigation remounts TestPlayer with clean state for the other test.
+    if (currentPath === startModalUrl) {
+      window.location.reload();
+      return;
+    }
+    window.location.assign(startModalUrl);
+  };
+
+  return (
+    <div className="bg-gray-50 border-t border-gray-200">
+      <div className="max-w-7xl mx-auto px-6 py-8">
+        <h2 className="text-xl font-bold text-[#0C1A35] mb-1">
+          {exam?.title
+            ? `${exam.title} Practice Tests`
+            : "Available Practice Tests"}
+        </h2>
+        <p className="text-sm text-[#0C1A35]/60 mb-5">
+          Continue your preparation with the other practice tests for this exam.
+        </p>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {practiceTests.map((practiceTest, idx) => {
+            const isCurrent = idx === currentTestIndex;
+            const testName =
+              practiceTest?.name ||
+              practiceTest?.title ||
+              `Practice Test ${idx + 1}`;
+            const questionCount =
+              parseInt(
+                practiceTest?.questions ?? practiceTest?.total_questions,
+                10
+              ) || 0;
+            const duration = String(practiceTest?.duration || "").trim();
+
+            return (
+              <div
+                key={practiceTest?.id || practiceTest?.slug || testName || idx}
+                className={`p-4 bg-white border rounded-lg flex flex-col h-full transition-shadow ${
+                  isCurrent
+                    ? "border-[#1A73E8] shadow-sm"
+                    : "border-[#DDE7FF] hover:shadow-md"
+                }`}
+              >
+                <div className="flex items-start justify-between gap-2 mb-2">
+                  <h3 className="font-semibold text-[#0C1A35]">{testName}</h3>
+                  {isCurrent ? (
+                    <Badge className="bg-[#1A73E8] text-white border-0 shrink-0">
+                      Current
+                    </Badge>
+                  ) : (
+                    <Badge className="bg-[#1A73E8]/10 text-[#1A73E8] border-0 shrink-0">
+                      {practiceTest?.difficulty || "Intermediate"}
+                    </Badge>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-3 text-sm text-[#0C1A35]/70 mb-4">
+                  <span>{questionCount} Questions</span>
+                  {duration ? <span>• {duration}</span> : null}
+                </div>
+
+                {isCurrent ? (
+                  <Button
+                    type="button"
+                    disabled
+                    className="w-full mt-auto bg-[#1A73E8]/60 text-white"
+                  >
+                    You are on this test
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    onClick={() => openStartModalForTest(practiceTest, idx)}
+                    className="w-full mt-auto bg-[#1A73E8] text-white hover:bg-[#1557B0]"
+                  >
+                    Start Practicing →
+                  </Button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Same start modal as exam-details "Start Practicing →" */}
+      <Dialog open={startModalOpen} onOpenChange={setStartModalOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#1A73E8]/10 text-[#1A73E8]">
+              <FileText className="h-7 w-7" aria-hidden />
+            </div>
+
+            <DialogTitle className="text-center text-[#0C1A35]">
+              Ready to Start Your Test?
+            </DialogTitle>
+
+            <DialogDescription className="text-center">
+              This practice test contains questions to help you prepare for the
+              exam.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="mt-2">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <div className="rounded-xl border border-[#DDE7FF] bg-[#F3F8FF] px-4 py-3 text-center">
+                <div className="text-lg font-bold text-[#1A73E8]">
+                  {startModalMeta.questions}
+                </div>
+                <div className="text-xs text-[#0C1A35]/65">Questions</div>
+              </div>
+
+              <div className="rounded-xl border border-[#DDE7FF] bg-[#F4FFF6] px-4 py-3 text-center">
+                <div className="text-lg font-bold text-emerald-600">
+                  {startModalMeta.duration || "—"}
+                </div>
+                <div className="text-xs text-[#0C1A35]/65">Duration</div>
+              </div>
+
+              <div className="rounded-xl border border-[#DDE7FF] bg-[#FBF5FF] px-4 py-3 text-center">
+                <div className="text-lg font-bold text-purple-600">
+                  {startModalMeta.difficulty}
+                </div>
+                <div className="text-xs text-[#0C1A35]/65">Difficulty</div>
+              </div>
+            </div>
+
+            <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:justify-center">
+              <Button
+                type="button"
+                variant="outline"
+                className="sm:min-w-[160px]"
+                onClick={() => setStartModalOpen(false)}
+              >
+                Cancel
+              </Button>
+
+              <Button
+                type="button"
+                className="bg-[#1A73E8] hover:bg-[#1557B0] text-white sm:min-w-[160px]"
+                onClick={handleStartTestNow}
+              >
+                Start Test Now
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
 export default function TestPlayerClient({ exam, questions, test, provider, examCode, testId }) {
   const router = useRouter();
 
@@ -176,6 +390,7 @@ export default function TestPlayerClient({ exam, questions, test, provider, exam
   const [checkingEnrollment, setCheckingEnrollment] = useState(true);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
+  const [showSubmitSuccess, setShowSubmitSuccess] = useState(false);
   
   // Test player state
   const [currentQuestion, setCurrentQuestion] = useState(1);
@@ -251,6 +466,21 @@ export default function TestPlayerClient({ exam, questions, test, provider, exam
     );
   }, [exam, testId, test, questions.length]);
 
+  const currentTestIndex = useMemo(() => {
+    const practiceTests = exam?.practice_tests_list || [];
+    const idx = practiceTests.indexOf(currentTest);
+    if (idx >= 0) return idx;
+    const parsed = parseInt(testId, 10);
+    if (
+      Number.isFinite(parsed) &&
+      parsed >= 1 &&
+      parsed <= practiceTests.length
+    ) {
+      return parsed - 1;
+    }
+    return -1;
+  }, [exam, currentTest, testId]);
+
   const freeQuestionsLimit = useMemo(() => {
     const raw =
       test?.free_trial_questions ?? currentTest?.free_trial_questions;
@@ -264,12 +494,11 @@ export default function TestPlayerClient({ exam, questions, test, provider, exam
     return String(accessType).toLowerCase() === "free";
   }, [exam?.pricing_access_type]);
 
-  const hasFullAccess = isEnrolled || isFreeExam;
+  // Practice tests are takeable without login / enrollment — full question set.
+  const hasFullAccess = true;
+  const isPaidEnrolled = isEnrolled || isFreeExam;
 
-  const getAccessibleCount = () =>
-    hasFullAccess
-      ? questions.length
-      : Math.min(freeQuestionsLimit, questions.length);
+  const getAccessibleCount = () => questions.length;
 
   // Precompute option text -> index lookups once per question set so submit stays fast.
   const optionIndexLookups = useMemo(
@@ -305,6 +534,57 @@ export default function TestPlayerClient({ exam, questions, test, provider, exam
     setIsLoggedIn(!!token);
     setAuthReady(true);
   }, []);
+
+  // After guest submit + login, continue to results
+  useEffect(() => {
+    const handleLogin = () => {
+      setIsLoggedIn(true);
+      if (typeof window === "undefined") return;
+      const pending = sessionStorage.getItem(PENDING_GUEST_RESULTS_KEY);
+      if (!pending) return;
+      try {
+        const data = JSON.parse(pending);
+        const reviewPath =
+          data?.reviewPath || `/test-review/${provider}/${examCode}`;
+        setShowLoginPrompt(false);
+        setShowSubmitSuccess(false);
+        router.push(reviewPath);
+      } catch {
+        setShowLoginPrompt(false);
+        setShowSubmitSuccess(false);
+        router.push(`/test-review/${provider}/${examCode}`);
+      }
+    };
+
+    window.addEventListener("userLoggedIn", handleLogin);
+    return () => window.removeEventListener("userLoggedIn", handleLogin);
+  }, [provider, examCode, router]);
+
+  const goToResultsPage = () => {
+    setShowLoginPrompt(false);
+    setShowSubmitSuccess(false);
+    router.push(`/test-review/${provider}/${examCode}`);
+  };
+
+  const handleViewResultsClick = () => {
+    const token = getAuthToken();
+    if (token) {
+      try {
+        const stored = sessionStorage.getItem("testResults");
+        if (stored) {
+          const results = JSON.parse(stored);
+          results.requiresLoginForResults = false;
+          sessionStorage.setItem("testResults", JSON.stringify(results));
+        }
+      } catch {
+        /* ignore */
+      }
+      goToResultsPage();
+      return;
+    }
+    setShowSubmitSuccess(false);
+    setShowLoginPrompt(true);
+  };
 
   // Check enrollment status
   useEffect(() => {
@@ -428,12 +708,138 @@ export default function TestPlayerClient({ exam, questions, test, provider, exam
     return `${minutes} mins`;
   };
 
-  const canAccessQuestion = (questionNum) => {
-    return hasFullAccess || questionNum <= freeQuestionsLimit;
+  const canAccessQuestion = () => true;
+
+  const resolveApiTestId = () => {
+    const raw = test?.id ?? test?._id ?? testId;
+    if (raw == null || raw === "") return String(testId ?? "1");
+    const rawStr = String(raw).trim();
+    if (/^\d+$/.test(rawStr)) return rawStr;
+    const practiceTests = exam?.practice_tests_list || [];
+    const match = practiceTests.find(
+      (t) =>
+        String(t?.id || t?._id || "") === rawStr ||
+        String(t?.slug || "").replace(/-[a-f0-9]{8}$/i, "") ===
+          rawStr.replace(/-[a-f0-9]{8}$/i, "")
+    );
+    if (match) {
+      const idx = practiceTests.indexOf(match);
+      return String(idx >= 0 ? idx + 1 : rawStr);
+    }
+    return rawStr;
+  };
+
+  const buildGuestUserAnswersPayload = (totalAccessible) => {
+    const userAnswers = [];
+    const accessibleQuestions = questions.slice(0, totalAccessible);
+
+    for (let i = 0; i < accessibleQuestions.length; i++) {
+      const question = accessibleQuestions[i];
+      const questionId = question.id || question._id || question.question_id;
+      const questionNum = i + 1;
+      const userAnswer = answers[questionNum];
+
+      if (!questionId) continue;
+
+      let selectedAnswers = [];
+      if (userAnswer && question.options) {
+        const options = Array.isArray(question.options) ? question.options : [];
+        const textToIndexMap = optionIndexLookups[i] || new Map();
+        const resolveIndex = (ans) => {
+          if (ans == null) return -1;
+          const s = String(ans);
+          if (/^\d+$/.test(s)) {
+            const optionIndex = parseInt(s, 10);
+            if (optionIndex >= 0 && optionIndex < options.length) return optionIndex;
+          }
+          return textToIndexMap.get(s) ?? -1;
+        };
+        if (Array.isArray(userAnswer)) {
+          selectedAnswers = userAnswer
+            .map((ans) => {
+              const index = resolveIndex(ans);
+              return index !== -1 ? String(index) : null;
+            })
+            .filter((val) => val !== null);
+        } else {
+          const index = resolveIndex(userAnswer);
+          if (index !== -1) {
+            selectedAnswers = [String(index)];
+          }
+        }
+      }
+
+      userAnswers.push({
+        question_id: String(questionId),
+        selected_answers: selectedAnswers,
+      });
+    }
+
+    return userAnswers;
+  };
+
+  const storeGuestResultsForReview = (totalAccessible, testResults) => {
+    const accessibleQuestions = questions.slice(0, totalAccessible);
+    if (typeof window === "undefined") return;
+
+    sessionStorage.setItem("testResults", JSON.stringify(testResults));
+    sessionStorage.setItem("userAnswers", JSON.stringify(answers));
+    sessionStorage.setItem(
+      "testQuestions",
+      JSON.stringify(accessibleQuestions)
+    );
+    sessionStorage.setItem("attemptId", GUEST_ATTEMPT_ID);
+    if (Array.isArray(exam?.topics)) {
+      sessionStorage.setItem("examTopics", JSON.stringify(exam.topics));
+    }
+
+    const claimMeta = {
+      exam_id: exam?.id ? String(exam.id) : null,
+      test_id: resolveApiTestId(),
+      provider,
+      examCode,
+      user_answers: buildGuestUserAnswersPayload(totalAccessible),
+      score: testResults.correctAnswers,
+      total_marks: totalAccessible,
+      percentage: testResults.percentage,
+      passed: testResults.passed,
+      time_taken_display: testResults.timeTaken,
+      start_time: testStartedAtRef.current
+        ? new Date(testStartedAtRef.current).toISOString()
+        : null,
+      time_limit: Math.max(
+        1,
+        Math.round((allottedSecondsRef.current || 0) / 60) ||
+          resolveTestDurationMinutes()
+      ),
+      questions_snapshot: accessibleQuestions.map((q, idx) => ({
+        question_id: String(q.id || q._id || q.question_id || ""),
+        question_text: q.question_text || q.text || "",
+        marks: q.marks || 1,
+        order: idx + 1,
+      })),
+    };
+    sessionStorage.setItem(GUEST_CLAIM_META_KEY, JSON.stringify(claimMeta));
+    sessionStorage.setItem(
+      PENDING_GUEST_RESULTS_KEY,
+      JSON.stringify({ ready: true, reviewPath: `/test-review/${provider}/${examCode}` })
+    );
+  };
+
+  /** Public SEO path of the current test — used by results "Retake Test". */
+  const getCurrentTestPublicPath = () => {
+    if (typeof window === "undefined") return "";
+    let path = window.location.pathname || "";
+    try {
+      path = decodeURIComponent(path);
+    } catch {
+      /* keep raw */
+    }
+    return path.split("?")[0].split("#")[0];
   };
 
   const handleAnswerChange = (optionText, checked = null) => {
-    if (!canAccessQuestion(currentQuestion)) return;
+    if (!canAccessQuestion()) return;
     
     const currentQuestionData = questions[currentQuestion - 1];
     const isSingle = isSingleChoiceQuestion(currentQuestionData);
@@ -458,12 +864,7 @@ export default function TestPlayerClient({ exam, questions, test, provider, exam
 
   const handleNext = () => {
     const nextQuestion = currentQuestion + 1;
-    
-    if (!hasFullAccess && nextQuestion > freeQuestionsLimit && nextQuestion <= questions.length) {
-      setShowUpgradeModal(true);
-      return;
-    }
-    
+
     if (currentQuestion < questions.length) {
       setCurrentQuestion(nextQuestion);
       const newPage = Math.ceil(nextQuestion / QUESTIONS_PER_PAGE);
@@ -484,10 +885,6 @@ export default function TestPlayerClient({ exam, questions, test, provider, exam
   };
 
   const handleQuestionNavigate = (questionNum) => {
-    if (!canAccessQuestion(questionNum)) {
-      setShowUpgradeModal(true);
-      return;
-    }
     setCurrentQuestion(questionNum);
     const newPage = Math.ceil(questionNum / QUESTIONS_PER_PAGE);
     setNavigatorPage(newPage);
@@ -570,6 +967,16 @@ export default function TestPlayerClient({ exam, questions, test, provider, exam
     const percentage =
       totalAccessible > 0 ? Math.round((correct / totalAccessible) * 100) : 0;
 
+    // Same threshold as the server (submit_test defaults to 60%). Course
+    // passing_score strings like "720/1000" are ignored (not a percentage).
+    const passingScoreRaw = parseFloat(exam?.passing_score);
+    const passingScore =
+      Number.isFinite(passingScoreRaw) &&
+      passingScoreRaw > 0 &&
+      passingScoreRaw <= 100
+        ? passingScoreRaw
+        : 60;
+
     const testResults = {
       questionsCompleted: totalAccessible,
       totalQuestions: questions.length,
@@ -577,27 +984,19 @@ export default function TestPlayerClient({ exam, questions, test, provider, exam
       incorrectAnswers: incorrect,
       unanswered,
       timeTaken,
-      hasFullAccess: false,
+      hasFullAccess: true,
       answers,
       percentage,
-      passed: percentage >= 70,
+      passed: percentage >= passingScore,
       attemptId: GUEST_ATTEMPT_ID,
+      requiresLoginForResults: true,
+      testPath: getCurrentTestPublicPath(),
+      testIndex: currentTestIndex >= 0 ? currentTestIndex : 0,
     };
 
-    if (typeof window !== "undefined") {
-      sessionStorage.setItem("testResults", JSON.stringify(testResults));
-      sessionStorage.setItem("userAnswers", JSON.stringify(answers));
-      sessionStorage.setItem(
-        "testQuestions",
-        JSON.stringify(accessibleQuestions)
-      );
-      sessionStorage.setItem("attemptId", GUEST_ATTEMPT_ID);
-      if (Array.isArray(exam?.topics)) {
-        sessionStorage.setItem("examTopics", JSON.stringify(exam.topics));
-      }
-    }
-
-    router.push(`/test-review/${provider}/${examCode}`);
+    storeGuestResultsForReview(totalAccessible, testResults);
+    setShowSubmitConfirm(false);
+    setShowSubmitSuccess(true);
   };
 
   const handleSubmit = async (autoSubmit = false) => {
@@ -737,7 +1136,9 @@ export default function TestPlayerClient({ exam, questions, test, provider, exam
         answers: answers,
         percentage: submitData.percentage || 0,
         passed: submitData.passed || false,
-        attemptId: attemptId
+        attemptId: attemptId,
+        testPath: getCurrentTestPublicPath(),
+        testIndex: currentTestIndex >= 0 ? currentTestIndex : 0,
       };
       
       if (typeof window !== 'undefined') {
@@ -749,8 +1150,9 @@ export default function TestPlayerClient({ exam, questions, test, provider, exam
           sessionStorage.setItem('examTopics', JSON.stringify(exam.topics));
         }
       }
-      
-      router.push(`/test-review/${provider}/${examCode}`);
+
+      setShowSubmitConfirm(false);
+      setShowSubmitSuccess(true);
       setIsSubmitting(false);
     } catch (error) {
       console.error('[TestPlayer] Error submitting test:', error);
@@ -818,35 +1220,40 @@ export default function TestPlayerClient({ exam, questions, test, provider, exam
     const fromQuery =
       queryAutoStart === "1" ||
       String(queryAutoStart).toLowerCase() === "true";
-    const pathKey = `autostart:${window.location.pathname}`;
-    const fromSession = sessionStorage.getItem(pathKey) === "1";
+
+    // The pathname may be percent-encoded while the stored key was not.
+    const rawPath = window.location.pathname;
+    let decodedPath = rawPath;
+    try {
+      decodedPath = decodeURIComponent(rawPath);
+    } catch {
+      /* keep raw */
+    }
+    const pathKeys = [`autostart:${rawPath}`, `autostart:${decodedPath}`];
+    const fromSession = pathKeys.some(
+      (key) => sessionStorage.getItem(key) === "1"
+    );
+
+    if (fromQuery) {
+      // Legacy links may still carry ?autostart=1 — honor it but remove it
+      // from the address bar so the test page URL stays clean.
+      params.delete("autostart");
+      const query = params.toString();
+      window.history.replaceState(
+        window.history.state,
+        "",
+        `${rawPath}${query ? `?${query}` : ""}${window.location.hash || ""}`
+      );
+    }
+
     if (fromQuery || fromSession) {
-      sessionStorage.removeItem(pathKey);
+      pathKeys.forEach((key) => sessionStorage.removeItem(key));
       setAutostartRequested(true);
       setAutostartPending(true);
     }
   }, []);
 
   const autostartFiredRef = useRef(false);
-
-  const resolveApiTestId = () => {
-    const raw = test?.id ?? test?._id ?? testId;
-    if (raw == null || raw === "") return String(testId ?? "1");
-    const rawStr = String(raw).trim();
-    if (/^\d+$/.test(rawStr)) return rawStr;
-    const practiceTests = exam?.practice_tests_list || [];
-    const match = practiceTests.find(
-      (t) =>
-        String(t?.id || t?._id || "") === rawStr ||
-        String(t?.slug || "").replace(/-[a-f0-9]{8}$/i, "") ===
-          rawStr.replace(/-[a-f0-9]{8}$/i, "")
-    );
-    if (match) {
-      const idx = practiceTests.indexOf(match);
-      return String(idx >= 0 ? idx + 1 : rawStr);
-    }
-    return rawStr;
-  };
 
   const handleStartTest = async () => {
     if (isStartingTest || testStarted) {
@@ -863,7 +1270,7 @@ export default function TestPlayerClient({ exam, questions, test, provider, exam
       const token = getAuthToken();
       const tokenValid = !!token && token.split(".").length === 3;
       const useServerAttempt =
-        tokenValid && isLoggedIn && hasFullAccess && !!exam?.id;
+        tokenValid && isLoggedIn && isPaidEnrolled && !!exam?.id;
 
       if (!useServerAttempt) {
         if (token && !tokenValid && typeof window !== "undefined") {
@@ -1044,7 +1451,7 @@ export default function TestPlayerClient({ exam, questions, test, provider, exam
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-2xl mx-auto">
                   <div className="p-4 bg-blue-50 rounded-lg border border-blue-100">
                     <div className="text-3xl font-bold text-[#1A73E8] mb-1">
-                      {hasFullAccess ? questions.length : `${Math.min(freeQuestionsLimit, questions.length)} Free`}
+                      {questions.length}
                     </div>
                     <div className="text-sm text-[#0C1A35]/70">Questions</div>
                   </div>
@@ -1077,6 +1484,11 @@ export default function TestPlayerClient({ exam, questions, test, provider, exam
             </CardContent>
           </Card>
         </div>
+
+        <ExamPracticeTestsSection
+          exam={exam}
+          currentTestIndex={currentTestIndex}
+        />
       </div>
     );
   }
@@ -1087,13 +1499,13 @@ export default function TestPlayerClient({ exam, questions, test, provider, exam
     ? (answers[currentQuestion] || "") 
     : (Array.isArray(answers[currentQuestion]) ? answers[currentQuestion] : []);
   const totalQuestions = questions.length;
-  const accessibleQuestions = hasFullAccess ? totalQuestions : Math.min(freeQuestionsLimit, totalQuestions);
+  const accessibleQuestions = totalQuestions;
   const answeredCount = getAnsweredCount();
-  const progressPercentage = (answeredCount / accessibleQuestions) * 100;
-  const atFreeQuestionLimit =
-    !hasFullAccess &&
-    (currentQuestion >= accessibleQuestions ||
-      answeredCount >= accessibleQuestions);
+  const progressPercentage =
+    accessibleQuestions > 0
+      ? (answeredCount / accessibleQuestions) * 100
+      : 0;
+  const atFreeQuestionLimit = false;
 
   const getOptions = () => {
     if (currentQuestionData.options && Array.isArray(currentQuestionData.options)) {
@@ -1163,12 +1575,6 @@ export default function TestPlayerClient({ exam, questions, test, provider, exam
                 <span>Remaining:</span>
                 <span className="font-medium text-[#0C1A35]">{getRemainingCount()}</span>
               </div>
-              {!hasFullAccess && totalQuestions > freeQuestionsLimit && (
-                <div className="flex justify-between text-[#0C1A35]/70 mt-2 pt-2 border-t border-gray-200">
-                  <span className="text-xs">Locked:</span>
-                  <span className="font-medium text-[#0C1A35] text-xs">{totalQuestions - freeQuestionsLimit} questions</span>
-                </div>
-              )}
             </div>
           </div>
 
@@ -1181,7 +1587,6 @@ export default function TestPlayerClient({ exam, questions, test, provider, exam
                   Array.isArray(answer) ? answer.length > 0 : (answer !== "" && answer !== null)
                 );
                 const isCurrent = qNum === currentQuestion;
-                const isLocked = !canAccessQuestion(qNum);
                 const isVisible = qNum >= startQuestion && qNum <= endQuestion;
 
                 if (!isVisible) return null;
@@ -1190,20 +1595,15 @@ export default function TestPlayerClient({ exam, questions, test, provider, exam
                   <button
                     key={qNum}
                     onClick={() => handleQuestionNavigate(qNum)}
-                    disabled={isLocked}
                     className={`
                       aspect-square rounded-lg border-2 font-semibold text-sm transition-all relative
                       ${isCurrent ? "border-green-500 bg-green-500 text-white shadow-md scale-105" : ""}
-                      ${!isCurrent && isAnswered && !isLocked ? "border-green-300 bg-green-50 text-green-700" : ""}
-                      ${!isCurrent && !isAnswered && !isLocked ? "border-gray-300 bg-white text-gray-600 hover:border-[#1A73E8]/50" : ""}
-                      ${isLocked ? "border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed" : ""}
+                      ${!isCurrent && isAnswered ? "border-green-300 bg-green-50 text-green-700" : ""}
+                      ${!isCurrent && !isAnswered ? "border-gray-300 bg-white text-gray-600 hover:border-[#1A73E8]/50" : ""}
                     `}
-                    title={isLocked ? "Enroll to unlock this question" : `Question ${qNum}`}
+                    title={`Question ${qNum}`}
                   >
                     <span className="relative z-10">{qNum}</span>
-                    {isLocked && (
-                      <Lock className="absolute top-0.5 right-0.5 w-3.5 h-3.5 text-gray-500" strokeWidth={2.5} />
-                    )}
                   </button>
                 );
               })}
@@ -1420,6 +1820,11 @@ export default function TestPlayerClient({ exam, questions, test, provider, exam
         </div>
       </div>
 
+      <ExamPracticeTestsSection
+        exam={exam}
+        currentTestIndex={currentTestIndex}
+      />
+
       <Dialog open={showUpgradeModal} onOpenChange={setShowUpgradeModal}>
         <DialogContent>
           <DialogHeader>
@@ -1488,25 +1893,73 @@ export default function TestPlayerClient({ exam, questions, test, provider, exam
         </DialogContent>
       </Dialog>
 
-      <Dialog open={showLoginPrompt} onOpenChange={setShowLoginPrompt}>
+      <Dialog
+        open={showSubmitSuccess}
+        onOpenChange={(open) => {
+          // Only allow closing via View Results — keep the X hidden.
+          if (open) setShowSubmitSuccess(true);
+        }}
+      >
+        <DialogContent showCloseButton={false}>
+          <DialogHeader>
+            <div className="mx-auto mb-2 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+              <CheckCircle className="h-8 w-8" aria-hidden />
+            </div>
+            <DialogTitle className="text-center text-[#0C1A35]">
+              Test Submitted Successfully
+            </DialogTitle>
+            <DialogDescription className="text-center">
+              Your answers have been submitted. Click below to view your detailed
+              results.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="pt-2">
+            <Button
+              type="button"
+              onClick={handleViewResultsClick}
+              className="w-full bg-[#1A73E8] text-white hover:bg-[#1557B0]"
+            >
+              View Results
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={showLoginPrompt}
+        onOpenChange={(open) => {
+          setShowLoginPrompt(open);
+        }}
+      >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Login Required</DialogTitle>
+            <DialogTitle>Login to View Your Results</DialogTitle>
             <DialogDescription>
-              You need to login to start taking tests.
+              Please log in or sign up to view your score and detailed results.
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
             <div className="flex gap-3">
-              <Button 
-                onClick={() => setShowLoginPrompt(false)} 
-                variant="outline" 
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setShowLoginPrompt(false);
+                  setShowSubmitSuccess(true);
+                }}
                 className="flex-1"
               >
-                Cancel
+                Back
               </Button>
-              <Button 
-                onClick={() => router.push(`/auth/login?redirect=/exams/${provider}/${examCode}/practice/${testId}`)} 
+              <Button
+                type="button"
+                onClick={() =>
+                  router.push(
+                    `/auth/login?redirect=${encodeURIComponent(
+                      `/test-review/${provider}/${examCode}`
+                    )}`
+                  )
+                }
                 className="flex-1 bg-[#1A73E8] text-white hover:bg-[#1557B0]"
               >
                 Login / Sign Up
